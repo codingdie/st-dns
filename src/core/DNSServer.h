@@ -6,6 +6,7 @@
 #define ST_DNS_DNSSERVER_H
 
 #include "Config.h"
+#include "TCPSession.h"
 
 class DNSServer {
 public:
@@ -15,6 +16,7 @@ public:
 
 private:
     Config config;
+    std::map<long, TCPSession *> tcpSessions;
 };
 
 

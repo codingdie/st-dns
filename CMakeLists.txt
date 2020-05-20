@@ -6,7 +6,19 @@ set(CMAKE_CXX_STANDARD 11)
 
 
 find_package(Boost 1.66.0 REQUIRED COMPONENTS system program_options)
-include_directories(${Boost_INCLUDE_DIR})
 
-add_executable(st-dns src/main.cpp src/Config.cpp src/Config.h src/LogUtils.cpp src/LogUtils.h src/DNSServer.cpp src/DNSServer.h)
+include_directories(${Boost_INCLUDE_DIR})
+include_directories(src/core)
+
+file(GLOB_RECURSE SOURCE_FILES ./src/core/*.cpp)
+
+
+add_executable(st-dns src/main.cpp ${SOURCE_FILES})
+add_executable(st-dns-test src/test/main.cpp ${SOURCE_FILES})
+
 target_link_libraries(st-dns ${Boost_LIBRARIES})
+target_link_libraries(st-dns-test ${Boost_LIBRARIES})
+
+include(GNUInstallDirs)
+install(TARGETS st-dns DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(FILES st-dns.json DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/st-dns RENAME config.json)

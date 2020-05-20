@@ -1,6 +1,6 @@
 #include <iostream>
-#include "Config.h"
-#include "DNSServer.h"
+#include "core/Config.h"
+#include "core/DNSServer.h"
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
 
@@ -20,6 +20,6 @@ Config getConfig(int argc, char *const *argv) {
     if (argc > 1) {
         return Config(string(argv[1]));
     } else {
-        return Config("/etc/config/st-dns.conf");
+        return Config("/etc/config/st-dns/config.json");
     }
 }

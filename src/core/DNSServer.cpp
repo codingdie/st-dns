@@ -39,15 +39,15 @@ void DNSServer::start() {
             boost::asio::post(pool, [tcpSession] {
                 tcp::socket *socket = tcpSession->getSocket();
                 boost::system::error_code error;
-                while (socket->is_open())) {
-                std::string message = make_daytime_string();
-                boost::asio::write(*socket, boost::asio::buffer(message), error);
-                if (error.failed()) {
-                    LogUtils::error(tcpSession->getId() + " disconnect ");
-                    break;
+                while (socket->is_open()) {
+                    std::string message = make_daytime_string();
+                    boost::asio::write(*socket, boost::asio::buffer(message), error);
+                    if (error.failed()) {
+                        LogUtils::error(tcpSession->getId() + " disconnect ");
+                        break;
+                    }
+                    sleep(1);
                 }
-                sleep(1);
-            }
             });
 
 

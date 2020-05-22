@@ -9,25 +9,30 @@
 #include <boost/array.hpp>
 #include <boost/asio.hpp>
 #include "DNSClient.h"
+#include "DNSRequest.h"
 
-using boost::asio::ip::tcp;
+using namespace boost::asio::ip;
 using namespace boost::asio;
-
 using namespace std;
 
-std::string DNSClient::dns(std::string host, std::string dnsServer) {
+std::string DNSClient::udpDns(std::string domain, std::string dnsServer) {
     try {
         boost::asio::io_context io_context;
-        tcp::socket socket(io_context);
-        tcp::endpoint addr(ip::make_address_v4(dnsServer), 53);
-        boost::asio::connect(socket, &addr);
-        socket.async_connect(addr, [](boost::system::error_code error) -> void {
-            std::cout << error.message() << endl;
-        });
-        std::cout << "2" << endl;
-        return "123";
+        const udp &udp = udp::v4();
+        udp::socket s(io_context, udp::endpoint(udp, 0));
+        udp::endpoint addr(ip::make_address_v4(dnsServer), 53);
+        DNSRequest dnsRequest(domain);
+        size_t i = s.send_to(boost::asio::buffer(dnsRequest.data, dnsRequest.len), addr);
+
+        char reply[1024];
+        udp::endpoint sender_endpoint;
+        size_t reply_length = s.receive_from(boost::asio::buffer(reply, 1024), sender_endpoint);
+        std::cout << "Reply is: ";
+        std::cout.write(reply, reply_length);
+        std::cout << "\n";
+    } catch (std::exception &e) {
+        std::cerr << "Exception: " << e.what() << "\n";
     }
-    catch (std::exception &e) {
-        std::cerr << e.what() << std::endl;
-    }
+    return "";
+
 }

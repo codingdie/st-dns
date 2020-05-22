@@ -11,7 +11,7 @@
 class DNSClient {
 
 public:
-    static std::string dns(std::string domain, std::string dnsServer);
+    static std::string udpDns(std::string domain, std::string dnsServer);
 };
 
 

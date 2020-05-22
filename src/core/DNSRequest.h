@@ -5,8 +5,16 @@
 #ifndef ST_DNS_DNSREQUEST_H
 #define ST_DNS_DNSREQUEST_H
 
+#include <iostream>
+#include <DNSMessage.h>
 
-class DNSRequest {
+using namespace std;
+
+class DNSRequest : public BasicData {
+public:
+
+    DNSRequest(const std::string &host);
+
 
 };
 

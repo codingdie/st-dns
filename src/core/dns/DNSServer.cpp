@@ -1,5 +1,5 @@
 //
-// Created by 徐芃 on 2020/5/19.
+// Created by codingdie on 2020/5/19.
 //
 
 #include "DNSServer.h"
@@ -9,7 +9,7 @@
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
 #include "TCPSession.h"
-#include "LogUtils.h"
+#include "Logger.h"
 
 using namespace boost::asio;
 using namespace boost::asio::ip;
@@ -43,7 +43,7 @@ void DNSServer::start() {
                     std::string message = make_daytime_string();
                     boost::asio::write(*socket, boost::asio::buffer(message), error);
                     if (error.failed()) {
-                        LogUtils::error(tcpSession->getId() + " disconnect ");
+                        Logger::ERROR << to_string(tcpSession->getId()) + " disconnect ";
                         break;
                     }
                     sleep(1);

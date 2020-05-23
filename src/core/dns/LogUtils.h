@@ -6,12 +6,17 @@
 #define ST_DNS_LOGUTILS_H
 
 #include <string>
+#include <chrono>
 
 using namespace std;
 
+
 class LogUtils {
 public:
-    static void error(string info);
+    static void error(string &info);
+
+    static void info(string &info);
+
 };
 
 

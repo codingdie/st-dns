@@ -16,7 +16,8 @@ Config::Config(string filename) {
     try {
         read_json(filename, tree);
     } catch (json_parser_error e) {
-        LogUtils::error(" parse config file " + filename + " error! " + e.message());
+        auto info = " parse config file " + filename + " error! " + e.message();
+        LogUtils::error(info);
         exit(1);
     }
     this->ip = tree.get("ip", string("127.0.0.1"));

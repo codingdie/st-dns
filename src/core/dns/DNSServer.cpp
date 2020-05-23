@@ -43,7 +43,8 @@ void DNSServer::start() {
                     std::string message = make_daytime_string();
                     boost::asio::write(*socket, boost::asio::buffer(message), error);
                     if (error.failed()) {
-                        LogUtils::error(tcpSession->getId() + " disconnect ");
+                        auto info = to_string(tcpSession->getId()) + " disconnect ";
+                        LogUtils::error(info);
                         break;
                     }
                     sleep(1);

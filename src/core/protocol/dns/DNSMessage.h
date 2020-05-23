@@ -39,6 +39,14 @@ public:
             *(to + i) = *(from + i);
         }
     };
+
+    template<typename ItemType, typename Num>
+    static void copy(ItemType *from, ItemType *to, Num indexFrom, Num indexTo) {
+        Num len = indexFrom - indexTo + 1;
+        for (auto i = 0; i < len; i++) {
+            *(to + i) = *(from + indexFrom + i);
+        }
+    };
     unsigned int len = 0;
     byte *data = nullptr;
 
@@ -87,18 +95,19 @@ public:
 
 class DNSHeader : public BasicData {
 public:
-    string host;
-    unsigned short id;
+    unsigned short id = 0U;
     const static int DEFAULT_LEN = 12;
-    byte responseCode;
+    byte responseCode = 0U;
 
     static DNSHeader *parseResponse(byte *data, int len) {
-        DNSHeader *dnsHeader = new DNSHeader(data, DEFAULT_LEN);
+        auto *dnsHeader = new DNSHeader(data, DEFAULT_LEN);
         if (len >= DEFAULT_LEN) {
             copy(data, dnsHeader->data, DEFAULT_LEN);
-            dnsHeader->id |= (*data << 4);
-            dnsHeader->id |= *(data + 1);
-            dnsHeader->responseCode = (*(data + 3) & 0x01);
+            unsigned int tempId = 0U;
+            tempId = tempId | (unsigned) (*(data) << 4U);
+            tempId = tempId | *(data + 1);
+            dnsHeader->id = tempId;
+            dnsHeader->responseCode = (*(data + 3) & 0x01U);
         } else {
             dnsHeader->markInValid();
         }
@@ -141,6 +150,8 @@ public:
 
 class DNSQueryZone : public BasicData {
 public:
+    byte responseCode = 0U;
+    string host;
 
     explicit DNSQueryZone(unsigned long len) : BasicData(len) {
 
@@ -153,6 +164,7 @@ public:
     static DNSQueryZone *parseResponse(byte *data, int len) {
         int actualLen = 0;
         bool valid = false;
+        string host;
         while (actualLen <= len) {
             actualLen++;
             byte frameLen = *(data + actualLen);
@@ -162,7 +174,9 @@ public:
                 }
                 break;
             }
-            actualLen += frameLen;
+            char domain[frameLen];
+            copy(data, domain, actualLen - frameLen, actualLen - 1)
+            host += actualLen += frameLen;
         }
         DNSQueryZone *dnsQueryZone;
         if (valid) {

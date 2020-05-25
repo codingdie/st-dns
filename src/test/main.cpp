@@ -4,11 +4,6 @@
 
 #include <iostream>
 #include "DNSClient.h"
-#include <boost/algorithm/string.hpp>
-#include <boost/algorithm/string/regex.hpp>
-#include <boost/regex.hpp>
-#include <boost/asio.hpp>
-#include "DNS.h"
 
 #include <thread>
 #include <vector>
@@ -18,14 +13,15 @@ void testParallel();
 
 using namespace std;
 using namespace std::chrono;
-using namespace boost::algorithm;
 using namespace boost::asio;
 
 long now() {
+
     auto time_now = std::chrono::system_clock::now();
     auto duration_in_ms = std::chrono::duration_cast<std::chrono::milliseconds>(time_now.time_since_epoch());
     return duration_in_ms.count();
 }
+
 
 int main(int argc, char *argv[]) {
     testParallel();
@@ -37,12 +33,18 @@ void testParallel() {
     int total = 1;
     for (int i = 0; i < total; i++) {
         void (*func)() = []() {
-            string domain = "baidu.com";
-            string server = "192.168.31.1";
-            const string &basicString = DNSClient::udpDns(domain, server);
+            string domain = "music.163.com";
+            string server = "114.114.114.114";
+            UdpDNSResponse *dnsResponse = DNSClient::tcpDns(domain, server);
+            if (dnsResponse != nullptr) {
+                Logger::INFO << "success" << dnsResponse->header->id
+                             << dnsResponse->queryZone->querys.front()->domain->domain << dnsResponse->header->id
+                             << ipsToStr(dnsResponse->ips) << END;
+                delete dnsResponse;
+            }
         };
         thread *thread = new class thread(func);
-        threads.push_back(thread);
+        threads.emplace_back(thread);
     }
     int i = 0;
     for (auto it = threads.begin(); it != threads.end(); it++) {

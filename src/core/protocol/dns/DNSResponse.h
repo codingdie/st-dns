@@ -1,5 +1,5 @@
 //
-// Created by 徐芃 on 2020/5/22.
+// Created by codingdie on 2020/5/22.
 //
 
 #ifndef ST_DNS_DNSRESPONSE_H
@@ -11,16 +11,36 @@
 
 using namespace std;
 
-class DNSResponse : public BasicData {
+class UdpDNSResponse : public BasicData {
 public:
-    DNSHeader *header;
-    DNSQueryZone *queryZone;
-    DNSResponseZone *responseZone;
+    DNSHeader *header = nullptr;
+    DNSQueryZone *queryZone = nullptr;
+    vector<DNSResourceZone *> answerZones;
+    uint32_t answerZonesSize;
+    vector<uint32_t> ips;
 
+    UdpDNSResponse(byte *data, uint64_t len);
 
-    DNSResponse(byte *data, unsigned long len);
+    UdpDNSResponse(uint64_t len);
 
+    virtual ~UdpDNSResponse();
+
+    void parse(uint64_t maxReadable);
+
+    void print() const override;
 };
 
+
+class TcpDNSResponse : public BasicData {
+
+public:
+    uint16_t dataSize;
+    UdpDNSResponse *udpDnsResponse;
+
+    TcpDNSResponse(uint64_t len);
+
+    void parse(uint64_t maxReadable);
+
+};
 
 #endif //ST_DNS_DNSRESPONSE_H

@@ -13,40 +13,44 @@
 typedef uint8_t byte;
 using namespace std;
 
-template<typename ItemType, typename Num>
-static void copy(ItemType *from, ItemType *to, Num len) {
-    for (auto i = 0; i < len; i++) {
-        *(to + i) = *(from + i);
-    }
-};
+namespace st {
+    namespace utils {
 
+        template<typename ItemType, typename Num>
+        static void copy(ItemType *from, ItemType *to, Num len) {
+            for (auto i = 0; i < len; i++) {
+                *(to + i) = *(from + i);
+            }
+        };
 
-template<typename ItemType, typename ItemTypeB, typename Num>
-static void copy(ItemType *from, ItemTypeB *to, Num indexFrom, Num distFrom, Num len) {
-    for (auto i = 0; i < len; i++) {
-        *(to + distFrom + i) = *(from + indexFrom + i);
-    }
-};
+        template<typename ItemType, typename ItemTypeB, typename NumA, typename NumB, typename NumC>
+        static void copy(ItemType *from, ItemTypeB *to, NumA indexFrom, NumB distFrom, NumC len) {
+            for (auto i = 0; i < len; i++) {
+                *(to + distFrom + i) = *(from + indexFrom + i);
+            }
+        };
 
+        template<typename Num>
+        static void toBytes(byte *byteArr, Num num) {
+            uint8_t len = sizeof(Num);
+            for (auto i = 0; i < len; i++) {
+                uint64_t move = (len - i - 1) * 8U;
+                uint64_t mask = 0xFFU << move;
+                *(byteArr + i) = (num & mask) >> move;
+            }
+        };
 
-template<typename Num>
-static void toBytes(byte *byteArr, Num num) {
-    uint8_t len = sizeof(Num);
-    for (auto i = 0; i < len; i++) {
-        uint64_t move = (len - i - 1) * 8U;
-        uint64_t mask = 0xFFU << move;
-        *(byteArr + i) = (num & mask) >> move;
-    }
-};
+        template<typename IntTypeB>
+        static void read(const byte *data, IntTypeB &result) {
+            uint8_t len = sizeof(IntTypeB);
+            for (uint8_t i = 0; i < len; i++) {
+                byte val = *(data + i);
+                uint32_t bitMove = (len - i - 1) * 8U;
+                uint32_t valFinal = val << bitMove;
+                result |= valFinal;
+            }
+        }
 
-template<typename IntTypeB>
-static void read(const byte *data, IntTypeB &result) {
-    uint8_t len = sizeof(IntTypeB);
-    for (uint8_t i = 0; i < len; i++) {
-        byte val = *(data + i);
-        uint32_t bitMove = (len - i - 1) * 8U;
-        uint32_t valFinal = val << bitMove;
-        result |= valFinal;
     }
 }
 
@@ -73,6 +77,11 @@ public:
         this->valid = false;
         this->len = 0;
     }
+
+    void markValid() {
+        this->valid = true;
+    }
+
 
     bool isValid() const {
         return valid;
@@ -147,9 +156,9 @@ public:
             this->id |= ((uint32_t) *(data) << 8U);
             this->id |= *(data + 1);
             this->len = DEFAULT_LEN;
-            this->responseCode = (*(data + 3) & 0x01U);
-            read(data + 4, questionCount);
-            read(data + 6, answerCount);
+            this->responseCode = (*(data + 3) & 0x01F);
+            st::utils::read(data + 4, questionCount);
+            st::utils::read(data + 6, answerCount);
         } else {
             markInValid();
         }
@@ -237,33 +246,82 @@ public:
     }
 
     DNSDomain(byte *data, uint64_t len) : BasicData(data, len) {
-        int actualLen = 0;
-        bool valid = false;
-        while (actualLen <= len) {
-            uint32_t frameLen = *(data + actualLen);
-            actualLen++;
-
-            if (frameLen == 0 || frameLen > len - actualLen) {
-                if (actualLen >= 2 && frameLen == 0) {
-                    valid = true;
-                }
-                break;
-            }
-            actualLen += frameLen;
-            char domainStr[frameLen + 1];
-            domainStr[frameLen] = '\0';
-            copy(data, domainStr, actualLen - frameLen, 0U, frameLen);
-            if (domain.length() != 0) {
-                domain += ".";
-            }
-            domain += (domainStr);
-        }
-
-        if (!valid) {
+        uint64_t actualLen = parseDomain(data, len, 0, len, domain);
+        if (actualLen == 0) {
             this->markInValid();
         } else {
             this->len = actualLen;
         }
+    }
+
+    DNSDomain(byte *data, uint64_t maxTotal, uint64_t begin) : BasicData(data + begin, maxTotal - begin) {
+        uint64_t actualLen = parseDomain(data, maxTotal, begin, maxTotal - begin, domain);
+        if (actualLen == 0) {
+            this->markInValid();
+        } else {
+            this->len = actualLen;
+        }
+    }
+
+    DNSDomain(byte *data, uint64_t len, uint64_t begin, int maxParse) : BasicData(data + begin, len - begin) {
+        uint64_t actualLen = parseDomain(data, len, begin, maxParse, domain);
+        if (actualLen == 0) {
+            this->markInValid();
+        } else {
+            this->len = actualLen;
+        }
+    }
+
+    uint64_t static parseDomain(byte *allData, uint64_t max, uint64_t begin, uint64_t maxParse, string &domain) {
+        byte *data = allData + begin;
+        int actualLen = 0;
+        bool valid = false;
+        while (actualLen < maxParse) {
+            uint8_t frameLen = *(data + actualLen);
+            if ((frameLen & 0b11000000U) == 0b11000000U) {
+                uint16_t pos = 0;
+                pos |= ((*(data + actualLen) & 0b00111111U) << 8U);
+                pos |= *(data + actualLen + 1);
+                actualLen += 2;
+                if (pos != begin) {
+                    string domainRe = "";
+                    uint64_t consume = parseDomain(allData, max, pos, max - pos, domainRe);
+                    if (consume != 0) {
+                        if (domain.size() != 0) {
+                            domain += ".";
+                            domain += domainRe;
+                        } else {
+                            domain = domainRe;
+                            break;
+                        }
+
+                    } else {
+                        return 0;
+                    }
+                } else {
+                    break;
+                }
+
+            } else {
+                actualLen++;
+                if (frameLen == 0) {
+                    break;
+                } else {
+                    if (maxParse - actualLen < frameLen) {
+                        return 0;
+                    }
+                    actualLen += frameLen;
+                    char domainStr[frameLen + 1];
+                    domainStr[frameLen] = '\0';
+                    st::utils::copy(data, domainStr, actualLen - frameLen, 0U, frameLen);
+                    if (domain.length() != 0) {
+                        domain += ".";
+                    }
+                    domain += domainStr;
+                }
+            }
+        }
+        return actualLen;
     }
 };
 
@@ -291,7 +349,7 @@ public:
             this->domain = dnsDomain;
             this->len = dnsDomain->len + DEFAULT_FLAGS_SIZE;
             uint16_t typeValue = 0;
-            read(data + dnsDomain->len, typeValue);
+            st::utils::read(data + dnsDomain->len, typeValue);
             this->queryType = Type(typeValue);
         }
     }
@@ -301,8 +359,8 @@ public:
         uint64_t finalDataLen = domain->len + DEFAULT_FLAGS_SIZE;
         auto *dnsQuery = new DNSQuery(finalDataLen);
         auto hostCharData = dnsQuery->data;
-        copy(domain->data, hostCharData, 0U, 0U, dnsQuery->len);
-        copy(DEFAULT_FLAGS, hostCharData, 0U, domain->len, DEFAULT_FLAGS_SIZE);
+        st::utils::copy(domain->data, hostCharData, 0U, 0U, dnsQuery->len);
+        st::utils::copy(DEFAULT_FLAGS, hostCharData, 0U, domain->len, DEFAULT_FLAGS_SIZE);
         dnsQuery->domain = domain;
         return dnsQuery;
     }
@@ -356,7 +414,7 @@ public:
         uint32_t curLen = 0;
         for (auto it = domains.begin(); it < domains.end(); it++) {
             DNSQuery *domain = *it;
-            copy(domain->data, dnsQueryZone->data + curLen, domain->len);
+            st::utils::copy(domain->data, dnsQueryZone->data + curLen, domain->len);
             curLen += domain->len;
         }
         return dnsQueryZone;
@@ -372,61 +430,55 @@ public:
     uint16_t resource = 0;
     uint32_t liveTime = 0;
     uint16_t length = 0;
-    uint32_t ipv4 = 0;
+    vector<uint32_t> ipv4s;
 
     virtual ~DNSResourceZone() {
-        delete domain;
-        delete cname;
-
+        if (domain != nullptr) {
+            delete domain;
+        }
+        if (cname != nullptr) {
+            delete cname;
+        }
     }
 
-    DNSResourceZone(byte *original, byte *curBegin, uint64_t originalMax, uint64_t curMax) : BasicData(curBegin,
-                                                                                                       curMax) {
+    DNSResourceZone(byte *original, uint64_t originalMax, uint64_t begin) : BasicData(original + begin,
+                                                                                      originalMax - begin) {
         uint32_t size = 0;
-        if ((*curBegin & 0b11000000U) == 0b11000000U) {
-            uint16_t pos = 0;
-            pos |= ((*curBegin & 0b00111111U) << 8U);
-            pos |= *(curBegin + 1);
-            size += 2;
-            curBegin += 2;
-            domain = new DNSDomain((original + pos), originalMax - pos);
-
-        } else {
-            domain = new DNSDomain(curBegin, curMax);
-            if (domain->isValid()) {
-                size += domain->len;
-                curBegin += domain->len;
-            }
-
-        }
-
+        byte *curBegin = original + begin;
+        domain = new DNSDomain(original, originalMax, begin);
         if (!domain->isValid()) {
             markInValid();
         } else {
-            read(curBegin, type);
+            curBegin += domain->len;
+            size += domain->len;
+            st::utils::read(curBegin, type);
             curBegin += 2;
             size += 2;
-            read(curBegin, resource);
+            st::utils::read(curBegin, resource);
             curBegin += 2;
             size += 2;
-            read(curBegin, liveTime);
+            st::utils::read(curBegin, liveTime);
             curBegin += 4;
             size += 4;
-            read(curBegin, length);
+            st::utils::read(curBegin, length);
             curBegin += 2;
             size += 2;
             size += length;
 
             if (DNSQuery::Type(type) == DNSQuery::CNAME) {
-                cname = new DNSDomain(curBegin, length);
+                cname = new DNSDomain(original, originalMax, (curBegin - original), length);
                 if (cname->isValid()) {
                     this->len = size;
                 } else {
                     markInValid();
                 }
             } else {
-                if (length == 4) {
-                    read(curBegin, ipv4);
+                if (length % 4 == 0) {
+                    for (auto i = 0; i < length / 4; i++) {
+                        uint32_t ipv4 = 0;
+                        st::utils::read(curBegin + i * 4, ipv4);
+                        ipv4s.emplace_back(ipv4);
+                    }
                     this->len = size;
                 } else {
                     markInValid();

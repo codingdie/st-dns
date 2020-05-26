@@ -9,7 +9,6 @@
 #include <vector>
 #include <chrono>
 
-void testParallel();
 
 using namespace std;
 using namespace std::chrono;
@@ -22,37 +21,39 @@ long now() {
     return duration_in_ms.count();
 }
 
-
-int main(int argc, char *argv[]) {
-    testParallel();
-}
-
-void testParallel() {
-    vector<thread *> threads;
+template<typename FUNC>
+void testParallel(FUNC testMethod, int count) {
+    boost::asio::thread_pool threadPool(1);
     long begin = now();
-    int total = 1;
-    for (int i = 0; i < total; i++) {
-        void (*func)() = []() {
-            string domain = "music.163.com";
-            string server = "114.114.114.114";
-            UdpDNSResponse *dnsResponse = DNSClient::tcpDns(domain, server);
-            if (dnsResponse != nullptr) {
-                Logger::INFO << "success" << dnsResponse->header->id
-                             << dnsResponse->queryZone->querys.front()->domain->domain << dnsResponse->header->id
-                             << ipsToStr(dnsResponse->ips) << END;
-                delete dnsResponse;
+    atomic_int64_t successNum(0);
+    for (int i = 0; i < count; i++) {
+        auto task = [&]() {
+            if (testMethod()) {
+                successNum++;
             }
         };
-        thread *thread = new class thread(func);
-        threads.emplace_back(thread);
+        boost::asio::post(threadPool, task);
     }
-    int i = 0;
-    for (auto it = threads.begin(); it != threads.end(); it++) {
-        thread *pThread = *it.base();
-        pThread->join();
-        delete pThread;
-    }
+    threadPool.join();
     long end = now();
-    long d = (end - begin);
-    cout << d << "\t" << d * 1.0 / total << endl;
+    long timeToal = (end - begin);
+    Logger::INFO << timeToal << timeToal * 1.0 / count << successNum.__a_ * 1.0 / count * 100 << END;
+}
+
+
+int main(int argc, char *argv[]) {
+    testParallel([]() {
+        string domain = "google.com";
+        string server = "8.8.8.8";
+        auto tcpDnsResponse = DNSClient::tcpDns(domain, server);
+        if (tcpDnsResponse != nullptr) {
+            UdpDNSResponse *dnsResponse = tcpDnsResponse->udpDnsResponse;
+            Logger::INFO << "success" << dnsResponse->header->id
+                         << dnsResponse->queryZone->querys.front()->domain->domain << dnsResponse->header->id
+                         << ipsToStr(dnsResponse->ips) << END;
+            delete tcpDnsResponse;
+            return true;
+        }
+        return false;
+    }, 20);
 }

@@ -45,14 +45,14 @@ void TcpDnsRequest::initDataZone() {
     uint16_t len = dnsHeader->len + dnsQueryZone->len + 2;
     byte lenArr[2];
     uint16_t dataLen = len - 2;
-    toBytes(lenArr, dataLen);
+    st::utils::toBytes(lenArr, dataLen);
     byte *data = new byte[len];
     uint32_t pos = 0;
-    copy(lenArr, data, 0U, pos, 2U);
+    st::utils::copy(lenArr, data, 0U, pos, 2U);
     pos += 2;
-    copy(dnsHeader->data, data, 0U, pos, dnsHeader->len);
+    st::utils::copy(dnsHeader->data, data, 0U, pos, dnsHeader->len);
     pos += dnsHeader->len;
-    copy(dnsQueryZone->data, data, 0U, pos, dnsQueryZone->len);
+    st::utils::copy(dnsQueryZone->data, data, 0U, pos, dnsQueryZone->len);
     BasicData::len = len;
     BasicData::data = data;
 }

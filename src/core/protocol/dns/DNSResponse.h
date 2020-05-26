@@ -34,8 +34,8 @@ public:
 class TcpDNSResponse : public BasicData {
 
 public:
-    uint16_t dataSize;
-    UdpDNSResponse *udpDnsResponse;
+    uint16_t dataSize = 0;
+    UdpDNSResponse *udpDnsResponse = nullptr;
 
     virtual ~TcpDNSResponse();
 

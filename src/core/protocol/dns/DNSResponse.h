@@ -16,7 +16,7 @@ public:
     DNSHeader *header = nullptr;
     DNSQueryZone *queryZone = nullptr;
     vector<DNSResourceZone *> answerZones;
-    uint32_t answerZonesSize;
+    uint32_t answerZonesSize = 0;
     vector<uint32_t> ips;
 
     UdpDNSResponse(byte *data, uint64_t len);
@@ -37,7 +37,9 @@ public:
     uint16_t dataSize;
     UdpDNSResponse *udpDnsResponse;
 
-    TcpDNSResponse(uint64_t len);
+    virtual ~TcpDNSResponse();
+
+    TcpDNSResponse(uint16_t len);
 
     void parse(uint64_t maxReadable);
 

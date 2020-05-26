@@ -21,8 +21,8 @@ static void copy(ItemType *from, ItemType *to, Num len) {
 };
 
 
-template<typename ItemType, typename ItemTypeB, typename Num>
-static void copy(ItemType *from, ItemTypeB *to, Num indexFrom, Num distFrom, Num len) {
+template<typename ItemType, typename ItemTypeB, typename NumA, typename NumB, typename NumC>
+static void copy(ItemType *from, ItemTypeB *to, NumA indexFrom, NumB distFrom, NumC len) {
     for (auto i = 0; i < len; i++) {
         *(to + distFrom + i) = *(from + indexFrom + i);
     }
@@ -73,6 +73,11 @@ public:
         this->valid = false;
         this->len = 0;
     }
+
+    void markValid() {
+        this->valid = true;
+    }
+
 
     bool isValid() const {
         return valid;
@@ -147,7 +152,7 @@ public:
             this->id |= ((uint32_t) *(data) << 8U);
             this->id |= *(data + 1);
             this->len = DEFAULT_LEN;
-            this->responseCode = (*(data + 3) & 0x01U);
+            this->responseCode = (*(data + 3) & 0x01F);
             read(data + 4, questionCount);
             read(data + 6, answerCount);
         } else {
@@ -237,33 +242,76 @@ public:
     }
 
     DNSDomain(byte *data, uint64_t len) : BasicData(data, len) {
-        int actualLen = 0;
-        bool valid = false;
-        while (actualLen <= len) {
-            uint32_t frameLen = *(data + actualLen);
-            actualLen++;
-
-            if (frameLen == 0 || frameLen > len - actualLen) {
-                if (actualLen >= 2 && frameLen == 0) {
-                    valid = true;
-                }
-                break;
-            }
-            actualLen += frameLen;
-            char domainStr[frameLen + 1];
-            domainStr[frameLen] = '\0';
-            copy(data, domainStr, actualLen - frameLen, 0U, frameLen);
-            if (domain.length() != 0) {
-                domain += ".";
-            }
-            domain += (domainStr);
-        }
-
-        if (!valid) {
+        uint64_t actualLen = parseDomain(data, len, 0, len, domain);
+        if (actualLen == 0) {
             this->markInValid();
         } else {
             this->len = actualLen;
         }
+    }
+
+    DNSDomain(byte *data, uint64_t maxTotal, uint64_t begin) : BasicData(data + begin, maxTotal - begin) {
+        uint64_t actualLen = parseDomain(data, maxTotal, begin, maxTotal - begin, domain);
+        if (actualLen == 0) {
+            this->markInValid();
+        } else {
+            this->len = actualLen;
+        }
+    }
+
+    DNSDomain(byte *data, uint64_t len, uint64_t begin, int maxParse) : BasicData(data + begin, len - begin) {
+        uint64_t actualLen = parseDomain(data, len, begin, maxParse, domain);
+        if (actualLen == 0) {
+            this->markInValid();
+        } else {
+            this->len = actualLen;
+        }
+    }
+
+    uint64_t static parseDomain(byte *allData, uint64_t max, uint64_t begin, uint64_t maxParse, string &domain) {
+        byte *data = allData + begin;
+        int actualLen = 0;
+        bool valid = false;
+        while (actualLen < maxParse) {
+            uint8_t frameLen = *(data + actualLen);
+            if ((frameLen & 0b11000000U) == 0b11000000U) {
+                uint16_t pos = 0;
+                pos |= ((*(data + actualLen) & 0b00111111U) << 8U);
+                pos |= *(data + actualLen + 1);
+                actualLen += 2;
+                if (pos != begin) {
+                    string domainRe = "";
+                    uint64_t consume = parseDomain(allData, max, pos, max - pos, domainRe);
+                    if (consume != 0) {
+                        domain += ".";
+                        domain += domainRe;
+                    } else {
+                        return 0;
+                    }
+                } else {
+                    break;
+                }
+
+            } else {
+                actualLen++;
+                if (frameLen == 0) {
+                    break;
+                } else {
+                    if (maxParse - actualLen < frameLen) {
+                        return 0;
+                    }
+                    actualLen += frameLen;
+                    char domainStr[frameLen + 1];
+                    domainStr[frameLen] = '\0';
+                    copy(data, domainStr, actualLen - frameLen, 0U, frameLen);
+                    if (domain.length() != 0) {
+                        domain += ".";
+                    }
+                    domain += domainStr;
+                }
+            }
+        }
+        return actualLen;
     }
 };
 
@@ -380,29 +428,18 @@ public:
 
     }
 
-    DNSResourceZone(byte *original, byte *curBegin, uint64_t originalMax, uint64_t curMax) : BasicData(curBegin,
-                                                                                                       curMax) {
+    DNSResourceZone(byte *original, uint64_t originalMax, uint64_t begin) : BasicData(original + begin,
+                                                                                      originalMax - begin) {
         uint32_t size = 0;
-        if ((*curBegin & 0b11000000U) == 0b11000000U) {
-            uint16_t pos = 0;
-            pos |= ((*curBegin & 0b00111111U) << 8U);
-            pos |= *(curBegin + 1);
-            size += 2;
-            curBegin += 2;
-            domain = new DNSDomain((original + pos), originalMax - pos);
+        byte *curBegin = original + begin;
+        domain = new DNSDomain(original, originalMax, begin);
 
-        } else {
-            domain = new DNSDomain(curBegin, curMax);
-            if (domain->isValid()) {
-                size += domain->len;
-                curBegin += domain->len;
-            }
-
-        }
 
         if (!domain->isValid()) {
             markInValid();
         } else {
+            curBegin += domain->len;
+            size += domain->len;
             read(curBegin, type);
             curBegin += 2;
             size += 2;
@@ -418,7 +455,7 @@ public:
             size += length;
 
             if (DNSQuery::Type(type) == DNSQuery::CNAME) {
-                cname = new DNSDomain(curBegin, length);
+                cname = new DNSDomain(original, originalMax, (curBegin - original), length);
                 if (cname->isValid()) {
                     this->len = size;
                 } else {

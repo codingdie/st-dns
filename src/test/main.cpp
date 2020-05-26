@@ -9,7 +9,6 @@
 #include <vector>
 #include <chrono>
 
-void testParallel();
 
 using namespace std;
 using namespace std::chrono;
@@ -22,26 +21,16 @@ long now() {
     return duration_in_ms.count();
 }
 
-
-int main(int argc, char *argv[]) {
-    testParallel();
-}
-
-void testParallel() {
+template<typename L>
+void testParallel(L getDns) {
     vector<thread *> threads;
     long begin = now();
     int total = 1;
     for (int i = 0; i < total; i++) {
-        void (*func)() = []() {
+        auto func = [getDns]() {
             string domain = "music.163.com";
-            string server = "114.114.114.114";
-            UdpDNSResponse *dnsResponse = DNSClient::tcpDns(domain, server);
-            if (dnsResponse != nullptr) {
-                Logger::INFO << "success" << dnsResponse->header->id
-                             << dnsResponse->queryZone->querys.front()->domain->domain << dnsResponse->header->id
-                             << ipsToStr(dnsResponse->ips) << END;
-                delete dnsResponse;
-            }
+            string server = "8.8.8.8";
+            getDns(domain, server);
         };
         thread *thread = new class thread(func);
         threads.emplace_back(thread);
@@ -55,4 +44,28 @@ void testParallel() {
     long end = now();
     long d = (end - begin);
     cout << d << "\t" << d * 1.0 / total << endl;
+}
+
+
+int main(int argc, char *argv[]) {
+//    testParallel([](string &domain, string &server) {
+//        auto tcpDnsResponse = DNSClient::tcpDns(domain, server);
+//        if (tcpDnsResponse != nullptr) {
+//            UdpDNSResponse *dnsResponse = tcpDnsResponse->udpDnsResponse;
+//            Logger::INFO << "success" << dnsResponse->header->id
+//                         << dnsResponse->queryZone->querys.front()->domain->domain << dnsResponse->header->id
+//                         << ipsToStr(dnsResponse->ips) << END;
+//            delete tcpDnsResponse;
+//        }
+//    });
+    testParallel([](string &domain, string &server) {
+        auto tcpDnsResponse = DNSClient::tcpDns(domain, server);
+        if (tcpDnsResponse != nullptr) {
+            UdpDNSResponse *dnsResponse = tcpDnsResponse->udpDnsResponse;
+            Logger::INFO << "success" << dnsResponse->header->id
+                         << dnsResponse->queryZone->querys.front()->domain->domain << dnsResponse->header->id
+                         << ipsToStr(dnsResponse->ips) << END;
+            delete tcpDnsResponse;
+        }
+    });
 }

@@ -24,9 +24,9 @@ public:
 
     static UdpDNSResponse *udpDns(std::vector<string> &domains, std::string &dnsServer);
 
-    static UdpDNSResponse *tcpDns(std::string &domain, std::string &dnsServer);
+    static TcpDNSResponse *tcpDns(std::string &domain, std::string &dnsServer);
 
-    static UdpDNSResponse *tcpDns(std::vector<string> &domains, std::string &dnsServer);
+    static TcpDNSResponse *tcpDns(std::vector<string> &domains, std::string &dnsServer);
 
     DNSClient();
 
@@ -41,7 +41,7 @@ private:
 
     UdpDNSResponse *queryUdp(std::vector<string> &domains, std::string &dnsServer);
 
-    UdpDNSResponse *queryTcp(std::vector<string> &domains, std::string &dnsServer);
+    TcpDNSResponse *queryTcp(std::vector<string> &domains, std::string &dnsServer);
 };
 
 #endif //ST_DNS_DNSCLIENT_H

@@ -13,40 +13,44 @@
 typedef uint8_t byte;
 using namespace std;
 
-template<typename ItemType, typename Num>
-static void copy(ItemType *from, ItemType *to, Num len) {
-    for (auto i = 0; i < len; i++) {
-        *(to + i) = *(from + i);
-    }
-};
+namespace st {
+    namespace utils {
 
+        template<typename ItemType, typename Num>
+        static void copy(ItemType *from, ItemType *to, Num len) {
+            for (auto i = 0; i < len; i++) {
+                *(to + i) = *(from + i);
+            }
+        };
 
-template<typename ItemType, typename ItemTypeB, typename NumA, typename NumB, typename NumC>
-static void copy(ItemType *from, ItemTypeB *to, NumA indexFrom, NumB distFrom, NumC len) {
-    for (auto i = 0; i < len; i++) {
-        *(to + distFrom + i) = *(from + indexFrom + i);
-    }
-};
+        template<typename ItemType, typename ItemTypeB, typename NumA, typename NumB, typename NumC>
+        static void copy(ItemType *from, ItemTypeB *to, NumA indexFrom, NumB distFrom, NumC len) {
+            for (auto i = 0; i < len; i++) {
+                *(to + distFrom + i) = *(from + indexFrom + i);
+            }
+        };
 
+        template<typename Num>
+        static void toBytes(byte *byteArr, Num num) {
+            uint8_t len = sizeof(Num);
+            for (auto i = 0; i < len; i++) {
+                uint64_t move = (len - i - 1) * 8U;
+                uint64_t mask = 0xFFU << move;
+                *(byteArr + i) = (num & mask) >> move;
+            }
+        };
 
-template<typename Num>
-static void toBytes(byte *byteArr, Num num) {
-    uint8_t len = sizeof(Num);
-    for (auto i = 0; i < len; i++) {
-        uint64_t move = (len - i - 1) * 8U;
-        uint64_t mask = 0xFFU << move;
-        *(byteArr + i) = (num & mask) >> move;
-    }
-};
+        template<typename IntTypeB>
+        static void read(const byte *data, IntTypeB &result) {
+            uint8_t len = sizeof(IntTypeB);
+            for (uint8_t i = 0; i < len; i++) {
+                byte val = *(data + i);
+                uint32_t bitMove = (len - i - 1) * 8U;
+                uint32_t valFinal = val << bitMove;
+                result |= valFinal;
+            }
+        }
 
-template<typename IntTypeB>
-static void read(const byte *data, IntTypeB &result) {
-    uint8_t len = sizeof(IntTypeB);
-    for (uint8_t i = 0; i < len; i++) {
-        byte val = *(data + i);
-        uint32_t bitMove = (len - i - 1) * 8U;
-        uint32_t valFinal = val << bitMove;
-        result |= valFinal;
     }
 }
 
@@ -153,8 +157,8 @@ public:
             this->id |= *(data + 1);
             this->len = DEFAULT_LEN;
             this->responseCode = (*(data + 3) & 0x01F);
-            read(data + 4, questionCount);
-            read(data + 6, answerCount);
+            st::utils::read(data + 4, questionCount);
+            st::utils::read(data + 6, answerCount);
         } else {
             markInValid();
         }
@@ -283,8 +287,14 @@ public:
                     string domainRe = "";
                     uint64_t consume = parseDomain(allData, max, pos, max - pos, domainRe);
                     if (consume != 0) {
-                        domain += ".";
-                        domain += domainRe;
+                        if (domain.size() != 0) {
+                            domain += ".";
+                            domain += domainRe;
+                        } else {
+                            domain = domainRe;
+                            break;
+                        }
+
                     } else {
                         return 0;
                     }
@@ -303,7 +313,7 @@ public:
                     actualLen += frameLen;
                     char domainStr[frameLen + 1];
                     domainStr[frameLen] = '\0';
-                    copy(data, domainStr, actualLen - frameLen, 0U, frameLen);
+                    st::utils::copy(data, domainStr, actualLen - frameLen, 0U, frameLen);
                     if (domain.length() != 0) {
                         domain += ".";
                     }
@@ -339,7 +349,7 @@ public:
             this->domain = dnsDomain;
             this->len = dnsDomain->len + DEFAULT_FLAGS_SIZE;
             uint16_t typeValue = 0;
-            read(data + dnsDomain->len, typeValue);
+            st::utils::read(data + dnsDomain->len, typeValue);
             this->queryType = Type(typeValue);
         }
     }
@@ -349,8 +359,8 @@ public:
         uint64_t finalDataLen = domain->len + DEFAULT_FLAGS_SIZE;
         auto *dnsQuery = new DNSQuery(finalDataLen);
         auto hostCharData = dnsQuery->data;
-        copy(domain->data, hostCharData, 0U, 0U, dnsQuery->len);
-        copy(DEFAULT_FLAGS, hostCharData, 0U, domain->len, DEFAULT_FLAGS_SIZE);
+        st::utils::copy(domain->data, hostCharData, 0U, 0U, dnsQuery->len);
+        st::utils::copy(DEFAULT_FLAGS, hostCharData, 0U, domain->len, DEFAULT_FLAGS_SIZE);
         dnsQuery->domain = domain;
         return dnsQuery;
     }
@@ -404,7 +414,7 @@ public:
         uint32_t curLen = 0;
         for (auto it = domains.begin(); it < domains.end(); it++) {
             DNSQuery *domain = *it;
-            copy(domain->data, dnsQueryZone->data + curLen, domain->len);
+            st::utils::copy(domain->data, dnsQueryZone->data + curLen, domain->len);
             curLen += domain->len;
         }
         return dnsQueryZone;
@@ -420,12 +430,15 @@ public:
     uint16_t resource = 0;
     uint32_t liveTime = 0;
     uint16_t length = 0;
-    uint32_t ipv4 = 0;
+    vector<uint32_t> ipv4s;
 
     virtual ~DNSResourceZone() {
-        delete domain;
-        delete cname;
-
+        if (domain != nullptr) {
+            delete domain;
+        }
+        if (cname != nullptr) {
+            delete cname;
+        }
     }
 
     DNSResourceZone(byte *original, uint64_t originalMax, uint64_t begin) : BasicData(original + begin,
@@ -433,23 +446,21 @@ public:
         uint32_t size = 0;
         byte *curBegin = original + begin;
         domain = new DNSDomain(original, originalMax, begin);
-
-
         if (!domain->isValid()) {
             markInValid();
         } else {
             curBegin += domain->len;
             size += domain->len;
-            read(curBegin, type);
+            st::utils::read(curBegin, type);
             curBegin += 2;
             size += 2;
-            read(curBegin, resource);
+            st::utils::read(curBegin, resource);
             curBegin += 2;
             size += 2;
-            read(curBegin, liveTime);
+            st::utils::read(curBegin, liveTime);
             curBegin += 4;
             size += 4;
-            read(curBegin, length);
+            st::utils::read(curBegin, length);
             curBegin += 2;
             size += 2;
             size += length;
@@ -462,8 +473,12 @@ public:
                     markInValid();
                 }
             } else {
-                if (length == 4) {
-                    read(curBegin, ipv4);
+                if (length % 4 == 0) {
+                    for (auto i = 0; i < length / 4; i++) {
+                        uint32_t ipv4 = 0;
+                        st::utils::read(curBegin + i * 4, ipv4);
+                        ipv4s.emplace_back(ipv4);
+                    }
                     this->len = size;
                 } else {
                     markInValid();

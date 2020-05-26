@@ -43,10 +43,10 @@ void UdpDNSResponse::parse(uint64_t maxReadable) {
                     this->markInValid();
                 } else {
                     this->header = parseHeader;;
+                    dataZone += this->header->len;
+                    restUnParseSize -= this->header->len;
                 }
             } else {
-                dataZone += this->header->len;
-                restUnParseSize -= this->header->len;
                 if (this->header->responseCode == 0) {
                     if (this->queryZone == nullptr) {
                         DNSQueryZone *ptr = new DNSQueryZone(dataZone, restUnParseSize, this->header->questionCount);
@@ -55,13 +55,13 @@ void UdpDNSResponse::parse(uint64_t maxReadable) {
                             this->markInValid();
                         } else {
                             this->queryZone = ptr;
+                            dataZone += this->queryZone->len;
+                            restUnParseSize -= this->queryZone->len;
                         }
                     } else {
-                        dataZone += this->queryZone->len;
-                        restUnParseSize -= this->queryZone->len;
-                        dataZone += this->answerZonesSize;
-                        restUnParseSize -= this->answerZonesSize;
                         if (this->answerZones.size() < this->header->answerCount) {
+                            dataZone += this->answerZonesSize;
+                            restUnParseSize -= this->answerZonesSize;
                             for (auto i = this->answerZones.size();
                                  i < this->header->answerCount && this->isValid(); i++) {
                                 auto *answer = new DNSResourceZone(data, maxReadable, maxReadable - restUnParseSize);
@@ -70,8 +70,10 @@ void UdpDNSResponse::parse(uint64_t maxReadable) {
                                     dataZone += answer->len;
                                     restUnParseSize -= answer->len;
                                     answerZones.emplace_back(answer);
-                                    if (answer->ipv4 != 0) {
-                                        this->ips.emplace_back(answer->ipv4);
+                                    if (answer->ipv4s.size() != 0) {
+                                        for (auto ip:answer->ipv4s) {
+                                            this->ips.emplace_back(ip);
+                                        }
                                     }
                                 } else {
                                     delete answer;
@@ -101,7 +103,7 @@ UdpDNSResponse::UdpDNSResponse(byte *data, uint64_t len) : BasicData(data, len) 
 
 void TcpDNSResponse::parse(uint64_t maxReadable) {
     if (maxReadable > 2) {
-        read(this->data, this->dataSize);
+        st::utils::read(this->data, this->dataSize);
         if (this->dataSize == maxReadable - 2) {
             UdpDNSResponse *response = new UdpDNSResponse(this->data + 2, dataSize);
             response->parse(dataSize);
@@ -121,7 +123,6 @@ void TcpDNSResponse::parse(uint64_t maxReadable) {
 }
 
 TcpDNSResponse::TcpDNSResponse(uint16_t len) : BasicData(len) {
-
 
 }
 

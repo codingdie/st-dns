@@ -10,6 +10,7 @@
 #include <boost/asio.hpp>
 #include "Logger.h"
 #include "DNS.h"
+#include <boost/asio/ssl.hpp>
 
 using namespace boost::asio::ip;
 using namespace boost::asio;
@@ -34,6 +35,8 @@ public:
 
 private:
     boost::asio::io_context ioContext;
+
+    boost::asio::ssl::context *sslCtx;
 
     boost::asio::io_context::work *ioContextWork;
 

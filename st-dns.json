@@ -1,4 +1,15 @@
 {
   "ip": "127.0.0.1",
-  "port": "20201"
+  "port": "20201",
+  "servers": [
+    {
+      "type": "TCP_SSL",
+      "ip": "8.8.8.8",
+      "port": 883,
+      "priority": 1,
+      "whitelistPath": "/etc/st-dns/whitelist/8_8_8_8_883.whitelist",
+      "blacklistPath": "/etc/st-dns/blacklist/8_8_8_8_883.blacklist"
+    }
+  ],
+  "cacheFile": "/etc/std-dns/hosts"
 }

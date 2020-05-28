@@ -46,19 +46,27 @@ UdpDNSResponse *DNSClient::queryUdp(vector<string> &domains, string &dnsServer) 
         dnsResponse = new UdpDNSResponse(1024);
         std::future<size_t> receiveFuture = socket.async_receive_from(buffer(dnsResponse->data, sizeof(byte) * 1024),
                                                                       serverEndpoint, boost::asio::use_future);
-        bool receiveStatus = receiveFuture.wait_for(std::chrono::milliseconds(50)) == std::future_status::ready;
+        bool receiveStatus = receiveFuture.wait_for(std::chrono::milliseconds(5000)) == std::future_status::ready;
         if (!receiveStatus) {
             Logger::ERROR << dnsRequest.dnsHeader->id << "receive timeout!" << END;
             delete dnsResponse;
             dnsResponse = nullptr;
-        }
-        size_t len = receiveFuture.get();
-        dnsResponse->parse(len);
-        if (!dnsResponse->isValid() || dnsResponse->header->id != qid) {
-            delete dnsResponse;
-            dnsResponse = nullptr;
+        } else {
+            size_t len = receiveFuture.get();
+            dnsResponse->parse(len);
+            if (!dnsResponse->isValid() || dnsResponse->header->id != qid) {
+                delete dnsResponse;
+                dnsResponse = nullptr;
 
+            }
         }
+
+    }
+    try {
+        socket.cancel();
+        socket.close();
+    } catch (boost::wrapexcept<boost::system::system_error> ex) {
+        Logger::ERROR << dnsRequest.dnsHeader->id << ex.what() << END;
     }
 
     return dnsResponse;

@@ -4,11 +4,16 @@
 
 #include <iostream>
 #include "DNSClient.h"
+#include "DNSServer.h"
 
 #include <thread>
 #include <vector>
 #include <chrono>
 
+
+void testTcp();
+
+void testUdp();
 
 using namespace std;
 using namespace std::chrono;
@@ -42,18 +47,38 @@ void testParallel(FUNC testMethod, int count) {
 
 
 int main(int argc, char *argv[]) {
+
+    testUdp();
+}
+
+void testUdp() {
+    testParallel([]() {
+        string domain = "google.com";
+        string server = "127.0.0.1";
+        auto dnsResponse = DNSClient::udpDns(domain, server);
+        if (dnsResponse != nullptr) {
+            Logger::INFO << "success" << dnsResponse->header->id
+                         << dnsResponse->queryZone->querys.front()->domain->domain << dnsResponse->header->id
+                         << ipsToStr(dnsResponse->ips) << END;
+            delete dnsResponse;
+            return true;
+        }
+        return false;
+    }, 1);
+}
+
+void testTcp() {
     testParallel([]() {
         string domain = "google.com";
         string server = "8.8.8.8";
         auto tcpDnsResponse = DNSClient::tcpDns(domain, server);
         if (tcpDnsResponse != nullptr) {
             UdpDNSResponse *dnsResponse = tcpDnsResponse->udpDnsResponse;
-            Logger::INFO << "success" << dnsResponse->header->id
-                         << dnsResponse->queryZone->querys.front()->domain->domain << dnsResponse->header->id
+            Logger::INFO << "success" << dnsResponse->header->id << dnsResponse->queryZone->querys.front()->domain->domain << dnsResponse->header->id
                          << ipsToStr(dnsResponse->ips) << END;
             delete tcpDnsResponse;
             return true;
         }
         return false;
-    }, 20);
+    }, 1);
 }

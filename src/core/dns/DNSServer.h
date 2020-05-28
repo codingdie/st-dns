@@ -6,17 +6,36 @@
 #define ST_DNS_DNSSERVER_H
 
 #include "Config.h"
-#include "TCPSession.h"
+#include "DNSSession.h"
+#include <boost/asio.hpp>
+#include <boost/thread.hpp>
+
+using namespace boost::asio;
+using namespace boost::asio::ip;
 
 class DNSServer {
 public:
-    DNSServer(const Config &config);
+    DNSServer(st::dns::Config &config);
 
     void start();
 
+
 private:
-    Config config;
-    std::map<long, TCPSession *> tcpSessions;
+    st::dns::Config config;
+    std::map<uint16_t, DNSSession *> sessions;
+    byte bufferData[1024];
+    udp::endpoint clientEndpoint;
+    udp::socket *socketS = nullptr;
+    io_context ioContext;
+    thread_pool pool;
+    int i = 0;
+public:
+    DNSServer(uint16_t port);
+
+private:
+    void receive();
+
+
 };
 
 

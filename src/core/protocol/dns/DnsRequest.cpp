@@ -34,6 +34,42 @@ UdpDnsRequest::~UdpDnsRequest() {
     delete dnsQueryZone;
 }
 
+UdpDnsRequest::UdpDnsRequest(byte *data, uint64_t len) : BasicData(data, len) {
+    parse();
+}
+
+bool UdpDnsRequest::parse() {
+    if (len > DNSHeader::DEFAULT_LEN) {
+        DNSHeader *header = new DNSHeader(data, DNSHeader::DEFAULT_LEN);
+        if (header->isValid()) {
+            dnsHeader = header;
+            DNSQueryZone *queryZone = new DNSQueryZone(data + DNSHeader::DEFAULT_LEN, len - DNSHeader::DEFAULT_LEN,
+                                                       header->questionCount);
+            if (queryZone->isValid()) {
+                dnsQueryZone = queryZone;
+                for (auto it:queryZone->querys) {
+                    this->hosts.emplace_back(it->domain->domain);
+                }
+            } else {
+                markInValid();
+            }
+        } else {
+            markInValid();
+        }
+    } else {
+        markInValid();
+    }
+    return isValid();
+}
+
+UdpDnsRequest::UdpDnsRequest(byte *data, uint64_t len, bool dataOwner) : UdpDnsRequest(data, len) {
+    this->setDataOwner(dataOwner);
+}
+
+UdpDnsRequest::UdpDnsRequest(uint64_t len) : BasicData(len) {
+
+}
+
 TcpDnsRequest::TcpDnsRequest(vector<std::string> &hosts) {
     this->data = data;
     this->dnsHeader = DNSHeader::generateQuery(hosts.size());

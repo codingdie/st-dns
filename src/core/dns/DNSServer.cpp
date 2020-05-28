@@ -6,13 +6,11 @@
 #include <iostream>
 #include <ctime>
 #include <string>
-#include <boost/asio.hpp>
 #include <boost/thread.hpp>
-#include "TCPSession.h"
 #include "Logger.h"
+#include "DNS.h"
+#include "DNSClient.h"
 
-using namespace boost::asio;
-using namespace boost::asio::ip;
 using namespace std::placeholders;
 using namespace std;
 
@@ -22,40 +20,56 @@ std::string make_daytime_string() {
     return ctime(&now);
 }
 
-DNSServer::DNSServer(const Config &config) : config(config) {}
+DNSServer::DNSServer(st::dns::Config &config) : config(config), pool(10) {
+    socketS = new udp::socket(ioContext, udp::endpoint(udp::v4(), 53));
+}
 
 
 void DNSServer::start() {
-    try {
-        io_context io_context;
-        tcp::acceptor acceptor(io_context, tcp::endpoint(tcp::v4(), 53));
-        thread_pool pool(3);
-        long id = 1;
-        while (true) {
-            tcp::socket *socket = new tcp::socket(io_context);
-            acceptor.accept(*socket);
-            TCPSession *tcpSession = new TCPSession(socket, id++);
-            this->tcpSessions.insert(pair<long, TCPSession *>(tcpSession->getId(), tcpSession));
-            boost::asio::post(pool, [tcpSession] {
-                tcp::socket *socket = tcpSession->getSocket();
-                boost::system::error_code error;
-                while (socket->is_open()) {
-                    std::string message = make_daytime_string();
-                    boost::asio::write(*socket, boost::asio::buffer(message), error);
-                    if (error.failed()) {
-                        Logger::ERROR << to_string(tcpSession->getId()) + " disconnect ";
-                        break;
-                    }
-                    sleep(1);
-                }
-            });
+    Logger::INFO << "server stared" << END;
+    receive();
+    ioContext.run();
 
+}
 
-        }
-    }
-    catch (std::exception &e) {
-        std::cerr << e.what() << std::endl;
-    }
+void DNSServer::receive() {
+    Logger::INFO << "start receive" << ++i << END;
 
+    socketS->async_receive_from(buffer(bufferData, 1024), clientEndpoint,
+                                [&](boost::system::error_code errorCode, std::size_t size) {
+                                    Logger::INFO << "receive" << i << END;
+                                    if (!errorCode && size > 0) {
+                                        boost::asio::post(pool, [&] {
+                                            UdpDnsRequest *udpDnsRequest = new UdpDnsRequest(size);
+                                            st::utils::copy(bufferData, udpDnsRequest->data, size);
+                                            if (udpDnsRequest->parse()) {
+                                                this->sessions.insert(make_pair(udpDnsRequest->dnsHeader->id,
+                                                                                new DNSSession(udpDnsRequest,
+                                                                                               clientEndpoint)));
+                                                auto tcpResponse = DNSClient::tcpDns(udpDnsRequest->hosts,
+                                                                                     config.dnsServer);
+                                                if (tcpResponse != nullptr && tcpResponse->isValid()) {
+                                                    auto udpResponse = tcpResponse->udpDnsResponse;
+                                                    udpResponse->header->updateId(udpDnsRequest->dnsHeader->id);
+                                                    socketS->async_send_to(buffer(udpResponse->data, udpResponse->len),
+                                                                           clientEndpoint,
+                                                                           [&](boost::system::error_code writeError,
+                                                                               std::size_t writeSize) {
+                                                                               delete tcpResponse;
+                                                                               delete udpDnsRequest;
+                                                                           });
+                                                } else {
+                                                    delete tcpResponse;
+                                                    delete udpDnsRequest;
+                                                }
+                                            } else {
+                                                delete udpDnsRequest;
+                                                Logger::ERROR << "invalid dns request" << END;
+                                            }
+
+                                        });
+                                    }
+                                    receive();
+                                });
 
 }

@@ -87,14 +87,16 @@ public:
         return valid;
     }
 
-    explicit BasicData(uint64_t len) : len(len) {
+    explicit BasicData(uint32_t len) : len(len) {
         data = new byte[len];
         dataOwner = true;
 
     }
 
-    BasicData(byte *data, uint64_t len) : len(len), data(data) {
+    BasicData(byte *data, uint32_t len) : len(len), data(data) {
     }
+
+    BasicData(byte *data, uint32_t len, bool dataOwner) : dataOwner(dataOwner), len(len), data(data) {}
 
     BasicData() = default;
 
@@ -120,6 +122,9 @@ public:
         }
     }
 
+    void setDataOwner(bool dataOwner) {
+        BasicData::dataOwner = dataOwner;
+    }
 
 };
 
@@ -146,7 +151,7 @@ private:
 class DNSHeader : public BasicData {
 public:
     uint16_t id = 0U;
-    const static int DEFAULT_LEN = 12;
+    const static uint64_t DEFAULT_LEN = 12;
     uint16_t answerCount = 0;
     uint16_t questionCount = 0;
     byte responseCode = 0;
@@ -193,6 +198,11 @@ public:
         return dnsHeader;
     }
 
+    void updateId(uint16_t id) {
+        this->id = id;
+        *(this->data) = (this->id >> 8U);
+        *(this->data + 1) = this->id & 0xFFU;
+    }
 
 };
 
@@ -381,7 +391,7 @@ public:
 
     }
 
-    DNSQueryZone(byte *data, uint64_t len, int size) : BasicData(data, len) {
+    DNSQueryZone(byte *data, uint64_t len, uint64_t size) : BasicData(data, len) {
         uint32_t resetSize = len;
         uint32_t realSize = 0;
         while (resetSize > 0 && this->querys.size() < size) {

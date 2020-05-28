@@ -7,19 +7,19 @@
 using namespace boost::asio;
 typedef boost::shared_ptr<ip::tcp::socket> socket_ptr;
 
-Config getConfig(int argc, char *const *argv);
+st::dns::Config getConfig(int argc, char *const *argv);
 
 int main(int argc, char *argv[]) {
-    Config config = getConfig(argc, argv);
+    st::dns::Config config = getConfig(argc, argv);
     DNSServer dnsServer(config);
     dnsServer.start();
     return 0;
 }
 
-Config getConfig(int argc, char *const *argv) {
+st::dns::Config getConfig(int argc, char *const *argv) {
     if (argc > 1) {
-        return Config(string(argv[1]));
+        return st::dns::Config(string(argv[1]));
     } else {
-        return Config("/etc/config/st-dns/config.json");
+        return st::dns::Config("/etc/config/st-dns/config.json");
     }
 }

@@ -35,7 +35,7 @@ public:
 private:
     void receive();
 
-
+    void proxyDnsOverTcpTls(UdpDnsRequest *udpDnsRequest);
 };
 
 

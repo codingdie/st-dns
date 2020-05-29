@@ -51,6 +51,18 @@ namespace st {
             }
         }
 
+        static string join(vector<string> &lists, const char *delimit) {
+            string result;
+            for (auto i = 0; i < lists.size(); i++) {
+                if (!result.empty()) {
+                    result += delimit;
+                }
+                auto value = lists.at(i);
+                result += value;
+            }
+            return result;
+        }
+
     }
 }
 
@@ -380,6 +392,7 @@ public:
 class DNSQueryZone : public BasicData {
 public:
     vector<DNSQuery *> querys;
+    vector<string> hosts;
 
     ~DNSQueryZone() {
         for (auto query : querys) {
@@ -426,6 +439,9 @@ public:
             DNSQuery *domain = *it;
             st::utils::copy(domain->data, dnsQueryZone->data + curLen, domain->len);
             curLen += domain->len;
+        }
+        for (auto it = hosts.begin(); it < hosts.end(); it++) {
+            dnsQueryZone->hosts.emplace_back(*it);
         }
         return dnsQueryZone;
     }

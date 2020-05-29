@@ -44,6 +44,7 @@ Logger &Logger::operator<<(const string &string) {
     return *this;
 }
 
+
 void Logger::appendStr(const string &info) {
     this->str.append(info).append(" ");
 }

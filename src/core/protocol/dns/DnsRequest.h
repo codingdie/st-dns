@@ -16,6 +16,7 @@ public:
     DNSHeader *dnsHeader = nullptr;
     DNSQueryZone *dnsQueryZone = nullptr;
     std::vector<string> hosts;
+
     UdpDnsRequest() = default;
 
     UdpDnsRequest(vector<std::string> &hosts);
@@ -30,6 +31,7 @@ public:
 
     bool parse();
 
+    string getFirstHost();
 
 protected:
     virtual void initDataZone();

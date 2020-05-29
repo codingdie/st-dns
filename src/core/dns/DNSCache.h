@@ -17,9 +17,11 @@ private:
     static DNSCache INSTANCE;
     map<string, vector<uint32_t> *> caches;
 public:
-    void addCache(UdpDNSResponse *response);
+    static void addCache(UdpDNSResponse *response);
 
-    int32_t query(string &host);
+    static uint32_t queryRandom(const string &host);
+
+    static vector<uint32_t> query(const string &host);
 };
 
 

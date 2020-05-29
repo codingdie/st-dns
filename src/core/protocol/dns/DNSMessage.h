@@ -51,6 +51,26 @@ namespace st {
             }
         }
 
+        static string join(vector<string> &lists, const char *delimit) {
+            string result;
+            for (auto i = 0; i < lists.size(); i++) {
+                if (!result.empty()) {
+                    result += delimit;
+                }
+                auto value = lists.at(i);
+                result += value;
+            }
+            return result;
+        }
+
+        template<typename IntTypeB>
+        static byte *write(byte *data, IntTypeB &result) {
+            uint8_t len = sizeof(IntTypeB);
+            for (uint8_t i = 0; i < len; i++) {
+                *(data + i) = ((0xFF << (len - i - 1)) & result);
+            }
+            return data + len;
+        }
     }
 }
 
@@ -174,10 +194,10 @@ public:
 
     }
 
-    static DNSHeader *generateQuery(int hostCount) {
+    static DNSHeader *generate(uint16_t id, int hostCount) {
         auto *dnsHeader = new DNSHeader(DEFAULT_LEN);
         uint16_t tmpData[DEFAULT_LEN / 2];
-        tmpData[0] = DnsIdGenerator::id16();
+        tmpData[0] = id;
         tmpData[1] = 0x0100;
         tmpData[2] = hostCount;
         tmpData[3] = 0;
@@ -198,6 +218,10 @@ public:
         return dnsHeader;
     }
 
+    static DNSHeader *generate(int hostCount) {
+        return generate(DnsIdGenerator::id16(), 1);
+    }
+
     void updateId(uint16_t id) {
         this->id = id;
         *(this->data) = (this->id >> 8U);
@@ -215,7 +239,7 @@ public:
 
     }
 
-    static DNSDomain *generateDomain(string &host) {
+    static DNSDomain *generateDomain(const string &host) {
         const char *hostChar = host.data();
         vector<pair<unsigned char, unsigned char  >> subLens;
         int total = 0;
@@ -285,7 +309,6 @@ public:
     uint64_t static parseDomain(byte *allData, uint64_t max, uint64_t begin, uint64_t maxParse, string &domain) {
         byte *data = allData + begin;
         int actualLen = 0;
-        bool valid = false;
         while (actualLen < maxParse) {
             uint8_t frameLen = *(data + actualLen);
             if ((frameLen & 0b11000000U) == 0b11000000U) {
@@ -380,6 +403,7 @@ public:
 class DNSQueryZone : public BasicData {
 public:
     vector<DNSQuery *> querys;
+    vector<string> hosts;
 
     ~DNSQueryZone() {
         for (auto query : querys) {
@@ -410,7 +434,7 @@ public:
 
     }
 
-    static DNSQueryZone *generateQuery(vector<string> &hosts) {
+    static DNSQueryZone *generate(vector<string> &hosts) {
         vector<DNSQuery *> domains;
         uint32_t size = 0;
         for (auto it = hosts.begin(); it < hosts.end(); it++) {
@@ -427,7 +451,16 @@ public:
             st::utils::copy(domain->data, dnsQueryZone->data + curLen, domain->len);
             curLen += domain->len;
         }
+        for (auto it = hosts.begin(); it < hosts.end(); it++) {
+            dnsQueryZone->hosts.emplace_back(*it);
+        }
         return dnsQueryZone;
+    }
+
+    static DNSQueryZone *generate(const string &host) {
+        vector<string> hosts;
+        hosts.emplace_back(host);
+        return generate(hosts);
     }
 };
 
@@ -449,6 +482,10 @@ public:
         if (cname != nullptr) {
             delete cname;
         }
+    }
+
+    explicit DNSResourceZone(uint32_t len) : BasicData(len) {
+
     }
 
     DNSResourceZone(byte *original, uint64_t originalMax, uint64_t begin) : BasicData(original + begin,
@@ -498,6 +535,34 @@ public:
         }
     }
 
+    static DNSResourceZone *generate(vector<uint32_t> ips) {
+        uint32_t size = 2 + 2 + 2 + 4 + 2 + 4 * ips.size();
+        DNSResourceZone *resourceZone = new DNSResourceZone(size);
+        resourceZone->len = size;
+
+        byte *data1 = resourceZone->data;
+        //domain
+        *data1 = 0b11000000;
+        data1++;
+        *data1 = DNSHeader::DEFAULT_LEN;
+        data1++;
+        //type
+        resourceZone->type = DNSQuery::A;;
+        data1 = st::utils::write(data1, resourceZone->type);
+        //resource
+        resourceZone->resource = 0;
+        data1 = st::utils::write(data1, resourceZone->resource);
+        //live time
+        resourceZone->liveTime = 60;
+        data1 = st::utils::write(data1, resourceZone->liveTime);
+        //data szie
+        resourceZone->ipv4s = ips;
+        uint16_t dataSize = (uint16_t) (4 * ips.size());;
+        data1 = st::utils::write(data1, dataSize);
+        for (uint32_t ip:ips) {
+            data1 = st::utils::write(data1, ip);
+        }
+    }
 
 };
 

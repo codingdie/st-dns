@@ -8,6 +8,7 @@
 #include <utility>
 
 using namespace std;
+using namespace st::utils;
 static std::mutex logMutex;
 
 void Logger::getTime(std::string &timeStr) {
@@ -43,6 +44,7 @@ Logger &Logger::operator<<(const string &string) {
     appendStr(string);
     return *this;
 }
+
 
 void Logger::appendStr(const string &info) {
     this->str.append(info).append(" ");

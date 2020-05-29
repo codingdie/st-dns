@@ -7,7 +7,7 @@
 
 #include <string>
 #include <boost/property_tree/json_parser.hpp>
-#include "Logger.h"
+#include "STUtils.h"
 
 using namespace std;
 using namespace boost::property_tree;

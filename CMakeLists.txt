@@ -6,13 +6,21 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Os")
 
 
 find_package(Boost 1.66.0 REQUIRED COMPONENTS system program_options)
-find_package(openssl 1.1.1 REQUIRED)
+find_package(OpenSSL 1.1.1 REQUIRED)
+if (OPENSSL_FOUND)
+    if (APPLE)
+        set(OPENSSL_LIBRARIES "${_OPENSSL_LINK_LIBRARIES}")
+    endif ()
+endif ()
+
 
 include_directories(${Boost_INCLUDE_DIR})
 include_directories(${OPENSSL_INCLUDE_DIR})
-
+message("${OPENSSL_INCLUDE_DIR}")
+message("${OPENSSL_LIBRARIES}")
 include_directories(src/core/dns)
 include_directories(src/core/protocol/dns)
+include_directories(src/core/utils)
 
 file(GLOB_RECURSE SOURCE_FILES ./src/core/*.cpp)
 
@@ -27,7 +35,7 @@ include(GNUInstallDirs)
 install(TARGETS st-dns DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES st-dns.json DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/st-dns RENAME config.json)
 
-get_cmake_property(_variableNames VARIABLES)
-foreach (_variableName ${_variableNames})
-    message(STATUS "${_variableName}=${${_variableName}}")
-endforeach ()
+#get_cmake_property(_variableNames VARIABLES)
+#foreach (_variableName ${_variableNames})
+#    message(STATUS "${_variableName}=${${_variableName}}")
+#endforeach ()

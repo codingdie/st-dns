@@ -10,6 +10,7 @@ UdpDnsRequest::UdpDnsRequest(vector<std::string> &hosts) {
     this->data = data;
     this->dnsHeader = DNSHeader::generateQuery(hosts.size());
     this->dnsQueryZone = DNSQueryZone::generateQuery(hosts);
+    this->hosts = hosts;
     initDataZone();
 }
 

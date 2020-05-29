@@ -43,25 +43,7 @@ void DNSServer::receive() {
                                             UdpDnsRequest *udpDnsRequest = new UdpDnsRequest(size);
                                             st::utils::copy(bufferData, udpDnsRequest->data, size);
                                             if (udpDnsRequest->parse()) {
-                                                this->sessions.insert(make_pair(udpDnsRequest->dnsHeader->id,
-                                                                                new DNSSession(udpDnsRequest,
-                                                                                               clientEndpoint)));
-                                                auto tcpResponse = DNSClient::tcpDns(udpDnsRequest->hosts,
-                                                                                     config.dnsServer);
-                                                if (tcpResponse != nullptr && tcpResponse->isValid()) {
-                                                    auto udpResponse = tcpResponse->udpDnsResponse;
-                                                    udpResponse->header->updateId(udpDnsRequest->dnsHeader->id);
-                                                    socketS->async_send_to(buffer(udpResponse->data, udpResponse->len),
-                                                                           clientEndpoint,
-                                                                           [&](boost::system::error_code writeError,
-                                                                               std::size_t writeSize) {
-                                                                               delete tcpResponse;
-                                                                               delete udpDnsRequest;
-                                                                           });
-                                                } else {
-                                                    delete tcpResponse;
-                                                    delete udpDnsRequest;
-                                                }
+                                                proxyDnsOverTcpTls(udpDnsRequest);
                                             } else {
                                                 delete udpDnsRequest;
                                                 Logger::ERROR << "invalid dns request" << END;
@@ -72,4 +54,23 @@ void DNSServer::receive() {
                                     receive();
                                 });
 
+}
+
+void DNSServer::proxyDnsOverTcpTls(UdpDnsRequest *udpDnsRequest) {
+    auto tcpResponse = DNSClient::tcpDns(udpDnsRequest->hosts, config.dnsServer);
+    if (tcpResponse != nullptr && tcpResponse->isValid()) {
+        auto udpResponse = tcpResponse->udpDnsResponse;
+        udpResponse->header->updateId(udpDnsRequest->dnsHeader->id);
+        socketS->async_send_to(buffer(udpResponse->data, udpResponse->len), clientEndpoint,
+                               [&](boost::system::error_code writeError, size_t writeSize) {
+                                   Logger::INFO << "proxy success!"
+                                                << st::utils::join(udpDnsRequest->dnsQueryZone->hosts, ",")
+                                                << ipsToStr(udpResponse->ips) << END;
+                                   delete tcpResponse;
+                                   delete udpDnsRequest;
+                               });
+    } else {
+        delete tcpResponse;
+        delete udpDnsRequest;
+    }
 }

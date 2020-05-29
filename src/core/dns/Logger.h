@@ -36,6 +36,7 @@ public:
 
     Logger &operator<<(const string &string);
 
+
     template<typename A>
     Logger &operator<<(const A &str1) {
 

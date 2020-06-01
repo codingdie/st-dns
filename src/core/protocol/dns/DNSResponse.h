@@ -19,6 +19,8 @@ public:
     uint32_t answerZonesSize = 0;
     vector<uint32_t> ips;
 
+    UdpDNSResponse(uint16_t id, string host, vector<uint32_t> ips);
+
     UdpDNSResponse(byte *data, uint64_t len);
 
     UdpDNSResponse(uint64_t len);

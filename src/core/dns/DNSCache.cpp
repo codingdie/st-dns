@@ -23,7 +23,7 @@ void DNSCache::addCache(UdpDNSResponse *response) {
     }
 }
 
-int32_t DNSCache::query(string &host) {
+uint32_t DNSCache::queryRandom(const string &host) {
     vector<uint32_t> *&vector = INSTANCE.caches.at(host);
     if (vector != nullptr && !vector->empty()) {
         srand(time(nullptr));
@@ -32,4 +32,13 @@ int32_t DNSCache::query(string &host) {
         return 0;
     }
 
+}
+
+vector<uint32_t> DNSCache::query(const string &host) {
+    std::vector<uint32_t> result;
+    vector<uint32_t> *vector = INSTANCE.caches.at(host);
+    if (vector != nullptr && !vector->empty()) {
+        result = *vector;
+    }
+    return result;
 }

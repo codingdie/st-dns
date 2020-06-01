@@ -8,7 +8,7 @@
 #include <string>
 #include <boost/asio/basic_datagram_socket.hpp>
 #include <boost/asio.hpp>
-#include "Logger.h"
+#include "STUtils.h"
 #include "DNS.h"
 #include <boost/asio/ssl.hpp>
 
@@ -25,9 +25,13 @@ public:
 
     static UdpDNSResponse *udpDns(std::vector<string> &domains, std::string &dnsServer);
 
-    static TcpDNSResponse *tcpDns(std::string &domain, std::string &dnsServer);
+    static TcpDNSResponse *tcpDns(const std::string &domain, std::string &dnsServer);
+
+    static TcpDNSResponse *tcpDns(const std::string &domain, std::string &dnsServer, long timout);
 
     static TcpDNSResponse *tcpDns(std::vector<string> &domains, std::string &dnsServer);
+
+    static TcpDNSResponse *tcpDns(std::vector<string> &domains, std::string &dnsServer, long timout);
 
     DNSClient();
 
@@ -45,6 +49,8 @@ private:
     UdpDNSResponse *queryUdp(std::vector<string> &domains, std::string &dnsServer);
 
     TcpDNSResponse *queryTcp(std::vector<string> &domains, std::string &dnsServer);
+
+    TcpDNSResponse *queryTcp(std::vector<string> &domains, std::string &dnsServer, long timeout);
 };
 
 #endif //ST_DNS_DNSCLIENT_H

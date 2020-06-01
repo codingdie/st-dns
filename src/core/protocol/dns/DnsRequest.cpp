@@ -8,8 +8,8 @@
 
 UdpDnsRequest::UdpDnsRequest(vector<std::string> &hosts) {
     this->data = data;
-    this->dnsHeader = DNSHeader::generateQuery(hosts.size());
-    this->dnsQueryZone = DNSQueryZone::generateQuery(hosts);
+    this->dnsHeader = DNSHeader::generate(hosts.size());
+    this->dnsQueryZone = DNSQueryZone::generate(hosts);
     this->hosts = hosts;
     initDataZone();
 }
@@ -71,10 +71,14 @@ UdpDnsRequest::UdpDnsRequest(uint64_t len) : BasicData(len) {
 
 }
 
+string UdpDnsRequest::getFirstHost() {
+    return hosts.front();
+}
+
 TcpDnsRequest::TcpDnsRequest(vector<std::string> &hosts) {
     this->data = data;
-    this->dnsHeader = DNSHeader::generateQuery(hosts.size());
-    this->dnsQueryZone = DNSQueryZone::generateQuery(hosts);
+    this->dnsHeader = DNSHeader::generate(hosts.size());
+    this->dnsQueryZone = DNSQueryZone::generate(hosts);
     initDataZone();
 }
 

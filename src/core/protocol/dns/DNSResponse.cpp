@@ -102,12 +102,13 @@ UdpDNSResponse::UdpDNSResponse(byte *data, uint64_t len) : BasicData(data, len) 
 }
 
 UdpDNSResponse::UdpDNSResponse(uint16_t id, string host, vector<uint32_t> ips) {
-
     this->header = DNSHeader::generate(id, 1);
     this->queryZone = DNSQueryZone::generate(host);
-    DNSResourceZone::vector<DNSResourceZone *> answerZones;
-    uint32_t answerZonesSize = 0;
-    vector<uint32_t> ips;
+    DNSResourceZone *pResourceZone = DNSResourceZone::generate(ips);
+    this->answerZones.emplace_back(pResourceZone);
+    this->answerZonesSize = pResourceZone->len;
+    this->ips = ips;
+    this->data = new byte[this->header->len]；
 }
 
 void TcpDNSResponse::parse(uint64_t maxReadable) {

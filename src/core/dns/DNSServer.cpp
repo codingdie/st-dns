@@ -58,7 +58,6 @@ void DNSServer::proxyDnsOverTcpTls(UdpDnsRequest *udpDnsRequest) {
         }
         delete tcpResponse;
     }
-    udpDnsRequest.h
     delete udpDnsRequest;
     UdpDNSResponse *udpDnsResponse = new UdpDNSResponse()
     socketS->async_send_to(buffer(udpResponse->data, udpResponse->len), clientEndpoint,

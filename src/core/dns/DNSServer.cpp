@@ -49,25 +49,24 @@ void DNSServer::receive() {
 }
 
 void DNSServer::proxyDnsOverTcpTls(UdpDnsRequest *udpDnsRequest) {
-
-    auto ips = DNSCache::query(udpDnsRequest->getFirstHost());
+    auto id = udpDnsRequest->dnsHeader->id;
+    auto host = udpDnsRequest->getFirstHost();
+    auto ips = DNSCache::query(host);
     if (ips.empty()) {
-        auto tcpResponse = DNSClient::tcpDns(udpDnsRequest->getFirstHost(), config.dnsServer, 3000);
+        auto tcpResponse = DNSClient::tcpDns(host, config.dnsServer, 3000);
         if (tcpResponse != nullptr && tcpResponse->isValid()) {
             ips = tcpResponse->udpDnsResponse->ips;
         }
         delete tcpResponse;
     }
     delete udpDnsRequest;
-    UdpDNSResponse *udpDnsResponse = new UdpDNSResponse()
+    UdpDNSResponse *udpResponse = new UdpDNSResponse(id, host, ips);
     socketS->async_send_to(buffer(udpResponse->data, udpResponse->len), clientEndpoint,
                            [&](boost::system::error_code writeError, size_t writeSize) {
                                Logger::INFO << "proxy success!"
                                             << st::utils::join(udpDnsRequest->dnsQueryZone->hosts, ",")
                                             << ipsToStr(udpResponse->ips) << END;
-                               delete tcpResponse;
+                               delete udpResponse;
                                delete udpDnsRequest;
                            });
-
-
 }

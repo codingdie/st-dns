@@ -6,8 +6,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Os")
 
 
 find_package(Boost 1.66.0 REQUIRED COMPONENTS system program_options)
-find_package(openssl 1.1.1 REQUIRED)
-find_package(OpenSSL REQUIRED)
+find_package(OpenSSL 1.1.1 REQUIRED)
 if (OPENSSL_FOUND)
     if (APPLE)
         set(OPENSSL_LIBRARIES "${_OPENSSL_LINK_LIBRARIES}")

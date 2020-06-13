@@ -8,6 +8,7 @@
 #include <string>
 #include <chrono>
 #include <iostream>
+#include <mutex>
 
 #define END Logger::MASK::ENDL;
 

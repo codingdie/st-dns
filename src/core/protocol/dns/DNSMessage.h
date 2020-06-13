@@ -9,6 +9,8 @@
 #include <iostream>
 #include <vector>
 #include <cstdlib>
+#include <atomic>
+#include <cstring>
 
 typedef uint8_t byte;
 using namespace std;

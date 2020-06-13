@@ -108,7 +108,7 @@ UdpDNSResponse::UdpDNSResponse(uint16_t id, string host, vector<uint32_t> ips) {
     this->answerZones.emplace_back(pResourceZone);
     this->answerZonesSize = pResourceZone->len;
     this->ips = ips;
-    this->data = new byte[this->header->len]；
+    this->data = new byte[this->header->len];
 }
 
 void TcpDNSResponse::parse(uint64_t maxReadable) {

@@ -4,6 +4,9 @@
 
 #ifndef ST_DNS_TIMEUTILS_H
 #define ST_DNS_TIMEUTILS_H
+
+#include <chrono>
+
 namespace st {
     namespace utils {
         namespace time {

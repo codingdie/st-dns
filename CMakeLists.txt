@@ -2,10 +2,12 @@ cmake_minimum_required(VERSION 3.11)
 project(st-dns)
 
 set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lpthread")
+
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Os")
 
 
-find_package(Boost 1.66.0 REQUIRED COMPONENTS system program_options)
+find_package(Boost 1.66.0 REQUIRED COMPONENTS system program_options thread)
 find_package(OpenSSL 1.1.1 REQUIRED)
 if (OPENSSL_FOUND)
     if (APPLE)

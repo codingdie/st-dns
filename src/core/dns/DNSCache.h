@@ -9,7 +9,7 @@
 #include <map>
 #include <iostream>
 #include "DNS.h"
-
+#include <mutex>
 using namespace std;
 
 class DNSCache {

@@ -42,7 +42,7 @@ void testParallel(FUNC testMethod, int count) {
     threadPool.join();
     long end = now();
     long timeToal = (end - begin);
-    Logger::INFO << timeToal << timeToal * 1.0 / count << successNum.__a_ * 1.0 / count * 100 << END;
+    Logger::INFO << timeToal << timeToal * 1.0 / count << successNum * 1.0 / count * 100 << END;
 }
 
 

@@ -55,11 +55,10 @@ namespace st {
 
         static string join(vector<string> &lists, const char *delimit) {
             string result;
-            for (auto i = 0; i < lists.size(); i++) {
+            for (auto value : lists) {
                 if (!result.empty()) {
                     result += delimit;
                 }
-                auto value = lists.at(i);
                 result += value;
             }
             return result;

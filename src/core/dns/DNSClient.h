@@ -5,6 +5,8 @@
 #ifndef ST_DNS_DNSCLIENT_H
 #define ST_DNS_DNSCLIENT_H
 
+static const int DEFAULT_DNS_PORT = 53;
+
 #include <string>
 #include <boost/asio/basic_datagram_socket.hpp>
 #include <boost/asio.hpp>
@@ -21,17 +23,21 @@ class DNSClient {
 public:
     static DNSClient instance;
 
-    static UdpDNSResponse *udpDns(std::string &domain, std::string &dnsServer);
+    static UdpDNSResponse *udpDns(const std::string &domain, const std::string &dnsServer);
 
-    static UdpDNSResponse *udpDns(std::vector<string> &domains, std::string &dnsServer);
+    static UdpDNSResponse *udpDns(std::vector<string> &domains, const std::string &dnsServer);
 
-    static TcpDNSResponse *tcpDns(const std::string &domain, std::string &dnsServer);
+    static UdpDNSResponse *udpDns(const std::string &domain, const std::string &dnsServer, uint32_t port);
 
-    static TcpDNSResponse *tcpDns(const std::string &domain, std::string &dnsServer, long timout);
+    static UdpDNSResponse *udpDns(std::vector<string> &domains, const std::string &dnsServer, uint32_t port);
 
-    static TcpDNSResponse *tcpDns(std::vector<string> &domains, std::string &dnsServer);
+    static TcpDNSResponse *tcpDns(const std::string &domain, const std::string &dnsServer);
 
-    static TcpDNSResponse *tcpDns(std::vector<string> &domains, std::string &dnsServer, long timout);
+    static TcpDNSResponse *tcpDns(const std::string &domain, const std::string &dnsServer, uint32_t timout);
+
+    static TcpDNSResponse *tcpDns(std::vector<string> &domains, const std::string &dnsServer);
+
+    static TcpDNSResponse *tcpDns(std::vector<string> &domains, const std::string &dnsServer, uint32_t timout);
 
     DNSClient();
 
@@ -46,11 +52,11 @@ private:
 
     thread *ioThread;
 
-    UdpDNSResponse *queryUdp(std::vector<string> &domains, std::string &dnsServer);
+    UdpDNSResponse *queryUdp(std::vector<string> &domains, const std::string &dnsServer, uint32_t port);
 
-    TcpDNSResponse *queryTcp(std::vector<string> &domains, std::string &dnsServer);
+    TcpDNSResponse *queryTcp(std::vector<string> &domains, const std::string &dnsServer);
 
-    TcpDNSResponse *queryTcp(std::vector<string> &domains, std::string &dnsServer, long timeout);
+    TcpDNSResponse *queryTcp(std::vector<string> &domains, const std::string &dnsServer, uint32_t timeout);
 };
 
 #endif //ST_DNS_DNSCLIENT_H

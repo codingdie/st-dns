@@ -8,6 +8,7 @@
 
 #include <iostream>
 #include <vector>
+#include <set>
 #include <cstdlib>
 #include <atomic>
 #include <cstring>
@@ -55,11 +56,10 @@ namespace st {
 
         static string join(vector<string> &lists, const char *delimit) {
             string result;
-            for (auto i = 0; i < lists.size(); i++) {
+            for (auto value : lists) {
                 if (!result.empty()) {
                     result += delimit;
                 }
-                auto value = lists.at(i);
                 result += value;
             }
             return result;
@@ -69,7 +69,8 @@ namespace st {
         static byte *write(byte *data, IntTypeB &result) {
             uint8_t len = sizeof(IntTypeB);
             for (uint8_t i = 0; i < len; i++) {
-                *(data + i) = ((0xFF << (len - i - 1)) & result);
+                auto i1 = (len - i - 1) * 8;
+                *(data + i) = (((0xFF << i1) & result) >> i1);
             }
             return data + len;
         }
@@ -89,6 +90,12 @@ private:
                 std::cout << 0;
             }
         }
+    }
+
+    static void printHex(byte value) {
+        char hexChars[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e'};
+        std::cout << hexChars[((value & 0b11110000U) >> 4)] << hexChars[(value & 0b00001111U)];
+
     }
 
 public:
@@ -130,6 +137,21 @@ public:
                     cout << endl;
                 }
                 printBit(data[i]);
+                std::cout << " ";
+
+            }
+            cout << endl;
+
+        }
+    }
+
+    virtual void printHex() const {
+        if (data != nullptr) {
+            for (int i = 0; i < len; i++) {
+                if (i != 0 && i % 8 == 0 && i != len) {
+                    cout << endl;
+                }
+                printHex(data[i]);
                 std::cout << " ";
 
             }
@@ -196,13 +218,22 @@ public:
 
     }
 
-    static DNSHeader *generate(uint16_t id, int hostCount) {
+    static DNSHeader *generate(uint16_t id, int hostCount, bool isAnswer) {
         auto *dnsHeader = new DNSHeader(DEFAULT_LEN);
         uint16_t tmpData[DEFAULT_LEN / 2];
         tmpData[0] = id;
         tmpData[1] = 0x0100;
-        tmpData[2] = hostCount;
-        tmpData[3] = 0;
+        if (isAnswer) {
+            tmpData[1] = 0x8000;
+        }
+        if (isAnswer) {
+            tmpData[2] = hostCount;
+            tmpData[3] = hostCount;
+        } else {
+            tmpData[2] = hostCount;
+            tmpData[3] = 0;
+        }
+
         tmpData[4] = 0;
         tmpData[5] = 0;
 
@@ -221,7 +252,7 @@ public:
     }
 
     static DNSHeader *generate(int hostCount) {
-        return generate(DnsIdGenerator::id16(), 1);
+        return generate(DnsIdGenerator::id16(), hostCount, false);
     }
 
     void updateId(uint16_t id) {
@@ -423,7 +454,7 @@ public:
         while (resetSize > 0 && this->querys.size() < size) {
             auto query = new DNSQuery(data, len);
             if (query->isValid()) {
-                this->querys.emplace_back(query);
+                this->querys.push_back(query);
             } else {
                 this->markInValid();
                 break;
@@ -475,7 +506,7 @@ public:
     uint16_t resource = 0;
     uint32_t liveTime = 0;
     uint16_t length = 0;
-    vector<uint32_t> ipv4s;
+    set<uint32_t> ipv4s;
 
     virtual ~DNSResourceZone() {
         if (domain != nullptr) {
@@ -526,7 +557,7 @@ public:
                     for (auto i = 0; i < length / 4; i++) {
                         uint32_t ipv4 = 0;
                         st::utils::read(curBegin + i * 4, ipv4);
-                        ipv4s.emplace_back(ipv4);
+                        ipv4s.emplace(ipv4);
                     }
                     this->len = size;
                 } else {
@@ -537,11 +568,10 @@ public:
         }
     }
 
-    static DNSResourceZone *generate(vector<uint32_t> ips) {
+    static DNSResourceZone *generate(set<uint32_t> ips) {
         uint32_t size = 2 + 2 + 2 + 4 + 2 + 4 * ips.size();
         DNSResourceZone *resourceZone = new DNSResourceZone(size);
         resourceZone->len = size;
-
         byte *data1 = resourceZone->data;
         //domain
         *data1 = 0b11000000;
@@ -564,6 +594,7 @@ public:
         for (uint32_t ip:ips) {
             data1 = st::utils::write(data1, ip);
         }
+        return resourceZone;
     }
 
 };

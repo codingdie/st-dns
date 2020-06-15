@@ -20,15 +20,20 @@ namespace st {
             Config() = default;
 
             Config(string filename) {
-                ptree tree;
-                try {
-                    read_json(filename, tree);
-                } catch (json_parser_error e) {
-                    Logger::ERROR << " parse config file " + filename + " error!" << e.message() << END;
-                    exit(1);
+                fstream fileStream;
+                fileStream.open(filename, ios::in);
+                if (fileStream) {
+                    fileStream.close();
+                    ptree tree;
+                    try {
+                        read_json(filename, tree);
+                    } catch (json_parser_error e) {
+                        Logger::ERROR << " parse config file " + filename + " error!" << e.message() << END;
+                        exit(1);
+                    }
+                    this->ip = tree.get("ip", string("127.0.0.1"));
+                    this->port = stoi(tree.get("port", string("1080")));
                 }
-                this->ip = tree.get("ip", string("127.0.0.1"));
-                this->port = stoi(tree.get("port", string("1080")));
             }
 
             string ip = "127.0.0.1";

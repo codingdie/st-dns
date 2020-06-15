@@ -15,7 +15,7 @@ using namespace std;
 
 
 DNSServer::DNSServer(st::dns::Config &config) : config(config), pool(10) {
-    socketS = new udp::socket(ioContext, udp::endpoint(udp::v4(), 53));
+    socketS = new udp::socket(ioContext, udp::endpoint(udp::v4(), 553));
 }
 
 

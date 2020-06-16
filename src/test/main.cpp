@@ -54,8 +54,8 @@ int main(int argc, char *argv[]) {
 void testUdp() {
     testParallel([]() {
         string domain = "google.com";
-        string server = "192.168.21.1";
-        auto dnsResponse = DNSClient::udpDns(domain, server);
+        string server = "127.0.0.1";
+        auto dnsResponse = DNSClient::udpDns(domain, server, (uint32_t) 553);
         if (dnsResponse != nullptr) {
             Logger::INFO << "success" << dnsResponse->header->id
                          << dnsResponse->queryZone->querys.front()->domain->domain << dnsResponse->header->id

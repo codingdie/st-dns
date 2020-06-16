@@ -563,6 +563,7 @@ public:
         for (uint32_t ip:ips) {
             data1 = st::utils::write(data1, ip);
         }
+        return resourceZone;
     }
 
 };

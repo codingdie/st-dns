@@ -23,6 +23,7 @@ void DNSServer::start() {
     Logger::INFO << "server stared" << END;
     receive();
     ioContext.run();
+    Logger::INFO << "server end" << END;
 
 }
 
@@ -59,7 +60,6 @@ void DNSServer::proxyDnsOverTcpTls(UdpDnsRequest *udpDnsRequest) {
         }
         delete tcpResponse;
     }
-    delete udpDnsRequest;
     UdpDNSResponse *udpResponse = new UdpDNSResponse(id, host, ips);
     socketS->async_send_to(buffer(udpResponse->data, udpResponse->len), clientEndpoint,
                            [&](boost::system::error_code writeError, size_t writeSize) {
@@ -68,5 +68,8 @@ void DNSServer::proxyDnsOverTcpTls(UdpDnsRequest *udpDnsRequest) {
                                             << ipsToStr(udpResponse->ips) << END;
                                delete udpResponse;
                                delete udpDnsRequest;
+                               Logger::INFO << "proxy success2!"
+                                            << st::utils::join(udpDnsRequest->dnsQueryZone->hosts, ",")
+                                            << ipsToStr(udpResponse->ips) << END;
                            });
 }

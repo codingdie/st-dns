@@ -10,11 +10,21 @@ DNSClient DNSClient::instance;
 UdpDNSResponse *DNSClient::udpDns(string &domain, string &dnsServer) {
     vector<string> domains;
     domains.emplace_back(domain);
-    return instance.queryUdp(domains, dnsServer);
+    return instance.udpDns(domains, dnsServer, DEFAULT_DNS_PORT);
 }
 
 UdpDNSResponse *DNSClient::udpDns(vector<string> &domains, string &dnsServer) {
-    return instance.queryUdp(domains, dnsServer);
+    return instance.udpDns(domains, dnsServer, DEFAULT_DNS_PORT);
+}
+
+UdpDNSResponse *DNSClient::udpDns(string &domain, string &dnsServer, uint32_t port) {
+    vector<string> domains;
+    domains.emplace_back(domain);
+    return instance.queryUdp(domains, dnsServer, port);
+}
+
+UdpDNSResponse *DNSClient::udpDns(vector<string> &domains, string &dnsServer, uint32_t port) {
+    return instance.queryUdp(domains, dnsServer, port);
 }
 
 
@@ -38,7 +48,7 @@ TcpDNSResponse *DNSClient::tcpDns(vector<string> &domains, string &dnsServer, lo
 }
 
 
-UdpDNSResponse *DNSClient::queryUdp(vector<string> &domains, string &dnsServer) {
+UdpDNSResponse *DNSClient::queryUdp(vector<string> &domains, string &dnsServer, uint32_t port) {
     udp::socket socket(ioContext, udp::endpoint(udp::v4(), 0));
     UdpDnsRequest dnsRequest(domains);
     udp::endpoint serverEndpoint;
@@ -46,7 +56,7 @@ UdpDNSResponse *DNSClient::queryUdp(vector<string> &domains, string &dnsServer) 
     unsigned short qid = dnsRequest.dnsHeader->id;
     UdpDNSResponse *dnsResponse = nullptr;
     std::future<size_t> future = socket.async_send_to(buffer(dnsRequest.data, dnsRequest.len),
-                                                      udp::endpoint(make_address_v4(dnsServer), 53),
+                                                      udp::endpoint(make_address_v4(dnsServer), port),
                                                       boost::asio::use_future);
     future_status status = future.wait_for(std::chrono::milliseconds(1500));
     if (status != std::future_status::ready) {
@@ -189,7 +199,7 @@ TcpDNSResponse *DNSClient::queryTcp(vector<string> &domains, string &dnsServer, 
                 }
                 if (dnsResponse->udpDnsResponse->header->responseCode != 0) {
                     Logger::ERROR << dnsRequest.dnsHeader->id << "receive error responseCode"
-                            << dnsResponse->udpDnsResponse->header->responseCode << END;
+                                  << dnsResponse->udpDnsResponse->header->responseCode << END;
                     error = true;
                 }
             }

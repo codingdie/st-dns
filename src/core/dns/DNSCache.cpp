@@ -36,9 +36,12 @@ uint32_t DNSCache::queryRandom(const string &host) {
 
 vector<uint32_t> DNSCache::query(const string &host) {
     std::vector<uint32_t> result;
-    vector<uint32_t> *vector = INSTANCE.caches.at(host);
+    vector<uint32_t> *vector = INSTANCE.caches.find(host)->second;
     if (vector != nullptr && !vector->empty()) {
-        result = *vector;
+        for (auto it = vector->begin(); it < vector->end(); it++) {
+            uint32_t args = *it.base();
+            result.emplace_back(args);
+        }
     }
     return result;
 }

@@ -5,6 +5,8 @@
 #ifndef ST_DNS_DNSCLIENT_H
 #define ST_DNS_DNSCLIENT_H
 
+static const int DEFAULT_DNS_PORT = 53;
+
 #include <string>
 #include <boost/asio/basic_datagram_socket.hpp>
 #include <boost/asio.hpp>
@@ -24,6 +26,10 @@ public:
     static UdpDNSResponse *udpDns(std::string &domain, std::string &dnsServer);
 
     static UdpDNSResponse *udpDns(std::vector<string> &domains, std::string &dnsServer);
+
+    static UdpDNSResponse *udpDns(std::string &domain, std::string &dnsServer, uint32_t port);
+
+    static UdpDNSResponse *udpDns(std::vector<string> &domains, std::string &dnsServer, uint32_t port);
 
     static TcpDNSResponse *tcpDns(const std::string &domain, std::string &dnsServer);
 
@@ -46,7 +52,7 @@ private:
 
     thread *ioThread;
 
-    UdpDNSResponse *queryUdp(std::vector<string> &domains, std::string &dnsServer);
+    UdpDNSResponse *queryUdp(std::vector<string> &domains, std::string &dnsServer, uint32_t port);
 
     TcpDNSResponse *queryTcp(std::vector<string> &domains, std::string &dnsServer);
 

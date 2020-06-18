@@ -31,13 +31,14 @@ void UdpDnsRequest::initDataZone() {
 }
 
 UdpDnsRequest::~UdpDnsRequest() {
-    delete dnsHeader;
-    delete dnsQueryZone;
+    if (dnsHeader != nullptr) {
+        delete dnsHeader;
+    }
+    if (dnsQueryZone != nullptr) {
+        delete dnsQueryZone;
+    }
 }
 
-UdpDnsRequest::UdpDnsRequest(byte *data, uint64_t len) : BasicData(data, len) {
-    parse();
-}
 
 bool UdpDnsRequest::parse() {
     if (len > DNSHeader::DEFAULT_LEN) {
@@ -47,6 +48,10 @@ bool UdpDnsRequest::parse() {
             DNSQueryZone *queryZone = new DNSQueryZone(data + DNSHeader::DEFAULT_LEN, len - DNSHeader::DEFAULT_LEN,
                                                        header->questionCount);
             if (queryZone->isValid()) {
+                if (queryZone->querys.size() == 0) {
+                    this->printHex();
+                    cout << "123" << endl;
+                }
                 dnsQueryZone = queryZone;
                 for (auto it:queryZone->querys) {
                     this->hosts.emplace_back(it->domain->domain);
@@ -63,7 +68,7 @@ bool UdpDnsRequest::parse() {
     return isValid();
 }
 
-UdpDnsRequest::UdpDnsRequest(byte *data, uint64_t len, bool dataOwner) : UdpDnsRequest(data, len) {
+UdpDnsRequest::UdpDnsRequest(byte *data, uint64_t len, bool dataOwner) : BasicData(data, len) {
     this->setDataOwner(dataOwner);
 }
 
@@ -74,6 +79,8 @@ UdpDnsRequest::UdpDnsRequest(uint64_t len) : BasicData(len) {
 string UdpDnsRequest::getFirstHost() {
     return hosts.front();
 }
+
+UdpDnsRequest::UdpDnsRequest() {}
 
 TcpDnsRequest::TcpDnsRequest(vector<std::string> &hosts) {
     this->data = data;

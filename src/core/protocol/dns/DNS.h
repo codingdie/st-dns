@@ -18,7 +18,8 @@ static string ipToStr(uint32_t ip) {
     return ipStr;
 }
 
-static string ipsToStr(vector<uint32_t> &ips) {
+template<typename Collection>
+static string ipsToStr(Collection &ips) {
     string ipStr;
     for (uint32_t ip:ips) {
         ipStr += ipToStr(ip);

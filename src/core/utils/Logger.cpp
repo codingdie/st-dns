@@ -38,7 +38,7 @@ Logger &Logger::operator<<(const char *log) {
     return *this;
 }
 
-Logger::Logger(string tag) : tag(std::move(tag)) {}
+Logger::Logger(string tag) : tag(tag) {}
 
 Logger &Logger::operator<<(const string &string) {
     appendStr(string);

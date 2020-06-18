@@ -72,7 +72,7 @@ void UdpDNSResponse::parse(uint64_t maxReadable) {
                                     answerZones.emplace_back(answer);
                                     if (answer->ipv4s.size() != 0) {
                                         for (auto ip:answer->ipv4s) {
-                                            this->ips.emplace_back(ip);
+                                            this->ips.emplace(ip);
                                         }
                                     }
                                 } else {
@@ -101,14 +101,26 @@ UdpDNSResponse::UdpDNSResponse(byte *data, uint64_t len) : BasicData(data, len) 
 
 }
 
-UdpDNSResponse::UdpDNSResponse(uint16_t id, string host, vector<uint32_t> ips) {
-    this->header = DNSHeader::generate(id, 1);
+UdpDNSResponse::UdpDNSResponse(uint16_t id, string host, set<uint32_t> ips) {
+    this->header = DNSHeader::generate(id, 1, true);
     this->queryZone = DNSQueryZone::generate(host);
     DNSResourceZone *pResourceZone = DNSResourceZone::generate(ips);
     this->answerZones.emplace_back(pResourceZone);
     this->answerZonesSize = pResourceZone->len;
     this->ips = ips;
-    this->data = new byte[this->header->len];
+    this->len = this->header->len + this->queryZone->len + this->answerZonesSize;
+    this->data = new byte[this->len];
+    this->setDataOwner(true);
+    auto ptr = this->data;
+    st::utils::copy(this->header->data, ptr, this->header->len);
+    ptr += this->header->len;
+    st::utils::copy(this->queryZone->data, ptr, this->queryZone->len);
+    ptr += this->queryZone->len;
+    for (auto it = this->answerZones.begin(); it < this->answerZones.end(); it++) {
+        DNSResourceZone *pZone = *it.base();
+        st::utils::copy(pZone->data, ptr, pZone->len);
+        ptr += pZone->len;
+    }
 }
 
 void TcpDNSResponse::parse(uint64_t maxReadable) {

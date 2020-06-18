@@ -17,17 +17,17 @@ public:
     DNSQueryZone *dnsQueryZone = nullptr;
     std::vector<string> hosts;
 
-    UdpDnsRequest() = default;
 
     UdpDnsRequest(vector<std::string> &hosts);
 
-    UdpDnsRequest(byte *data, uint64_t len);
 
     UdpDnsRequest(byte *data, uint64_t len, bool dataOwner);
 
-    explicit UdpDnsRequest(uint64_t len);
+    UdpDnsRequest(uint64_t len);
 
-    virtual ~UdpDnsRequest();
+    UdpDnsRequest();
+
+    ~UdpDnsRequest();
 
     bool parse();
 

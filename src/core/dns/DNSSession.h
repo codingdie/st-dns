@@ -10,10 +10,10 @@
 
 class DNSSession {
 public:
-    boost::asio::ip::udp::endpoint *clientEndpoint = nullptr;
-    UdpDnsRequest *udpDnsRequest = nullptr;
+    boost::asio::ip::udp::endpoint clientEndpoint;
+    UdpDnsRequest udpDnsRequest = UdpDnsRequest(1024);
 
-    DNSSession(UdpDnsRequest *udpDnsRequest, boost::asio::ip::udp::endpoint clientEndpoint);
+    DNSSession();
 
     virtual ~DNSSession();
 

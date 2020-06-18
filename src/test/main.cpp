@@ -27,8 +27,8 @@ long now() {
 }
 
 template<typename FUNC>
-void testParallel(FUNC testMethod, int count) {
-    boost::asio::thread_pool threadPool(1);
+void testParallel(FUNC testMethod, int count, int parral) {
+    boost::asio::thread_pool threadPool(parral);
     long begin = now();
     atomic_int64_t successNum(0);
     for (int i = 0; i < count; i++) {
@@ -54,8 +54,9 @@ int main(int argc, char *argv[]) {
 void testUdp() {
     testParallel([]() {
         string domain = "google.com";
-        string server = "127.0.0.1";
-        auto dnsResponse = DNSClient::udpDns(domain, server, (uint32_t) 553);
+        string server = "192.168.31.164";
+//        string server = "192.168.31.1";
+        auto dnsResponse = DNSClient::udpDns(domain, server, (uint32_t) 53);
         if (dnsResponse != nullptr) {
             Logger::INFO << "success" << dnsResponse->header->id
                          << dnsResponse->queryZone->querys.front()->domain->domain << dnsResponse->header->id
@@ -64,7 +65,7 @@ void testUdp() {
             return true;
         }
         return false;
-    }, 1);
+    }, 1000000, 100);
 }
 
 void testTcp() {
@@ -81,5 +82,5 @@ void testTcp() {
             return true;
         }
         return false;
-    }, 1);
+    }, 10, 5);
 }

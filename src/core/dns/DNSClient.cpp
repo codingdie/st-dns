@@ -7,48 +7,48 @@
 DNSClient DNSClient::instance;
 
 
-UdpDNSResponse *DNSClient::udpDns(string &domain, string &dnsServer) {
+UdpDNSResponse *DNSClient::udpDns(const std::string &domain, const string &dnsServer) {
     vector<string> domains;
     domains.emplace_back(domain);
     return instance.udpDns(domains, dnsServer, DEFAULT_DNS_PORT);
 }
 
-UdpDNSResponse *DNSClient::udpDns(vector<string> &domains, string &dnsServer) {
+UdpDNSResponse *DNSClient::udpDns(vector<string> &domains, const string &dnsServer) {
     return instance.udpDns(domains, dnsServer, DEFAULT_DNS_PORT);
 }
 
-UdpDNSResponse *DNSClient::udpDns(string &domain, string &dnsServer, uint32_t port) {
+UdpDNSResponse *DNSClient::udpDns(const std::string &domain, const string &dnsServer, uint32_t port) {
     vector<string> domains;
     domains.emplace_back(domain);
     return instance.queryUdp(domains, dnsServer, port);
 }
 
-UdpDNSResponse *DNSClient::udpDns(vector<string> &domains, string &dnsServer, uint32_t port) {
+UdpDNSResponse *DNSClient::udpDns(vector<string> &domains, const string &dnsServer, uint32_t port) {
     return instance.queryUdp(domains, dnsServer, port);
 }
 
 
-TcpDNSResponse *DNSClient::tcpDns(const string &domain, string &dnsServer) {
-    return tcpDns(domain, dnsServer, 5000);
+TcpDNSResponse *DNSClient::tcpDns(const string &domain, const string &dnsServer) {
+    return tcpDns(domain, dnsServer, (uint32_t) 5000);
 }
 
-TcpDNSResponse *DNSClient::tcpDns(const string &domain, string &dnsServer, long timeout) {
+TcpDNSResponse *DNSClient::tcpDns(const string &domain, const string &dnsServer, uint32_t timeout) {
     vector<string> domains;
     domains.emplace_back(domain);
     return tcpDns(domains, dnsServer, timeout);
 }
 
-TcpDNSResponse *DNSClient::tcpDns(vector<string> &domains, string &dnsServer) {
-    return tcpDns(domains, dnsServer, 5000);
+TcpDNSResponse *DNSClient::tcpDns(vector<string> &domains, const string &dnsServer) {
+    return tcpDns(domains, dnsServer, (uint32_t) 5000);
 }
 
 
-TcpDNSResponse *DNSClient::tcpDns(vector<string> &domains, string &dnsServer, long timout) {
+TcpDNSResponse *DNSClient::tcpDns(vector<string> &domains, const string &dnsServer, uint32_t timout) {
     return instance.queryTcp(domains, dnsServer, timout);
 }
 
 
-UdpDNSResponse *DNSClient::queryUdp(vector<string> &domains, string &dnsServer, uint32_t port) {
+UdpDNSResponse *DNSClient::queryUdp(vector<string> &domains, const string &dnsServer, uint32_t port) {
     udp::socket socket(ioContext, udp::endpoint(udp::v4(), 0));
     UdpDnsRequest dnsRequest(domains);
     udp::endpoint serverEndpoint;
@@ -106,11 +106,11 @@ DNSClient::DNSClient() {
     });
 }
 
-TcpDNSResponse *DNSClient::queryTcp(vector<string> &domains, string &dnsServer) {
+TcpDNSResponse *DNSClient::queryTcp(vector<string> &domains, const string &dnsServer) {
     return queryTcp(domains, dnsServer, 5000);
 }
 
-TcpDNSResponse *DNSClient::queryTcp(vector<string> &domains, string &dnsServer, long timeout) {
+TcpDNSResponse *DNSClient::queryTcp(vector<string> &domains, const string &dnsServer, uint32_t timeout) {
     const basic_endpoint<tcp> localEndpoint = tcp::endpoint(tcp::v4(), 0);
     tcp::endpoint serverEndpoint(make_address_v4(dnsServer), 853);
     TcpDnsRequest dnsRequest(domains);

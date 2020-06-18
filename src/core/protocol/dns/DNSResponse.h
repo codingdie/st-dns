@@ -17,9 +17,9 @@ public:
     DNSQueryZone *queryZone = nullptr;
     vector<DNSResourceZone *> answerZones;
     uint32_t answerZonesSize = 0;
-    vector<uint32_t> ips;
+    set<uint32_t> ips;
 
-    UdpDNSResponse(uint16_t id, string host, vector<uint32_t> ips);
+    UdpDNSResponse(uint16_t id, string host, set<uint32_t> ips);
 
     UdpDNSResponse(byte *data, uint64_t len);
 

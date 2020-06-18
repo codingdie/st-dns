@@ -15,30 +15,32 @@ using namespace std;
 
 
 DNSServer::DNSServer(st::dns::Config &config) : config(config), pool(10) {
-    socketS = new udp::socket(ioContext, udp::endpoint(udp::v4(), 553));
+    socketS = new udp::socket(ioContext, udp::endpoint(udp::v4(), 53));
 }
 
 
 void DNSServer::start() {
-    Logger::INFO << "server stared" << END;
-    receive();
-    ioContext.run();
+    boost::asio::io_context::work ioContextWork(ioContext);
+    thread ioThread([this]() {
+        receive();
+        ioContext.run();
+    });
+    ioThread.join();
     Logger::INFO << "server end" << END;
-
 }
 
 void DNSServer::receive() {
-    socketS->async_receive_from(buffer(bufferData, 1024), clientEndpoint,
-                                [&](boost::system::error_code errorCode, std::size_t size) {
-                                    Logger::INFO << "receive" << i++ << END;
+    DNSSession *session = new DNSSession();
+    socketS->async_receive_from(buffer(session->udpDnsRequest.data, session->udpDnsRequest.len),
+                                session->clientEndpoint,
+                                [=, this](boost::system::error_code errorCode, std::size_t size) {
                                     if (!errorCode && size > 0) {
-                                        boost::asio::post(pool, [&] {
-                                            UdpDnsRequest *udpDnsRequest = new UdpDnsRequest(size);
-                                            st::utils::copy(bufferData, udpDnsRequest->data, size);
-                                            if (udpDnsRequest->parse()) {
-                                                proxyDnsOverTcpTls(udpDnsRequest);
+                                        boost::asio::post(pool, [=, this] {
+                                            session->udpDnsRequest.len = size;
+                                            if (session->udpDnsRequest.parse()) {
+                                                proxyDnsOverTcpTls(session);
                                             } else {
-                                                delete udpDnsRequest;
+                                                delete session;
                                                 Logger::ERROR << "invalid dns request" << END;
                                             }
 
@@ -49,27 +51,35 @@ void DNSServer::receive() {
 
 }
 
-void DNSServer::proxyDnsOverTcpTls(UdpDnsRequest *udpDnsRequest) {
-    auto id = udpDnsRequest->dnsHeader->id;
-    auto host = udpDnsRequest->getFirstHost();
+void DNSServer::proxyDnsOverTcpTls(DNSSession *session) {
+    UdpDnsRequest &request = session->udpDnsRequest;
+    udp::endpoint &clientEndpoint = session->clientEndpoint;
+    auto id = request.dnsHeader->id;
+    auto host = request.getFirstHost();
+    set<uint32_t> ips = queryDNS(host);
+    UdpDNSResponse *udpResponse = new UdpDNSResponse(id, host, ips);
+    socketS->async_send_to(buffer(udpResponse->data, udpResponse->len), clientEndpoint,
+                           [udpResponse, &request, &clientEndpoint, session](boost::system::error_code writeError,
+                                                                             size_t writeSize) {
+                               Logger::INFO << "proxy success!" << clientEndpoint.address().to_string()
+                                            << request.getFirstHost() << request.getFirstHost()
+                                            << ipsToStr(udpResponse->ips) << END;
+                               delete udpResponse;
+                               delete session;
+                           });
+}
+
+set<uint32_t> DNSServer::queryDNS(const string &host) const {
     auto ips = DNSCache::query(host);
     if (ips.empty()) {
         auto tcpResponse = DNSClient::tcpDns(host, config.dnsServer, 3000);
         if (tcpResponse != nullptr && tcpResponse->isValid()) {
             ips = tcpResponse->udpDnsResponse->ips;
+            DNSCache::addCache(tcpResponse->udpDnsResponse);
         }
-        delete tcpResponse;
+        if (tcpResponse != nullptr) {
+            delete tcpResponse;
+        }
     }
-    UdpDNSResponse *udpResponse = new UdpDNSResponse(id, host, ips);
-    socketS->async_send_to(buffer(udpResponse->data, udpResponse->len), clientEndpoint,
-                           [&](boost::system::error_code writeError, size_t writeSize) {
-                               Logger::INFO << "proxy success!"
-                                            << st::utils::join(udpDnsRequest->dnsQueryZone->hosts, ",")
-                                            << ipsToStr(udpResponse->ips) << END;
-                               delete udpResponse;
-                               delete udpDnsRequest;
-                               Logger::INFO << "proxy success2!"
-                                            << st::utils::join(udpDnsRequest->dnsQueryZone->hosts, ",")
-                                            << ipsToStr(udpResponse->ips) << END;
-                           });
+    return ips;
 }

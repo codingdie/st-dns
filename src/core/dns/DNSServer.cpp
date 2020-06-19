@@ -59,11 +59,11 @@ void DNSServer::proxyDnsOverTcpTls(DNSSession *session) {
     set<uint32_t> ips = queryDNS(host);
     UdpDNSResponse *udpResponse = new UdpDNSResponse(id, host, ips);
     socketS->async_send_to(buffer(udpResponse->data, udpResponse->len), clientEndpoint,
-                           [udpResponse, &request, &clientEndpoint, session](boost::system::error_code writeError,
-                                                                             size_t writeSize) {
-                               Logger::INFO << "proxy success!" << clientEndpoint.address().to_string()
-                                            << request.getFirstHost() << request.getFirstHost()
-                                            << ipsToStr(udpResponse->ips) << END;
+                           [udpResponse, session](boost::system::error_code writeError, size_t writeSize) {
+                               Logger::INFO << "proxy success!" << session->clientEndpoint.address().to_string()
+                                            << session->udpDnsRequest.getFirstHost()
+                                            << session->udpDnsRequest.getFirstHost() << ipsToStr(udpResponse->ips)
+                                            << END;
                                delete udpResponse;
                                delete session;
                            });

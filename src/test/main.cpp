@@ -53,8 +53,9 @@ int main(int argc, char *argv[]) {
 
 void testUdp() {
     testParallel([]() {
-        string domain = "google.com";
+        string domain = "baidu.com";
         string server = "192.168.31.164";
+
 //        string server = "192.168.31.1";
         auto dnsResponse = DNSClient::udpDns(domain, server, (uint32_t) 53);
         if (dnsResponse != nullptr) {
@@ -65,12 +66,12 @@ void testUdp() {
             return true;
         }
         return false;
-    }, 1000000, 100);
+    }, 1000, 10);
 }
 
 void testTcp() {
     testParallel([]() {
-        string domain = "google.com";
+        string domain = "baidu.com";
         string server = "8.8.8.8";
         auto tcpDnsResponse = DNSClient::tcpDns(domain, server);
         if (tcpDnsResponse != nullptr) {

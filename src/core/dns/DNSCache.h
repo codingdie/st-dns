@@ -10,14 +10,16 @@
 #include <iostream>
 #include "DNS.h"
 #include <mutex>
+
 using namespace std;
 
 class DNSCache {
 private:
     static DNSCache INSTANCE;
-    map<string, set<uint32_t> *> caches;
+    map<string, map<string, set<uint32_t> *> *> caches;
 public:
-    static void addCache(UdpDNSResponse *response);
+
+    static void addCache(const string &domain, const set<uint32_t> &ips, const string &dnsServer);
 
     static set<uint32_t> query(const string &host);
 };

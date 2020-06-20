@@ -7,6 +7,7 @@
 
 #include "TimeUtils.h"
 #include "Logger.h"
+#include "FileUtils.h"
 
 using namespace st::utils;
 #endif //ST_DNS_UTILS_H

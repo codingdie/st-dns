@@ -7,7 +7,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lpthread -Wall -g")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Os")
 
 
-find_package(Boost 1.66.0 REQUIRED COMPONENTS system program_options thread)
+find_package(Boost 1.66.0 REQUIRED COMPONENTS system program_options thread filesystem)
 find_package(OpenSSL 1.1.1 REQUIRED)
 message("${OPENSSL_LIBRARIES}")
 

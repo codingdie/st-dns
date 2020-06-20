@@ -5,7 +5,7 @@
     {
       "type": "TCP_SSL",
       "ip": "8.8.8.8",
-      "port": 883
+      "port": 853
     }
   ],
   "cacheFile": "/etc/std-dns/hosts"

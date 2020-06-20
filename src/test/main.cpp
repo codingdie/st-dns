@@ -47,7 +47,7 @@ void testParallel(FUNC testMethod, int count, int parral) {
 }
 
 int main(int argc, char *argv[]) {
-    testUdp("baidu.com", "192.168.31.164", 1000, 10);
+    testUdp("google.com", "192.168.31.164", 10, 1);
 }
 
 void testUdp(const string &domain, const string &server, const int count, const int parral) {
@@ -68,7 +68,7 @@ void testTcp() {
     testParallel([]() {
         string domain = "baidu.com";
         string server = "8.8.8.8";
-        auto tcpDnsResponse = DNSClient::tcpDns(domain, server);
+        auto tcpDnsResponse = DNSClient::tcpDns(domain, server, 883, 5000);
         if (tcpDnsResponse != nullptr) {
             UdpDNSResponse *dnsResponse = tcpDnsResponse->udpDnsResponse;
             Logger::INFO << "success" << dnsResponse->header->id

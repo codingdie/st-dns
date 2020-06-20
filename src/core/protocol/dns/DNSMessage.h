@@ -467,7 +467,7 @@ public:
 
     }
 
-    static DNSQueryZone *generate(vector<string> &hosts) {
+    static DNSQueryZone *generate(const vector<string> &hosts) {
         vector<DNSQuery *> domains;
         uint32_t size = 0;
         for (auto it = hosts.begin(); it < hosts.end(); it++) {

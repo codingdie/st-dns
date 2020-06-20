@@ -6,8 +6,9 @@
 #define ST_DNS_CONFIG_H
 
 #include <string>
+#include <vector>
 #include <boost/property_tree/json_parser.hpp>
-#include "STUtils.h"
+#include "Utils.h"
 
 using namespace std;
 using namespace boost::property_tree;
@@ -15,8 +16,18 @@ using namespace boost::property_tree;
 using namespace std;
 namespace st {
     namespace dns {
+
+        class RemoteDNSServer {
+
+        };
+
         class Config {
         public:
+            string ip = "127.0.0.1";
+            int port = 53;
+            string dnsServer = "8.8.8.8";
+            vector<RemoteDNSServer> servers;
+
             Config() = default;
 
             Config(string filename) {
@@ -33,12 +44,14 @@ namespace st {
                     }
                     this->ip = tree.get("ip", string("127.0.0.1"));
                     this->port = stoi(tree.get("port", string("1080")));
+                    auto serversNode = tree.get_child("servers");
+                    for (int i = 0; i < serversNode.size(); i++) {
+                        auto c = serversNode.get(i);
+                    }
+
                 }
             }
 
-            string ip = "127.0.0.1";
-            int port = 53;
-            string dnsServer = "8.8.8.8";
         };
 
     }

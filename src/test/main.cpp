@@ -13,7 +13,7 @@
 
 void testTcp();
 
-void testUdp();
+void testUdp(const string &domain, const string &server, const int count, const int parral);
 
 using namespace std;
 using namespace std::chrono;
@@ -47,16 +47,11 @@ void testParallel(FUNC testMethod, int count, int parral) {
 }
 
 int main(int argc, char *argv[]) {
-
-    testUdp();
+    testUdp("baidu.com", "192.168.31.164", 1000, 10);
 }
 
-void testUdp() {
-    testParallel([]() {
-        string domain = "baidu.com";
-        string server = "192.168.31.164";
-
-//        string server = "192.168.31.1";
+void testUdp(const string &domain, const string &server, const int count, const int parral) {
+    testParallel([=]() {
         auto dnsResponse = DNSClient::udpDns(domain, server, (uint32_t) 53);
         if (dnsResponse != nullptr) {
             Logger::INFO << "success" << dnsResponse->header->id
@@ -66,7 +61,7 @@ void testUdp() {
             return true;
         }
         return false;
-    }, 1000, 10);
+    }, count, parral);
 }
 
 void testTcp() {

@@ -22,7 +22,7 @@ include_directories(src/core/utils)
 file(GLOB_RECURSE SOURCE_FILES ./src/core/*.cpp)
 
 message("${SOURCE_FILES}")
-add_executable(st-dns src/server/main.cpp ${SOURCE_FILES})
+add_executable(st-dns src/server/DNSServer.cpp ${SOURCE_FILES})
 add_executable(st-dns-test src/test/main.cpp ${SOURCE_FILES})
 
 target_link_libraries(st-dns ${Boost_LIBRARIES} ${OPENSSL_LIBRARIES})

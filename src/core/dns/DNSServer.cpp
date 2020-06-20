@@ -7,7 +7,7 @@
 #include <boost/thread.hpp>
 #include "DNS.h"
 #include "DNSClient.h"
-#include "STUtils.h"
+#include "Utils.h"
 #include "DNSCache.h"
 
 using namespace std::placeholders;

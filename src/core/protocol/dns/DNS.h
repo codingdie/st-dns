@@ -3,7 +3,7 @@
 
 
 #include "DNSMessage.h"
-#include "DnsRequest.h"
+#include "DNSRequest.h"
 #include "DNSResponse.h"
 
 static string ipToStr(uint32_t ip) {

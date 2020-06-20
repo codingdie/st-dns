@@ -1,13 +1,11 @@
 {
-  "ip": "127.0.0.1",
+  "ip": "0.0.0.0",
   "port": "53",
   "servers": [
     {
       "type": "TCP_SSL",
       "ip": "8.8.8.8",
-      "port": 883,
-      "whitelistPath": "/etc/st-dns/whitelist/8_8_8_8_883.whitelist",
-      "blacklistPath": "/etc/st-dns/blacklist/8_8_8_8_883.blacklist"
+      "port": 883
     }
   ],
   "cacheFile": "/etc/std-dns/hosts"

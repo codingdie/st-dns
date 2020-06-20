@@ -111,7 +111,6 @@ TcpDNSResponse *DNSClient::queryTcp(vector<string> &domains, const string &dnsSe
 }
 
 TcpDNSResponse *DNSClient::queryTcp(vector<string> &domains, const string &dnsServer, uint32_t timeout) {
-    const basic_endpoint<tcp> localEndpoint = tcp::endpoint(tcp::v4(), 0);
     tcp::endpoint serverEndpoint(make_address_v4(dnsServer), 853);
     TcpDnsRequest dnsRequest(domains);
     unsigned short qid = dnsRequest.dnsHeader->id;

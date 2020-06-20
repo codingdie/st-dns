@@ -10,7 +10,7 @@ static const int DEFAULT_DNS_PORT = 53;
 #include <string>
 #include <boost/asio/basic_datagram_socket.hpp>
 #include <boost/asio.hpp>
-#include "STUtils.h"
+#include "Utils.h"
 #include "DNS.h"
 #include <boost/asio/ssl.hpp>
 

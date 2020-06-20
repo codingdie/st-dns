@@ -11,15 +11,9 @@ st::dns::Config getConfig(int argc, char *const *argv);
 
 int main(int argc, char *argv[]) {
 
-    try {
-
-        st::dns::Config config = getConfig(argc, argv);
-        DNSServer dnsServer(config);
-        dnsServer.start();
-    } catch (std::exception &e) {
-        std::cerr << e.what() << std::endl;
-    }
-
+    st::dns::Config config = getConfig(argc, argv);
+    DNSServer dnsServer(config);
+    dnsServer.start();
     return 0;
 }
 

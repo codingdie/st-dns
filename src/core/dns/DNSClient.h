@@ -23,13 +23,9 @@ class DNSClient {
 public:
     static DNSClient instance;
 
-    static UdpDNSResponse *udpDns(const std::string &domain, const std::string &dnsServer);
+    static UdpDNSResponse *udpDns(const std::string &domain, const std::string &dnsServer, uint32_t port, uint64_t timeout);
 
-    static UdpDNSResponse *udpDns(const std::vector<string> &domains, const std::string &dnsServer);
-
-    static UdpDNSResponse *udpDns(const std::string &domain, const std::string &dnsServer, uint32_t port);
-
-    static UdpDNSResponse *udpDns(const std::vector<string> &domains, const std::string &dnsServer, uint32_t port);
+    static UdpDNSResponse *udpDns(const std::vector<string> &domains, const std::string &dnsServer, uint32_t port, uint64_t timeout);
 
     static TcpDNSResponse *tcpDns(const std::string &domain, const std::string &dnsServer, uint16_t port, uint64_t timeout);
 
@@ -49,7 +45,7 @@ private:
 
     thread *ioThread;
 
-    UdpDNSResponse *queryUdp(const std::vector<string> &domains, const std::string &dnsServer, uint32_t port);
+    UdpDNSResponse *queryUdp(const std::vector<string> &domains, const std::string &dnsServer, uint32_t port, uint64_t timeout);
 
     TcpDNSResponse *queryTcp(const std::vector<string> &domains, const std::string &dnsServer, uint16_t port, uint64_t timeout);
 

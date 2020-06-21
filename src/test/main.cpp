@@ -67,7 +67,7 @@ void testUdp(const string &domain, const string &server, const int count, const 
 
 void testTcp(const char *const domain, const char *const server) {
     testParallel([=]() {
-        auto tcpDnsResponse = DNSClient::tcpDns(domain, server);
+        auto tcpDnsResponse = DNSClient::tcpDns(domain, server, 853, 5000);
         if (tcpDnsResponse != nullptr) {
             UdpDNSResponse *dnsResponse = tcpDnsResponse->udpDnsResponse;
             Logger::INFO << "success" << dnsResponse->header->id

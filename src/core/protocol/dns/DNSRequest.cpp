@@ -6,7 +6,7 @@
 #include <chrono>
 #include <vector>
 
-UdpDnsRequest::UdpDnsRequest(vector<std::string> &hosts) {
+UdpDnsRequest::UdpDnsRequest(const vector<std::string> &hosts) {
     this->data = data;
     this->dnsHeader = DNSHeader::generate(hosts.size());
     this->dnsQueryZone = DNSQueryZone::generate(hosts);
@@ -82,7 +82,7 @@ string UdpDnsRequest::getFirstHost() {
 
 UdpDnsRequest::UdpDnsRequest() {}
 
-TcpDnsRequest::TcpDnsRequest(vector<std::string> &hosts) {
+TcpDnsRequest::TcpDnsRequest(const vector<std::string> &hosts) {
     this->data = data;
     this->dnsHeader = DNSHeader::generate(hosts.size());
     this->dnsQueryZone = DNSQueryZone::generate(hosts);

@@ -18,7 +18,7 @@ public:
     std::vector<string> hosts;
 
 
-    UdpDnsRequest(vector<std::string> &hosts);
+    UdpDnsRequest(const vector<std::string> &hosts);
 
 
     UdpDnsRequest(byte *data, uint64_t len, bool dataOwner);
@@ -40,7 +40,7 @@ protected:
 
 class TcpDnsRequest : public UdpDnsRequest {
 public:
-    explicit TcpDnsRequest(vector<std::string> &hosts);
+    explicit TcpDnsRequest(const vector<std::string> &hosts);
 
 protected:
     void initDataZone() override;

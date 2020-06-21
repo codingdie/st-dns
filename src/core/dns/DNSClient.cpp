@@ -104,6 +104,7 @@ DNSClient::queryTcp(const vector<string> &domains, const string &dnsServer, uint
     unsigned short qid = dnsRequest.dnsHeader->id;
     boost::asio::ssl::stream<tcp::socket> socket(ioContext, *sslCtx);
     socket.set_verify_mode(ssl::verify_none);
+    byte sslByteBuf[10240];
     byte dataBytes[1024];
     byte lengthBytes[2];
     uint16_t length = 0;
@@ -125,10 +126,11 @@ DNSClient::queryTcp(const vector<string> &domains, const string &dnsServer, uint
                 - begin);
         begin = time::now();
         auto value = connectFuture.get();
-        auto shakeFuture = socket.async_handshake(boost::asio::ssl::stream_base::client,
-                                                  boost::asio::use_future([](boost::system::error_code error) {
-                                                      return error;
-                                                  }));
+        auto shakeFuture = socket.async_handshake(boost::asio::ssl::stream_base::client, buffer(sslByteBuf, 10240),
+                                                  boost::asio::use_future(
+                                                          [](boost::system::error_code error, size_t asd) {
+                                                              return error;
+                                                          }));
         if (shakeFuture.wait_for(std::chrono::milliseconds(timeout)) != std::future_status::ready) {
             Logger::ERROR << dnsRequest.dnsHeader->id << "ssl handshake timeout!" << END;
             error = true;

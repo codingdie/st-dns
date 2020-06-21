@@ -11,7 +11,7 @@
 #include <chrono>
 
 
-void testTcp();
+void testTcp(const char *const domain, const char *const string1);
 
 void testUdp(const string &domain, const string &server, const int count, const int parral);
 
@@ -47,7 +47,8 @@ void testParallel(FUNC testMethod, int count, int parral) {
 }
 
 int main(int argc, char *argv[]) {
-    testUdp("baidu.com", "192.168.31.164", 1000, 10);
+//    testUdp("baidu.com", "192.168.31.164", 1000, 10);
+    testTcp("google.com", "8.8.8.8");
 }
 
 void testUdp(const string &domain, const string &server, const int count, const int parral) {
@@ -64,10 +65,8 @@ void testUdp(const string &domain, const string &server, const int count, const 
     }, count, parral);
 }
 
-void testTcp() {
-    testParallel([]() {
-        string domain = "baidu.com";
-        string server = "8.8.8.8";
+void testTcp(const char *const domain, const char *const server) {
+    testParallel([=]() {
         auto tcpDnsResponse = DNSClient::tcpDns(domain, server);
         if (tcpDnsResponse != nullptr) {
             UdpDNSResponse *dnsResponse = tcpDnsResponse->udpDnsResponse;
@@ -78,5 +77,5 @@ void testTcp() {
             return true;
         }
         return false;
-    }, 10, 5);
+    }, 1, 1);
 }

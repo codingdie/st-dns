@@ -72,14 +72,18 @@ void DNSServer::proxyDnsOverTcpTls(DNSSession *session) {
 set<uint32_t> DNSServer::queryDNS(const string &host) const {
     auto ips = DNSCache::query(host);
     if (ips.empty()) {
-        auto tcpResponse = DNSClient::tcpDns(host, config.dnsServer, 3000);
-        if (tcpResponse != nullptr && tcpResponse->isValid()) {
-            ips = tcpResponse->udpDnsResponse->ips;
-            DNSCache::addCache(tcpResponse->udpDnsResponse);
+        const RemoteDNSServer &server = RemoteDNSServer::calculateQueryServer(host, config.servers);
+        if (server.type.compare("TCP_SSL") == 0) {
+            auto tcpResponse = DNSClient::tcpDns(host, server.ip, server.port, 5000);
+            if (tcpResponse != nullptr && tcpResponse->isValid()) {
+                ips = tcpResponse->udpDnsResponse->ips;
+                DNSCache::addCache(host, ips, server.id());
+            }
+            if (tcpResponse != nullptr) {
+                delete tcpResponse;
+            }
         }
-        if (tcpResponse != nullptr) {
-            delete tcpResponse;
-        }
+
     }
     return ips;
 }

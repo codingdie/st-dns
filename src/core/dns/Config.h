@@ -9,6 +9,7 @@
 #include <vector>
 #include <boost/property_tree/json_parser.hpp>
 #include "Utils.h"
+#include "RemoteDNSServer.h"
 #include <boost/algorithm/string/replace.hpp>
 #include <iostream>
 #include <fstream>
@@ -20,23 +21,11 @@ using namespace std;
 namespace st {
     namespace dns {
 
-        class RemoteDNSServer {
-        public:
-            string ip;
-            int port;
-            string type;
-            string whitelist;
-            string blacklist;
-
-            RemoteDNSServer(const string &ip, int port, const string &type, const string &whitelist, string blacklist)
-                    : ip(ip), port(port), type(type), whitelist(whitelist), blacklist(std::move(blacklist)) {}
-        };
 
         class Config {
         public:
             string ip = "127.0.0.1";
             int port = 53;
-            string dnsServer = "8.8.8.8";
             vector<RemoteDNSServer> servers;
 
             Config() = default;
@@ -64,8 +53,7 @@ namespace st {
                             }
                             int serverPort = serverNode.get("port", 53);
                             string type = serverNode.get("type", "UDP");
-                            string filename = boost::algorithm::ireplace_all_copy(serverIp, ".", "_") + "_" +
-                                              to_string(serverPort);
+                            string filename = RemoteDNSServer::generateServerId(serverIp, serverPort);
                             string whitelist = serverNode.get("whitelist", "/etc/st-dns/whitelist/" + filename);
                             string blacklist = serverNode.get("blacklist", "/etc/st-dns/blacklist/" + filename);
                             servers.emplace_back(serverIp, serverPort, type, whitelist, blacklist);
@@ -75,6 +63,14 @@ namespace st {
                         Logger::ERROR << "st-dns config no servers" << END;
                         exit(1);
                     }
+                    for (auto it = servers.begin(); it != servers.end(); it++) {
+                        RemoteDNSServer *remoteDnsServer = it.base();
+                        if (!remoteDnsServer->init()) {
+                            Logger::ERROR << "st-dns config  remote dns server init failed!" << remoteDnsServer->ip
+                                          << END;
+                            exit(1);
+                        }
+                    }
 
                 } else {
                     Logger::ERROR << "st-dns config file not exit！" << configPath
@@ -82,6 +78,7 @@ namespace st {
                     exit(1);
                 }
             }
+
 
         };
 

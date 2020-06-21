@@ -31,8 +31,7 @@ void DNSServer::start() {
 
 void DNSServer::receive() {
     DNSSession *session = new DNSSession();
-    socketS->async_receive_from(buffer(session->udpDnsRequest.data, session->udpDnsRequest.len),
-                                session->clientEndpoint,
+    socketS->async_receive_from(buffer(session->udpDnsRequest.data, session->udpDnsRequest.len), session->clientEndpoint,
                                 [=, this](boost::system::error_code errorCode, std::size_t size) {
                                     if (!errorCode && size > 0) {
                                         boost::asio::post(pool, [=, this] {
@@ -60,10 +59,8 @@ void DNSServer::proxyDnsOverTcpTls(DNSSession *session) {
     UdpDNSResponse *udpResponse = new UdpDNSResponse(id, host, ips);
     socketS->async_send_to(buffer(udpResponse->data, udpResponse->len), clientEndpoint,
                            [udpResponse, session](boost::system::error_code writeError, size_t writeSize) {
-                               Logger::INFO << "proxy success!" << session->clientEndpoint.address().to_string()
-                                            << session->udpDnsRequest.getFirstHost()
-                                            << session->udpDnsRequest.getFirstHost() << ipsToStr(udpResponse->ips)
-                                            << END;
+                               Logger::INFO << "proxy success!" << session->clientEndpoint.address().to_string() << session->udpDnsRequest.getFirstHost() << session->udpDnsRequest.getFirstHost() << ipsToStr(
+                                       udpResponse->ips) << END;
                                delete udpResponse;
                                delete session;
                            });
@@ -82,6 +79,9 @@ set<uint32_t> DNSServer::queryDNS(const string &host) const {
             if (tcpResponse != nullptr) {
                 delete tcpResponse;
             }
+        } else if (server.type.compare("UDP") == 0) {
+            auto tcpResponse = DNSClient::udpDns(host, server.ip, server.port, 5000);
+
         }
 
     }

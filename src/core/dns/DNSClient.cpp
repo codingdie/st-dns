@@ -7,26 +7,15 @@
 DNSClient DNSClient::instance;
 
 
-UdpDNSResponse *DNSClient::udpDns(const std::string &domain, const string &dnsServer) {
+UdpDNSResponse *DNSClient::udpDns(const string &domain, const string &dnsServer, uint32_t port, uint64_t timeout) {
     vector<string> domains;
     domains.emplace_back(domain);
-    return instance.udpDns(domains, dnsServer, DEFAULT_DNS_PORT);
+    return udpDns(domains, dnsServer, port, timeout);
 }
 
-UdpDNSResponse *DNSClient::udpDns(const vector<string> &domains, const string &dnsServer) {
-    return instance.udpDns(domains, dnsServer, DEFAULT_DNS_PORT);
+UdpDNSResponse *DNSClient::udpDns(const vector<string> &domains, const string &dnsServer, uint32_t port, uint64_t timeout) {
+    return instance.queryUdp(domains, dnsServer, port, timeout);
 }
-
-UdpDNSResponse *DNSClient::udpDns(const std::string &domain, const string &dnsServer, uint32_t port) {
-    vector<string> domains;
-    domains.emplace_back(domain);
-    return instance.queryUdp(domains, dnsServer, port);
-}
-
-UdpDNSResponse *DNSClient::udpDns(const vector<string> &domains, const string &dnsServer, uint32_t port) {
-    return instance.queryUdp(domains, dnsServer, port);
-}
-
 
 TcpDNSResponse *DNSClient::tcpDns(const string &domain, const string &dnsServer, uint16_t port, uint64_t timeout) {
     vector<string> domains;
@@ -38,23 +27,25 @@ TcpDNSResponse *DNSClient::tcpDns(const vector<string> &domains, const string &d
     return instance.queryTcp(domains, dnsServer, port, timeout);
 }
 
-UdpDNSResponse *DNSClient::queryUdp(const vector<string> &domains, const string &dnsServer, uint32_t port) {
+UdpDNSResponse *DNSClient::queryUdp(const std::vector<string> &domains, const std::string &dnsServer, uint32_t port, uint64_t timeout) {
     udp::socket socket(ioContext, udp::endpoint(udp::v4(), 0));
     UdpDnsRequest dnsRequest(domains);
     udp::endpoint serverEndpoint;
-    deadline_timer timeout(ioContext);
     unsigned short qid = dnsRequest.dnsHeader->id;
     UdpDNSResponse *dnsResponse = nullptr;
+    long begin = time::now();
     std::future<size_t> future = socket.async_send_to(buffer(dnsRequest.data, dnsRequest.len), udp::endpoint(make_address_v4(dnsServer), port),
                                                       boost::asio::use_future);
-    future_status status = future.wait_for(std::chrono::milliseconds(1500));
+    future_status status = future.wait_for(std::chrono::milliseconds(timeout));
     if (status != std::future_status::ready) {
         Logger::ERROR << dnsRequest.dnsHeader->id << "connect timeout!" << END;
     } else {
+        timeout -= (time::now() - begin);
+        begin = time::now();
         dnsResponse = new UdpDNSResponse(1024);
         std::future<size_t> receiveFuture = socket.async_receive_from(buffer(dnsResponse->data, sizeof(byte) * 1024), serverEndpoint,
                                                                       boost::asio::use_future);
-        bool receiveStatus = receiveFuture.wait_for(std::chrono::milliseconds(5000)) == std::future_status::ready;
+        bool receiveStatus = receiveFuture.wait_for(std::chrono::milliseconds(timeout)) == std::future_status::ready;
         if (!receiveStatus) {
             Logger::ERROR << dnsRequest.dnsHeader->id << "receive timeout!" << END;
             delete dnsResponse;
@@ -101,7 +92,6 @@ TcpDNSResponse *DNSClient::queryTcp(const vector<string> &domains, const string 
     unsigned short qid = dnsRequest.dnsHeader->id;
     boost::asio::ssl::stream<tcp::socket> socket(ioContext, *sslCtx);
     socket.set_verify_mode(ssl::verify_none);
-    byte sslByteBuf[10240];
     byte dataBytes[1024];
     byte lengthBytes[2];
     uint16_t length = 0;

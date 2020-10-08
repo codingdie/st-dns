@@ -57,7 +57,7 @@ void testUdp(const string &domain, const string &server, const int count, const 
     testParallel([=]() {
         auto dnsResponse = DNSClient::udpDns(domain, server, (uint32_t) 53, 5000);
         if (dnsResponse != nullptr) {
-            Logger::INFO << "success" << dnsResponse->header->id << dnsResponse->queryZone->querys.front()->domain->domain << dnsResponse->header->id << st::utils::ip::ipsToStr(
+            Logger::INFO << "success" << dnsResponse->header->id << dnsResponse->queryZone->querys.front()->domain->domain << dnsResponse->header->id << st::utils::ipv4::ipsToStr(
                     dnsResponse->ips) << END;
             delete dnsResponse;
             return true;
@@ -71,7 +71,7 @@ void testTcp(const char *const domain, const char *const server) {
         auto tcpDnsResponse = DNSClient::tcpDns(domain, server, 853, 20000);
         if (tcpDnsResponse != nullptr) {
             UdpDNSResponse *dnsResponse = tcpDnsResponse->udpDnsResponse;
-            Logger::INFO << "success" << dnsResponse->header->id << dnsResponse->queryZone->querys.front()->domain->domain << dnsResponse->header->id << st::utils::ip::ipsToStr(
+            Logger::INFO << "success" << dnsResponse->header->id << dnsResponse->queryZone->querys.front()->domain->domain << dnsResponse->header->id << st::utils::ipv4::ipsToStr(
                     dnsResponse->ips) << END;
             delete tcpDnsResponse;
             return true;

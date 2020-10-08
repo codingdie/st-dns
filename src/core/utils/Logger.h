@@ -2,8 +2,8 @@
 // Created by codingdie on 2020/5/19.
 //
 
-#ifndef ST_DNS_LOGGER_H
-#define ST_DNS_LOGGER_H
+#ifndef ST_LOGGER_H
+#define ST_LOGGER_H
 
 #include <string>
 #include <chrono>
@@ -72,4 +72,4 @@ namespace st {
     }
 }
 
-#endif //ST_DNS_LOGGER_H
+#endif //ST_LOGGER_H

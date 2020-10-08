@@ -5,6 +5,7 @@
 #include <iostream>
 #include "DNSClient.h"
 #include "DNSServer.h"
+#include "STUtils.h"
 
 #include <thread>
 #include <vector>
@@ -46,15 +47,17 @@ template<typename FUNC> void testParallel(FUNC testMethod, int count, int parral
 }
 
 int main(int argc, char *argv[]) {
+//    cout << st::utils::ip::strToIp("192.168.31.164") << END;
 //    testUdp("baidu.com", "192.168.31.164", 1000, 10);
-    testTcp("google.com", "8.8.8.8");
+    testTcp("google.com", "255.8.8.8");
+
 }
 
 void testUdp(const string &domain, const string &server, const int count, const int parral) {
     testParallel([=]() {
         auto dnsResponse = DNSClient::udpDns(domain, server, (uint32_t) 53, 5000);
         if (dnsResponse != nullptr) {
-            Logger::INFO << "success" << dnsResponse->header->id << dnsResponse->queryZone->querys.front()->domain->domain << dnsResponse->header->id << ipsToStr(
+            Logger::INFO << "success" << dnsResponse->header->id << dnsResponse->queryZone->querys.front()->domain->domain << dnsResponse->header->id << st::utils::ip::ipsToStr(
                     dnsResponse->ips) << END;
             delete dnsResponse;
             return true;
@@ -65,10 +68,10 @@ void testUdp(const string &domain, const string &server, const int count, const 
 
 void testTcp(const char *const domain, const char *const server) {
     testParallel([=]() {
-        auto tcpDnsResponse = DNSClient::tcpDns(domain, server, 853, 5000);
+        auto tcpDnsResponse = DNSClient::tcpDns(domain, server, 853, 20000);
         if (tcpDnsResponse != nullptr) {
             UdpDNSResponse *dnsResponse = tcpDnsResponse->udpDnsResponse;
-            Logger::INFO << "success" << dnsResponse->header->id << dnsResponse->queryZone->querys.front()->domain->domain << dnsResponse->header->id << ipsToStr(
+            Logger::INFO << "success" << dnsResponse->header->id << dnsResponse->queryZone->querys.front()->domain->domain << dnsResponse->header->id << st::utils::ip::ipsToStr(
                     dnsResponse->ips) << END;
             delete tcpDnsResponse;
             return true;

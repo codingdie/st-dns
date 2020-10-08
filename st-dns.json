@@ -5,12 +5,15 @@
     {
       "type": "UDP",
       "ip": "114.114.114.114",
-      "port": 53
+      "port": 53,
+      "country": "CN",
+      "only_country_ip": true
     },
     {
       "type": "TCP_SSL",
       "ip": "8.8.8.8",
-      "port": 853
+      "port": 853,
+      "country": "US"
     }
   ],
   "cacheFile": "/etc/std-dns/hosts"

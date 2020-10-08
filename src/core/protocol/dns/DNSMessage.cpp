@@ -13,7 +13,7 @@ DNSQuery::~DNSQuery() {
 };
 
 DnsIdGenerator::DnsIdGenerator() {
-    srand(time(nullptr));
+    srand(time::now());
     id = new std::atomic_int16_t(rand() % 0xFFFFFF);
 };
 

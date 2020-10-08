@@ -1,32 +1,13 @@
-#ifndef DNS_H
-#define DNS_H
+//
+// Created by System Administrator on 2020/10/8.
+//
 
+#ifndef ST_DNS_DNS_H
+#define ST_DNS_DNS_H
 
 #include "DNSMessage.h"
 #include "DNSRequest.h"
 #include "DNSResponse.h"
+#include "STUtils.h"
 
-static string ipToStr(uint32_t ip) {
-    string ipStr;
-    ipStr += to_string((ip & 0xFF000000U) >> 24U);
-    ipStr += ".";
-    ipStr += to_string((ip & 0x00FF0000U) >> 16U);
-    ipStr += ".";
-    ipStr += to_string((ip & 0x0000FF00U) >> 8U);
-    ipStr += ".";
-    ipStr += to_string((ip & 0x000000FFU));
-    return ipStr;
-}
-
-template<typename Collection>
-static string ipsToStr(Collection &ips) {
-    string ipStr;
-    for (uint32_t ip:ips) {
-        ipStr += ipToStr(ip);
-        ipStr += " ";
-    }
-    return ipStr;
-}
-
-
-#endif
+#endif //ST_DNS_DNS_H

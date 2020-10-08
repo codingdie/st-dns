@@ -154,22 +154,24 @@ TcpDNSResponse *DNSClient::queryTcp(const vector<string> &domains, const string 
 
     TcpDNSResponse *dnsResponse = nullptr;
     if (!error && length > 0) {
-        dnsResponse = new TcpDNSResponse(2 + length);
-        st::utils::copy(lengthBytes, dnsResponse->data, 0, 0, 2);
-        st::utils::copy(dataBytes, dnsResponse->data + 2, 0, 0, length);
-        dnsResponse->parse(2 + length);
-        if (!dnsResponse->isValid()) {
-            Logger::ERROR << dnsRequest.dnsHeader->id << "receive unmarketable data" << END;
-            error = true;
-        } else {
-            if (dnsResponse->udpDnsResponse != nullptr) {
-                if (dnsResponse->udpDnsResponse->header->id != qid) {
-                    Logger::ERROR << dnsRequest.dnsHeader->id << "receive not valid header id" << END;
-                    error = true;
-                }
-                if (dnsResponse->udpDnsResponse->header->responseCode != 0) {
-                    Logger::ERROR << dnsRequest.dnsHeader->id << "receive error responseCode" << dnsResponse->udpDnsResponse->header->responseCode << END;
-                    error = true;
+        if (length < 2048) {
+            dnsResponse = new TcpDNSResponse(2 + length);
+            st::utils::copy(lengthBytes, dnsResponse->data, 0, 0, 2);
+            st::utils::copy(dataBytes, dnsResponse->data + 2, 0, 0, length);
+            dnsResponse->parse(2 + length);
+            if (!dnsResponse->isValid()) {
+                Logger::ERROR << dnsRequest.dnsHeader->id << "receive unmarketable data" << END;
+                error = true;
+            } else {
+                if (dnsResponse->udpDnsResponse != nullptr) {
+                    if (dnsResponse->udpDnsResponse->header->id != qid) {
+                        Logger::ERROR << dnsRequest.dnsHeader->id << "receive not valid header id" << END;
+                        error = true;
+                    }
+                    if (dnsResponse->udpDnsResponse->header->responseCode != 0) {
+                        Logger::ERROR << dnsRequest.dnsHeader->id << "receive error responseCode" << dnsResponse->udpDnsResponse->header->responseCode << END;
+                        error = true;
+                    }
                 }
             }
         }

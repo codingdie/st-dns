@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 #include <boost/property_tree/json_parser.hpp>
-#include "Utils.h"
+#include "STUtils.h"
 #include "RemoteDNSServer.h"
 #include <boost/algorithm/string/replace.hpp>
 #include <iostream>
@@ -24,14 +24,16 @@ namespace st {
 
         class Config {
         public:
+            static string BASE_CONF_PATH;
             string ip = "127.0.0.1";
             int port = 53;
-            vector<RemoteDNSServer> servers;
+            vector<RemoteDNSServer *> servers;
 
             Config() = default;
 
-            Config(const string &configPathInput) {
-                string configPath = boost::filesystem::absolute(configPathInput).normalize().string();
+            Config(const string &baseConfDir) {
+                BASE_CONF_PATH = boost::filesystem::absolute(baseConfDir).normalize().string();
+                string configPath = BASE_CONF_PATH + "/st-dns.json";
                 if (st::utils::file::exit(configPath)) {
                     ptree tree;
                     try {
@@ -54,9 +56,13 @@ namespace st {
                             int serverPort = serverNode.get("port", 53);
                             string type = serverNode.get("type", "UDP");
                             string filename = RemoteDNSServer::generateServerId(serverIp, serverPort);
-                            string whitelist = serverNode.get("whitelist", "/etc/st-dns/whitelist/" + filename);
-                            string blacklist = serverNode.get("blacklist", "/etc/st-dns/blacklist/" + filename);
-                            servers.emplace_back(serverIp, serverPort, type, whitelist, blacklist);
+                            string whitelist = serverNode.get("whitelist", BASE_CONF_PATH + "whitelist/" + filename);
+                            string blacklist = serverNode.get("blacklist", BASE_CONF_PATH + "blacklist/" + filename);
+                            string country = serverNode.get("country", "");
+                            bool onlyCountryIp = serverNode.get("only_country_ip", false);
+                            RemoteDNSServer *dnsServer = new RemoteDNSServer(serverIp, serverPort, type, whitelist, blacklist, country,
+                                                                             onlyCountryIp);
+                            servers.emplace_back(dnsServer);
                         }
                     }
                     if (servers.empty()) {
@@ -64,23 +70,21 @@ namespace st {
                         exit(1);
                     }
                     for (auto it = servers.begin(); it != servers.end(); it++) {
-                        RemoteDNSServer *remoteDnsServer = it.base();
+                        RemoteDNSServer *remoteDnsServer = *(it.base());
                         if (!remoteDnsServer->init()) {
-                            Logger::ERROR << "st-dns config  remote dns server init failed!" << remoteDnsServer->ip
-                                          << END;
+                            Logger::ERROR << "st-dns config  remote dns server init failed!" << remoteDnsServer->ip << END;
                             exit(1);
                         }
                     }
 
                 } else {
-                    Logger::ERROR << "st-dns config file not exit！" << configPath
-                                  << boost::filesystem::initial_path<boost::filesystem::path>().string() << END;
-                    exit(1);
+                    Logger::INFO << "st-dns config file not exit！use default" << configPath << boost::filesystem::initial_path<boost::filesystem::path>().string() << END;
                 }
             }
 
 
         };
+
 
     }
 }

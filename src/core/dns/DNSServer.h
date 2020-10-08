@@ -32,6 +32,8 @@ private:
     void proxyDnsOverTcpTls(DNSSession *session);
 
     set<uint32_t> queryDNS(const string &host) const;
+
+    set<uint32_t> queryDNS(const string &host, const RemoteDNSServer *server) const;
 };
 
 

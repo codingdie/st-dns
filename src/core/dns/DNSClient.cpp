@@ -43,6 +43,7 @@ UdpDNSResponse *DNSClient::queryUdp(const std::vector<string> &domains, const st
         timeout -= (time::now() - begin);
         begin = time::now();
         dnsResponse = new UdpDNSResponse(1024);
+
         std::future<size_t> receiveFuture = socket.async_receive_from(buffer(dnsResponse->data, sizeof(byte) * 1024), serverEndpoint,
                                                                       boost::asio::use_future);
         bool receiveStatus = receiveFuture.wait_for(std::chrono::milliseconds(timeout)) == std::future_status::ready;
@@ -56,7 +57,6 @@ UdpDNSResponse *DNSClient::queryUdp(const std::vector<string> &domains, const st
             if (!dnsResponse->isValid() || dnsResponse->header->id != qid) {
                 delete dnsResponse;
                 dnsResponse = nullptr;
-
             }
         }
 
@@ -73,24 +73,27 @@ UdpDNSResponse *DNSClient::queryUdp(const std::vector<string> &domains, const st
 
 DNSClient::~DNSClient() {
     delete ioContextWork;
-    ioThread->join();
-    delete ioThread;
-    delete sslCtx;
+    for (auto &it:ioThreads) {
+        it.join();
+    }
 }
 
 DNSClient::DNSClient() {
-    sslCtx = new boost::asio::ssl::context(boost::asio::ssl::context::sslv23);
     ioContextWork = new boost::asio::io_context::work(ioContext);
-    ioThread = new thread([this]() {
-        ioContext.run();
-    });
+    for (int i = 0; i < 10; i++) {
+        ioThreads.emplace_back([&]() {
+            ioContext.run();
+        });
+    }
+
 }
 
 TcpDNSResponse *DNSClient::queryTcp(const vector<string> &domains, const string &dnsServer, uint16_t port, uint64_t timeout) {
+    boost::asio::ssl::context sslCtx(boost::asio::ssl::context::sslv23_client);
     tcp::endpoint serverEndpoint(make_address_v4(dnsServer), port);
     TcpDnsRequest dnsRequest(domains);
     unsigned short qid = dnsRequest.dnsHeader->id;
-    boost::asio::ssl::stream<tcp::socket> socket(ioContext, *sslCtx);
+    boost::asio::ssl::stream<tcp::socket> socket(ioContext, sslCtx);
     socket.set_verify_mode(ssl::verify_none);
     byte dataBytes[1024];
     byte lengthBytes[2];
@@ -98,42 +101,75 @@ TcpDNSResponse *DNSClient::queryTcp(const vector<string> &domains, const string 
     bool error = false;
     long begin = time::now();
     auto connectFuture = socket.lowest_layer().async_connect(serverEndpoint, boost::asio::use_future([](boost::system::error_code ec) {
+        if (ec.failed()) {
+            Logger::ERROR << "connect error!" << ec.message() << END;
+            return false;
+        }
         return true;
     }));
     future_status connectStatus = connectFuture.wait_for(std::chrono::milliseconds(timeout));
-    if (connectStatus != std::future_status::ready) {
+    timeout -= (time::now() - begin);
+    begin = time::now();
+    if (timeout < 0 || connectStatus != std::future_status::ready || connectFuture.get() == false) {
         Logger::ERROR << dnsRequest.dnsHeader->id << "connect timeout!" << END;
         error = true;
     } else {
+        auto shakeFuture = socket.async_handshake(boost::asio::ssl::stream_base::client, boost::asio::use_future([](boost::system::error_code error) {
+            if (error.failed()) {
+                Logger::ERROR << "ssl handshake error!" << error.message() << END;
+                return false;
+            }
+            return true;
+        }));
+        bool isTimeout = shakeFuture.wait_for(std::chrono::milliseconds(timeout)) != std::future_status::ready;
         timeout -= (time::now() - begin);
         begin = time::now();
-        auto value = connectFuture.get();
-        auto shakeFuture = socket.async_handshake(boost::asio::ssl::stream_base::client, boost::asio::use_future([](boost::system::error_code error) {
-            return error;
-        }));
-        if (shakeFuture.wait_for(std::chrono::milliseconds(timeout)) != std::future_status::ready) {
-            Logger::ERROR << dnsRequest.dnsHeader->id << "ssl handshake timeout!" << END;
+        if (timeout < 0 || isTimeout || shakeFuture.get() == false) {
+            Logger::ERROR << dnsRequest.dnsHeader->id << "ssl handshake timeout!" << END
             error = true;
-        } else {
+        } else { ;
+            st::utils::copy(dnsRequest.data, dataBytes, 0, 0, dnsRequest.len);
+            auto sendFuture = socket.async_write_some(buffer(dataBytes, dnsRequest.len),
+                                                      boost::asio::use_future([](boost::system::error_code error, std::size_t length) {
+                                                          if (error.failed()) {
+                                                              Logger::ERROR << "ssl async_write_some error!" << error.message() << END
+                                                              return false;
+                                                          }
+                                                          return true;
+                                                      }));
+            isTimeout = sendFuture.wait_for(std::chrono::milliseconds(timeout)) != std::future_status::ready;
             timeout -= (time::now() - begin);
             begin = time::now();
-            auto sendFuture = boost::asio::async_write(socket, buffer(dnsRequest.data, dnsRequest.len), boost::asio::use_future);
-            if (sendFuture.wait_for(std::chrono::milliseconds(timeout)) != std::future_status::ready) {
+            if (timeout < 0 || isTimeout || sendFuture.get() == false) {
                 Logger::ERROR << dnsRequest.dnsHeader->id << "send dns request timeout!" << END;
                 error = true;
             } else {
+                auto receiveLenFuture = boost::asio::async_read(socket, buffer(lengthBytes, 2),
+                                                                boost::asio::use_future([](boost::system::error_code error, std::size_t length) {
+                                                                    if (error.failed()) {
+                                                                        Logger::ERROR << "ssl async_read error!" << END;
+                                                                        return false;
+                                                                    }
+                                                                    return true;
+                                                                }));
+                isTimeout = receiveLenFuture.wait_for(std::chrono::milliseconds(timeout)) != std::future_status::ready;
                 timeout -= (time::now() - begin);
                 begin = time::now();
-                auto receiveLenFuture = boost::asio::async_read(socket, buffer(lengthBytes, 2), boost::asio::use_future);
-                if (receiveLenFuture.wait_for(std::chrono::milliseconds(timeout)) != std::future_status::ready) {
+                if (timeout < 0 || isTimeout || receiveLenFuture.get() == false) {
                     Logger::ERROR << dnsRequest.dnsHeader->id << "receive dns response len timeout!" << END;
                     error = true;
                 } else {
-                    timeout -= (time::now() - begin);
-                    begin = time::now();
                     st::utils::read(lengthBytes, length);
-                    auto receiveDataFuture = boost::asio::async_read(socket, buffer(dataBytes, length), boost::asio::use_future);
-                    if (receiveDataFuture.wait_for(std::chrono::milliseconds(timeout)) != std::future_status::ready) {
+                    auto receiveDataFuture = boost::asio::async_read(socket, buffer(dataBytes, length),
+                                                                     boost::asio::use_future([](boost::system::error_code error, std::size_t length) {
+                                                                         if (error.failed()) {
+                                                                             Logger::ERROR << "ssl async_read error!" << END;
+                                                                             return false;
+                                                                         }
+                                                                         return true;
+                                                                     }));
+                    if (receiveDataFuture.wait_for(
+                            std::chrono::milliseconds(timeout)) != std::future_status::ready || receiveDataFuture.get() == false) {
                         Logger::ERROR << dnsRequest.dnsHeader->id << "receive dns response data timeout!" << END;
                         error = true;
                     }
@@ -144,32 +180,26 @@ TcpDNSResponse *DNSClient::queryTcp(const vector<string> &domains, const string 
 
     }
 
-    try {
-        socket.lowest_layer().cancel();
-        socket.lowest_layer().shutdown(boost::asio::socket_base::shutdown_type::shutdown_both);
-        socket.lowest_layer().close();
-    } catch (boost::wrapexcept<boost::system::system_error> ex) {
-        Logger::ERROR << dnsRequest.dnsHeader->id << ex.what() << END;
-    }
-
     TcpDNSResponse *dnsResponse = nullptr;
     if (!error && length > 0) {
-        dnsResponse = new TcpDNSResponse(2 + length);
-        st::utils::copy(lengthBytes, dnsResponse->data, 0, 0, 2);
-        st::utils::copy(dataBytes, dnsResponse->data + 2, 0, 0, length);
-        dnsResponse->parse(2 + length);
-        if (!dnsResponse->isValid()) {
-            Logger::ERROR << dnsRequest.dnsHeader->id << "receive unmarketable data" << END;
-            error = true;
-        } else {
-            if (dnsResponse->udpDnsResponse != nullptr) {
-                if (dnsResponse->udpDnsResponse->header->id != qid) {
-                    Logger::ERROR << dnsRequest.dnsHeader->id << "receive not valid header id" << END;
-                    error = true;
-                }
-                if (dnsResponse->udpDnsResponse->header->responseCode != 0) {
-                    Logger::ERROR << dnsRequest.dnsHeader->id << "receive error responseCode" << dnsResponse->udpDnsResponse->header->responseCode << END;
-                    error = true;
+        if (length < 2048) {
+            dnsResponse = new TcpDNSResponse(2 + length);
+            st::utils::copy(lengthBytes, dnsResponse->data, 0, 0, 2);
+            st::utils::copy(dataBytes, dnsResponse->data + 2, 0, 0, length);
+            dnsResponse->parse(2 + length);
+            if (!dnsResponse->isValid()) {
+                Logger::ERROR << dnsRequest.dnsHeader->id << "receive unmarketable data" << END;
+                error = true;
+            } else {
+                if (dnsResponse->udpDnsResponse != nullptr) {
+                    if (dnsResponse->udpDnsResponse->header->id != qid) {
+                        Logger::ERROR << dnsRequest.dnsHeader->id << "receive not valid header id" << END;
+                        error = true;
+                    }
+                    if (dnsResponse->udpDnsResponse->header->responseCode != 0) {
+                        Logger::ERROR << dnsRequest.dnsHeader->id << "receive error responseCode" << dnsResponse->udpDnsResponse->header->responseCode << END;
+                        error = true;
+                    }
                 }
             }
         }
@@ -180,6 +210,12 @@ TcpDNSResponse *DNSClient::queryTcp(const vector<string> &domains, const string 
             dnsResponse = nullptr;
         }
     }
+    boost::system::error_code errorCode;
+    socket.shutdown(errorCode);
+    socket.lowest_layer().shutdown(boost::asio::socket_base::shutdown_both, errorCode);
+    socket.lowest_layer().cancel(errorCode);
+    socket.lowest_layer().close(errorCode);
+
     return dnsResponse;
 }
 

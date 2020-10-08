@@ -5,6 +5,7 @@
 #ifndef ST_DNS_DNSSESSION_H
 #define ST_DNS_DNSSESSION_H
 
+#include "STUtils.h"
 #include "DNS.h"
 #include <boost/asio.hpp>
 

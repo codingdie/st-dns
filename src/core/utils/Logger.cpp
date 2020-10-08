@@ -6,6 +6,7 @@
 #include <iostream>
 #include <ctime>
 #include <utility>
+#include <thread>
 
 using namespace std;
 using namespace st::utils;
@@ -23,14 +24,18 @@ void Logger::getTime(std::string &timeStr) {
 void Logger::doLog(const string &level, const string &info) {
     string time;
     getTime(time);
-    string result = "[" + level + "] " + time + " " + info;
+    string result = " [" + level + "] " + time + " " + info;
     std::lock_guard<std::mutex> lg(logMutex);
     this->str.clear();
-    cout << result << endl;
+    if (this->tag == "DEBUG") {
+        return;
+    }
+    cout << "[" << this_thread::get_id() << "]" << result << endl;
 }
 
 thread_local Logger Logger::INFO("INFO");
 thread_local Logger Logger::ERROR("ERROR");
+thread_local Logger Logger::DEBUG("DEBUG");
 
 
 Logger &Logger::operator<<(const char *log) {
@@ -38,7 +43,19 @@ Logger &Logger::operator<<(const char *log) {
     return *this;
 }
 
-Logger::Logger(string tag) : tag(tag) {}
+Logger &Logger::operator<<(char *log) {
+    appendStr(log);
+    return *this;
+}
+
+Logger &Logger::operator<<(char ch) {
+    this->str.push_back(ch);
+    this->str.append(" ");
+    return *this;
+}
+
+Logger::Logger(string tag) : tag(tag) {
+}
 
 Logger &Logger::operator<<(const string &string) {
     appendStr(string);

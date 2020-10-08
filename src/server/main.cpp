@@ -5,8 +5,6 @@
 #include <boost/thread.hpp>
 
 using namespace boost::asio;
-typedef boost::shared_ptr<ip::tcp::socket> socket_ptr;
-
 st::dns::Config getConfig(int argc, char *const *argv);
 
 int main(int argc, char *argv[]) {
@@ -21,6 +19,6 @@ st::dns::Config getConfig(int argc, char *const *argv) {
     if (argc > 1) {
         return st::dns::Config(string(argv[1]));
     } else {
-        return st::dns::Config("/etc/config/st-dns/config.json");
+        return st::dns::Config("/etc/config/st-dns/");
     }
 }

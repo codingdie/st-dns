@@ -20,20 +20,27 @@ bool RemoteDNSServer::init() {
     return true;
 }
 
-const RemoteDNSServer &
-RemoteDNSServer::calculateQueryServer(const string &domain, const vector<RemoteDNSServer> &servers) {
+vector<RemoteDNSServer *> RemoteDNSServer::calculateQueryServer(const string &domain, const vector<RemoteDNSServer *> &servers) {
+    vector<RemoteDNSServer *> result;
     for (auto it = servers.begin(); it != servers.end(); it++) {
-        const RemoteDNSServer &server = *it.base();
-        auto whiteIterator = server.whitelist.find(domain);
-        if (whiteIterator != server.whitelist.end()) {
-            return server;
+        RemoteDNSServer *server = *it.base();
+        auto whiteIterator = server->whitelist.find(domain);
+        if (whiteIterator != server->whitelist.end()) {
+            result.clear();
+            result.emplace_back(server);
+            return move(result);
         }
-        auto blackIterator = server.blacklist.find(domain);
-        if (blackIterator == server.blacklist.end()) {
+        auto blackIterator = server->blacklist.find(domain);
+        if (blackIterator != server->blacklist.end()) {
             continue;
         }
-        return server;
+        result.emplace_back(server);
     }
 
-    return *servers.begin().base();
+    return move(result);
+}
+
+RemoteDNSServer::RemoteDNSServer(const string &ip, int port, const string &type, const string &whitelistFilePath, const string &blacklistFilePath,
+                                 const string &country, bool onlyCountryIp) : ip(ip), port(port), type(type), whitelistFilePath(
+        whitelistFilePath), blacklistFilePath(blacklistFilePath), country(country), onlyCountryIp(onlyCountryIp) {
 }

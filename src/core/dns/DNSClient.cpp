@@ -56,7 +56,6 @@ UdpDNSResponse *DNSClient::queryUdp(const std::vector<string> &domains, const st
             if (!dnsResponse->isValid() || dnsResponse->header->id != qid) {
                 delete dnsResponse;
                 dnsResponse = nullptr;
-
             }
         }
 
@@ -75,11 +74,9 @@ DNSClient::~DNSClient() {
     delete ioContextWork;
     ioThread->join();
     delete ioThread;
-    delete sslCtx;
 }
 
 DNSClient::DNSClient() {
-    sslCtx = new boost::asio::ssl::context(boost::asio::ssl::context::sslv23);
     ioContextWork = new boost::asio::io_context::work(ioContext);
     ioThread = new thread([this]() {
         ioContext.run();
@@ -87,10 +84,11 @@ DNSClient::DNSClient() {
 }
 
 TcpDNSResponse *DNSClient::queryTcp(const vector<string> &domains, const string &dnsServer, uint16_t port, uint64_t timeout) {
+    boost::asio::ssl::context sslCtx(boost::asio::ssl::context::sslv23_client);
     tcp::endpoint serverEndpoint(make_address_v4(dnsServer), port);
     TcpDnsRequest dnsRequest(domains);
     unsigned short qid = dnsRequest.dnsHeader->id;
-    boost::asio::ssl::stream<tcp::socket> socket(ioContext, *sslCtx);
+    boost::asio::ssl::stream<tcp::socket> socket(ioContext, sslCtx);
     socket.set_verify_mode(ssl::verify_none);
     byte dataBytes[1024];
     byte lengthBytes[2];
@@ -143,14 +141,8 @@ TcpDNSResponse *DNSClient::queryTcp(const vector<string> &domains, const string 
 
 
     }
-
-    try {
-        socket.lowest_layer().cancel();
-        socket.lowest_layer().shutdown(boost::asio::socket_base::shutdown_type::shutdown_both);
-        socket.lowest_layer().close();
-    } catch (boost::wrapexcept<boost::system::system_error> ex) {
-        Logger::ERROR << dnsRequest.dnsHeader->id << ex.what() << END;
-    }
+    boost::system::error_code errorCode;
+    socket.shutdown(errorCode);
 
     TcpDNSResponse *dnsResponse = nullptr;
     if (!error && length > 0) {

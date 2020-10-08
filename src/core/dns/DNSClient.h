@@ -39,7 +39,6 @@ public:
 private:
     boost::asio::io_context ioContext;
 
-    boost::asio::ssl::context *sslCtx;
 
     boost::asio::io_context::work *ioContextWork;
 

@@ -49,7 +49,7 @@ template<typename FUNC> void testParallel(FUNC testMethod, int count, int parral
 int main(int argc, char *argv[]) {
 //    cout << st::utils::ip::strToIp("192.168.31.164") << END;
 //    testUdp("baidu.com", "192.168.31.164", 1000, 10);
-    testTcp("google.com", "255.8.8.8");
+    testTcp("www.google.com", "8.8.8.8");
 
 }
 

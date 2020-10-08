@@ -6,7 +6,7 @@
 using namespace std;
 namespace st {
     namespace utils {
-        namespace ip {
+        namespace ipv4 {
             static string ipToStr(uint32_t ip) {
                 string ipStr;
                 ipStr += to_string((ip & 0xFF000000U) >> 24U);

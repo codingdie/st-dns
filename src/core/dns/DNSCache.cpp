@@ -10,7 +10,7 @@ static mutex rLock;
 
 void DNSCache::addCache(const string &domain, const set<uint32_t> &ips, const string &dnsServer) {
     lock_guard<mutex> lockGuard(rLock);
-    Logger::INFO << "addDNSCache" << domain << ip::ipsToStr(ips) << "from" << dnsServer << END;
+    Logger::INFO << "addDNSCache" << domain << ipv4::ipsToStr(ips) << "from" << dnsServer << END;
     auto iterator = INSTANCE.caches.find(domain);
     map<string, set<uint32_t> *> *serverCaches = nullptr;
     if (iterator == INSTANCE.caches.end()) {

@@ -2,8 +2,8 @@
 // Created by codingdie on 2020/6/20.
 //
 
-#ifndef ST_DNS_FILEUTILS_H
-#define ST_DNS_FILEUTILS_H
+#ifndef ST_FILEUTILS_H
+#define ST_FILEUTILS_H
 
 #include <iostream>
 #include <fstream>
@@ -68,4 +68,4 @@ namespace st {
         }
     }
 }
-#endif //ST_DNS_FILEUTILS_H
+#endif //ST_FILEUTILS_H

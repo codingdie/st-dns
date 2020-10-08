@@ -61,7 +61,7 @@ void DNSServer::proxyDnsOverTcpTls(DNSSession *session) {
         UdpDNSResponse *udpResponse = new UdpDNSResponse(id, host, ips);
         socketS->async_send_to(buffer(udpResponse->data, udpResponse->len), clientEndpoint,
                                [udpResponse, session](boost::system::error_code writeError, size_t writeSize) {
-                                   Logger::DEBUG << "dns success!" << session->udpDnsRequest.getFirstHost() << st::utils::ip::ipsToStr(
+                                   Logger::DEBUG << "dns success!" << session->udpDnsRequest.getFirstHost() << st::utils::ipv4::ipsToStr(
                                            udpResponse->ips) << END;
                                    delete udpResponse;
                                    delete session;

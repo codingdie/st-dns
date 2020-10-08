@@ -108,7 +108,7 @@ set<uint32_t> DNSServer::queryDNS(const string &host, const RemoteDNSServer *ser
             delete udpDnsResponse;
         }
     }
-    if (!ips.empty() && !server->country.empty() && server->onlyCountryIp) {
+    if (!ips.empty() && server->whitelist.find(host) == server->whitelist.end() && !server->country.empty() && server->onlyCountryIp) {
         for (auto it = ips.begin(); it != ips.end();) {
             if (!CountryIpManager::isCountryIP(server->country, *it)) {
                 it = ips.erase(it);

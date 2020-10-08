@@ -45,8 +45,7 @@ bool UdpDnsRequest::parse() {
         DNSHeader *header = new DNSHeader(data, DNSHeader::DEFAULT_LEN);
         if (header->isValid()) {
             dnsHeader = header;
-            DNSQueryZone *queryZone = new DNSQueryZone(data + DNSHeader::DEFAULT_LEN, len - DNSHeader::DEFAULT_LEN,
-                                                       header->questionCount);
+            DNSQueryZone *queryZone = new DNSQueryZone(data + DNSHeader::DEFAULT_LEN, len - DNSHeader::DEFAULT_LEN, header->questionCount);
             if (queryZone->isValid()) {
                 if (queryZone->querys.size() == 0) {
                     this->printHex();
@@ -80,10 +79,10 @@ string UdpDnsRequest::getFirstHost() {
     return hosts.front();
 }
 
-UdpDnsRequest::UdpDnsRequest() {}
+UdpDnsRequest::UdpDnsRequest() {
+}
 
 TcpDnsRequest::TcpDnsRequest(const vector<std::string> &hosts) {
-    this->data = data;
     this->dnsHeader = DNSHeader::generate(hosts.size());
     this->dnsQueryZone = DNSQueryZone::generate(hosts);
     initDataZone();
@@ -103,4 +102,5 @@ void TcpDnsRequest::initDataZone() {
     st::utils::copy(dnsQueryZone->data, data, 0U, pos, dnsQueryZone->len);
     BasicData::len = len;
     BasicData::data = data;
+    BasicData::setDataOwner(true);
 }

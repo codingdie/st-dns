@@ -9,7 +9,7 @@
 #include <set>
 #include <iostream>
 #include <fstream>
-#include "Utils.h"
+#include "STUtils.h"
 #include <boost/algorithm/string/replace.hpp>
 
 using namespace std;
@@ -23,18 +23,15 @@ public:
     string blacklistFilePath;
     set<string> whitelist;
     set<string> blacklist;
+    string country;
+    bool onlyCountryIp;
 
     static string generateServerId(const string &serverIp, int serverPort) {
         return boost::algorithm::ireplace_all_copy(serverIp, ".", "_") + "_" + to_string(serverPort);
     }
 
-    RemoteDNSServer(const string &ip, int port, const string &type, const string &whitelist, string blacklist) : ip(ip),
-                                                                                                                 port(port),
-                                                                                                                 type(type),
-                                                                                                                 whitelistFilePath(
-                                                                                                                         whitelist),
-                                                                                                                 blacklistFilePath(
-                                                                                                                         move(blacklist)) {};
+    RemoteDNSServer(const string &ip, int port, const string &type, const string &whitelistFilePath, const string &blacklistFilePath,
+                    const string &country, bool onlyCountryIp);
 
     string id() const {
         return generateServerId(ip, port);
@@ -42,7 +39,7 @@ public:
 
     bool init();
 
-    static const RemoteDNSServer &calculateQueryServer(const string &domain, const vector<RemoteDNSServer> &servers);
+    static vector<RemoteDNSServer *> calculateQueryServer(const string &domain, const vector<RemoteDNSServer *> &servers);
 };
 
 #include <string>
@@ -52,6 +49,6 @@ public:
 #include <iostream>
 #include <fstream>
 #include <boost/filesystem.hpp>
-#include "Utils.h"
+#include "STUtils.h"
 
 #endif //ST_DNS_REMOTEDNSSERVER_H

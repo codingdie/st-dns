@@ -12,29 +12,28 @@
 #include <cstdlib>
 #include <atomic>
 #include <cstring>
+#include "STUtils.h"
 
 typedef uint8_t byte;
 using namespace std;
-
 namespace st {
     namespace utils {
 
-        template<typename ItemType, typename Num>
-        static void copy(ItemType *from, ItemType *to, Num len) {
+        template<typename ItemType, typename Num> static void copy(ItemType *from, ItemType *to, Num len) {
             for (auto i = 0; i < len; i++) {
                 *(to + i) = *(from + i);
             }
         };
 
-        template<typename ItemType, typename ItemTypeB, typename NumA, typename NumB, typename NumC>
-        static void copy(ItemType *from, ItemTypeB *to, NumA indexFrom, NumB distFrom, NumC len) {
+        template<typename ItemType, typename ItemTypeB, typename NumA, typename NumB, typename NumC> static void copy(ItemType *from, ItemTypeB *to,
+                                                                                                                      NumA indexFrom, NumB distFrom,
+                                                                                                                      NumC len) {
             for (auto i = 0; i < len; i++) {
                 *(to + distFrom + i) = *(from + indexFrom + i);
             }
         };
 
-        template<typename Num>
-        static void toBytes(byte *byteArr, Num num) {
+        template<typename Num> static void toBytes(byte *byteArr, Num num) {
             uint8_t len = sizeof(Num);
             for (auto i = 0; i < len; i++) {
                 uint64_t move = (len - i - 1) * 8U;
@@ -43,8 +42,7 @@ namespace st {
             }
         };
 
-        template<typename IntTypeB>
-        static void read(const byte *data, IntTypeB &result) {
+        template<typename IntTypeB> static void read(const byte *data, IntTypeB &result) {
             uint8_t len = sizeof(IntTypeB);
             for (uint8_t i = 0; i < len; i++) {
                 byte val = *(data + i);
@@ -65,8 +63,7 @@ namespace st {
             return result;
         }
 
-        template<typename IntTypeB>
-        static byte *write(byte *data, IntTypeB &result) {
+        template<typename IntTypeB> static byte *write(byte *data, IntTypeB &result) {
             uint8_t len = sizeof(IntTypeB);
             for (uint8_t i = 0; i < len; i++) {
                 auto i1 = (len - i - 1) * 8;
@@ -125,7 +122,8 @@ public:
     BasicData(byte *data, uint32_t len) : len(len), data(data) {
     }
 
-    BasicData(byte *data, uint32_t len, bool dataOwner) : dataOwner(dataOwner), len(len), data(data) {}
+    BasicData(byte *data, uint32_t len, bool dataOwner) : dataOwner(dataOwner), len(len), data(data) {
+    }
 
     BasicData() = default;
 
@@ -521,8 +519,7 @@ public:
 
     }
 
-    DNSResourceZone(byte *original, uint64_t originalMax, uint64_t begin) : BasicData(original + begin,
-                                                                                      originalMax - begin) {
+    DNSResourceZone(byte *original, uint64_t originalMax, uint64_t begin) : BasicData(original + begin, originalMax - begin) {
         uint32_t size = 0;
         byte *curBegin = original + begin;
         domain = new DNSDomain(original, originalMax, begin);
@@ -569,7 +566,8 @@ public:
     }
 
     static DNSResourceZone *generate(set<uint32_t> ips) {
-        uint32_t size = 2 + 2 + 2 + 4 + 2 + 4 * ips.size();
+        unsigned long ipSize = 1;
+        uint32_t size = 2 + 2 + 2 + 4 + 2 + 4 * ipSize;
         DNSResourceZone *resourceZone = new DNSResourceZone(size);
         resourceZone->len = size;
         byte *data1 = resourceZone->data;
@@ -582,18 +580,22 @@ public:
         resourceZone->type = DNSQuery::A;;
         data1 = st::utils::write(data1, resourceZone->type);
         //resource
-        resourceZone->resource = 0;
+        resourceZone->resource = 1;
         data1 = st::utils::write(data1, resourceZone->resource);
         //live time
         resourceZone->liveTime = 60;
         data1 = st::utils::write(data1, resourceZone->liveTime);
         //data szie
         resourceZone->ipv4s = ips;
-        uint16_t dataSize = (uint16_t) (4 * ips.size());;
+        uint16_t dataSize = (uint16_t) (4 * ipSize);;
         data1 = st::utils::write(data1, dataSize);
-        for (uint32_t ip:ips) {
-            data1 = st::utils::write(data1, ip);
+        //todo return multi ip, multi answer
+        time_t rand = st::utils::time::now() % ips.size();
+        auto iterator = ips.begin();
+        for (int i = 0; i < rand; i++) {
+            iterator++;
         }
+        data1 = st::utils::write(data1, *iterator);
         return resourceZone;
     }
 

@@ -11,7 +11,6 @@
 #include <vector>
 #include <chrono>
 
-
 void testTcp(const char *const domain, const char *const string1);
 
 void testUdp(const string &domain, const string &server, const int count, const int parral);
@@ -49,7 +48,7 @@ template<typename FUNC> void testParallel(FUNC testMethod, int count, int parral
 int main(int argc, char *argv[]) {
 //    cout << st::utils::ip::strToIp("192.168.31.164") << END;
 //    testUdp("baidu.com", "192.168.31.164", 1000, 10);
-    testTcp("www.yutube.com", "8.8.8.8");
+    testTcp("www.youtube.com", "8.8.8.8");
 
 }
 
@@ -77,5 +76,5 @@ void testTcp(const char *const domain, const char *const server) {
             return true;
         }
         return false;
-    }, 1, 1);
+    }, 1000, 40);
 }

@@ -23,15 +23,16 @@ public:
     string blacklistFilePath;
     set<string> whitelist;
     set<string> blacklist;
-    string country;
-    bool onlyCountryIp;
+    string area;
+    bool onlyAreaIp;
+    bool onlyAreaDomain = false;
 
     static string generateServerId(const string &serverIp, int serverPort) {
         return boost::algorithm::ireplace_all_copy(serverIp, ".", "_") + "_" + to_string(serverPort);
     }
 
     RemoteDNSServer(const string &ip, int port, const string &type, const string &whitelistFilePath, const string &blacklistFilePath,
-                    const string &country, bool onlyCountryIp);
+                    const string &area, bool onlyAreaIp);
 
     string id() const {
         return generateServerId(ip, port);

@@ -56,12 +56,13 @@ namespace st {
                             int serverPort = serverNode.get("port", 53);
                             string type = serverNode.get("type", "UDP");
                             string filename = RemoteDNSServer::generateServerId(serverIp, serverPort);
-                            string whitelist = serverNode.get("whitelist", BASE_CONF_PATH + "whitelist/" + filename);
-                            string blacklist = serverNode.get("blacklist", BASE_CONF_PATH + "blacklist/" + filename);
-                            string country = serverNode.get("country", "");
-                            bool onlyCountryIp = serverNode.get("only_country_ip", false);
-                            RemoteDNSServer *dnsServer = new RemoteDNSServer(serverIp, serverPort, type, whitelist, blacklist, country,
-                                                                             onlyCountryIp);
+                            string whitelist = serverNode.get("whitelist", BASE_CONF_PATH + "/whitelist/" + filename);
+                            string blacklist = serverNode.get("blacklist", BASE_CONF_PATH + "/blacklist/" + filename);
+                            string area = serverNode.get("area", "");
+                            bool onlyAreaIp = serverNode.get("only_area_ip", false);
+                            RemoteDNSServer *dnsServer = new RemoteDNSServer(serverIp, serverPort, type, whitelist, blacklist, area, onlyAreaIp);
+                            bool onlyAreaDomain = serverNode.get("only_area_domain", false);
+                            dnsServer->onlyAreaDomain = onlyAreaDomain;
                             servers.emplace_back(dnsServer);
                         }
                     }
@@ -79,6 +80,7 @@ namespace st {
 
                 } else {
                     Logger::INFO << "st-dns config file not exit！use default" << configPath << boost::filesystem::initial_path<boost::filesystem::path>().string() << END;
+                    exit(1);
                 }
             }
 

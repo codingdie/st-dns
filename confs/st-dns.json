@@ -1,0 +1,28 @@
+{
+  "ip": "127.0.0.1",
+  "port": "53",
+  "servers": [
+    {
+      "type": "UDP",
+      "ip": "192.168.31.1",
+      "port": 53,
+      "area": "LAN",
+      "only_area_ip": true,
+      "only_area_domain": true
+    },
+    {
+      "type": "UDP",
+      "ip": "114.114.114.114",
+      "port": 53,
+      "area": "CN",
+      "only_area_ip": true
+    },
+    {
+      "type": "TCP_SSL",
+      "ip": "8.8.8.8",
+      "port": 853,
+      "area": "US"
+    }
+  ],
+  "cacheFile": "/etc/std-dns/hosts"
+}

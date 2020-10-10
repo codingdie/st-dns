@@ -3,6 +3,9 @@
 //
 
 #include "DNSClient.h"
+#include "asio/STUtils.h"
+
+static mutex rLock;
 
 DNSClient DNSClient::instance;
 
@@ -24,7 +27,7 @@ TcpDNSResponse *DNSClient::tcpDns(const string &domain, const string &dnsServer,
 }
 
 TcpDNSResponse *DNSClient::tcpDns(const vector<string> &domains, const string &dnsServer, uint16_t port, uint64_t timeout) {
-    return instance.queryTcp(domains, dnsServer, port, timeout);
+    return instance.queryTcpOverTls(domains, dnsServer, port, timeout);
 }
 
 UdpDNSResponse *DNSClient::queryUdp(const std::vector<string> &domains, const std::string &dnsServer, uint32_t port, uint64_t timeout) {
@@ -88,12 +91,21 @@ DNSClient::DNSClient() {
 
 }
 
-TcpDNSResponse *DNSClient::queryTcp(const vector<string> &domains, const string &dnsServer, uint16_t port, uint64_t timeout) {
+TcpDNSResponse *DNSClient::queryTcpOverTls(const vector<string> &domains, const string &dnsServer, uint16_t port, uint64_t timeout) {
+    {
+        lock_guard<mutex> lockGuard(rLock);
+        if (hostsInQuery.find(domains[0]) != hostsInQuery.end()) {
+            return nullptr;
+        } else {
+            hostsInQuery.emplace(domains[0]);
+        }
+    }
     boost::asio::ssl::context sslCtx(boost::asio::ssl::context::sslv23_client);
     tcp::endpoint serverEndpoint(make_address_v4(dnsServer), port);
     TcpDnsRequest dnsRequest(domains);
     unsigned short qid = dnsRequest.dnsHeader->id;
-    boost::asio::ssl::stream<tcp::socket> socket(ioContext, sslCtx);
+    io_context &ctxThreadLocal = asio::TLIOContext::getIOContext();
+    boost::asio::ssl::stream<tcp::socket> socket(ctxThreadLocal, sslCtx);
     socket.set_verify_mode(ssl::verify_none);
     byte dataBytes[1024];
     byte lengthBytes[2];
@@ -107,6 +119,8 @@ TcpDNSResponse *DNSClient::queryTcp(const vector<string> &domains, const string 
         }
         return true;
     }));
+    ctxThreadLocal.restart();
+    ctxThreadLocal.run();
     future_status connectStatus = connectFuture.wait_for(std::chrono::milliseconds(timeout));
     timeout -= (time::now() - begin);
     begin = time::now();
@@ -121,6 +135,8 @@ TcpDNSResponse *DNSClient::queryTcp(const vector<string> &domains, const string 
             }
             return true;
         }));
+        ctxThreadLocal.restart();
+        ctxThreadLocal.run();
         bool isTimeout = shakeFuture.wait_for(std::chrono::milliseconds(timeout)) != std::future_status::ready;
         timeout -= (time::now() - begin);
         begin = time::now();
@@ -137,6 +153,8 @@ TcpDNSResponse *DNSClient::queryTcp(const vector<string> &domains, const string 
                                                           }
                                                           return true;
                                                       }));
+            ctxThreadLocal.restart();
+            ctxThreadLocal.run();
             isTimeout = sendFuture.wait_for(std::chrono::milliseconds(timeout)) != std::future_status::ready;
             timeout -= (time::now() - begin);
             begin = time::now();
@@ -152,6 +170,8 @@ TcpDNSResponse *DNSClient::queryTcp(const vector<string> &domains, const string 
                                                                     }
                                                                     return true;
                                                                 }));
+                ctxThreadLocal.restart();
+                ctxThreadLocal.run();
                 isTimeout = receiveLenFuture.wait_for(std::chrono::milliseconds(timeout)) != std::future_status::ready;
                 timeout -= (time::now() - begin);
                 begin = time::now();
@@ -168,6 +188,8 @@ TcpDNSResponse *DNSClient::queryTcp(const vector<string> &domains, const string 
                                                                          }
                                                                          return true;
                                                                      }));
+                    ctxThreadLocal.restart();
+                    ctxThreadLocal.run();
                     if (receiveDataFuture.wait_for(
                             std::chrono::milliseconds(timeout)) != std::future_status::ready || receiveDataFuture.get() == false) {
                         Logger::ERROR << dnsRequest.dnsHeader->id << "receive dns response data timeout!" << END;
@@ -215,8 +237,7 @@ TcpDNSResponse *DNSClient::queryTcp(const vector<string> &domains, const string 
     socket.lowest_layer().shutdown(boost::asio::socket_base::shutdown_both, errorCode);
     socket.lowest_layer().cancel(errorCode);
     socket.lowest_layer().close(errorCode);
-
+    hostsInQuery.erase(domains[0]);
     return dnsResponse;
 }
-
 

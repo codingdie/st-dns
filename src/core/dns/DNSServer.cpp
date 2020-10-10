@@ -9,13 +9,13 @@
 #include "DNSClient.h"
 #include "STUtils.h"
 #include "DNSCache.h"
-#include "CountryIpManager.h"
+#include "AreaIpManager.h"
 
 using namespace std::placeholders;
 using namespace std;
 
 
-DNSServer::DNSServer(st::dns::Config &config) : config(config), pool(10) {
+DNSServer::DNSServer(st::dns::Config &config) : config(config), pool(30) {
     socketS = new udp::socket(ioContext, udp::endpoint(boost::asio::ip::make_address_v4(config.ip), config.port));
 }
 
@@ -75,15 +75,20 @@ void DNSServer::proxyDnsOverTcpTls(DNSSession *session) {
 set<uint32_t> DNSServer::queryDNS(const string &host) const {
     auto ips = DNSCache::query(host);
     if (ips.empty()) {
-        vector<RemoteDNSServer *> servers = RemoteDNSServer::calculateQueryServer(host, config.servers);
-        for (auto it = servers.begin(); it != servers.end(); it++) {
-            RemoteDNSServer *&server = *it;
-            ips = queryDNS(host, server);
-            if (!ips.empty()) {
-                DNSCache::addCache(host, ips, server->id());
-                break;
+        if (host == "localhost") {
+            ips.emplace(2130706433);
+        } else {
+            vector<RemoteDNSServer *> servers = RemoteDNSServer::calculateQueryServer(host, config.servers);
+            for (auto it = servers.begin(); it != servers.end(); it++) {
+                RemoteDNSServer *&server = *it;
+                ips = queryDNS(host, server);
+                if (!ips.empty()) {
+                    DNSCache::addCache(host, ips, server->id());
+                    break;
+                }
             }
         }
+
 
     }
     return move(ips);
@@ -108,9 +113,9 @@ set<uint32_t> DNSServer::queryDNS(const string &host, const RemoteDNSServer *ser
             delete udpDnsResponse;
         }
     }
-    if (!ips.empty() && server->whitelist.find(host) == server->whitelist.end() && !server->country.empty() && server->onlyCountryIp) {
+    if (!ips.empty() && server->whitelist.find(host) == server->whitelist.end() && !server->area.empty() && server->onlyAreaIp) {
         for (auto it = ips.begin(); it != ips.end();) {
-            if (!CountryIpManager::isCountryIP(server->country, *it)) {
+            if (!AreaIpManager::isAreaIP(server->area, *it)) {
                 it = ips.erase(it);
             } else {
                 it++;

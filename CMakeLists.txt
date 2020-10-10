@@ -3,9 +3,11 @@ project(st-dns)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lpthread -Wall -g")
-
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Os")
 
+if (NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif ()
 
 find_package(Boost 1.66.0 REQUIRED COMPONENTS system program_options thread filesystem)
 find_package(OpenSSL 1.1.1 REQUIRED)
@@ -16,6 +18,7 @@ include_directories(${OPENSSL_INCLUDE_DIR})
 message("${OPENSSL_INCLUDE_DIR}")
 message("${OPENSSL_LIBRARIES}")
 include_directories(src/core/dns)
+include_directories(src/core/whois)
 include_directories(src/core/protocol/dns)
 include_directories(src/core/utils)
 
@@ -30,7 +33,7 @@ target_link_libraries(st-dns-test ${Boost_LIBRARIES} ${OPENSSL_LIBRARIES})
 
 include(GNUInstallDirs)
 install(TARGETS st-dns DESTINATION ${CMAKE_INSTALL_BINDIR})
-install(FILES st-dns.json DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/st-dns RENAME config.json)
+install(DIRECTORY confs/ DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/st-dns)
 
 #get_cmake_property(_variableNames VARIABLES)
 #foreach (_variableName ${_variableNames})

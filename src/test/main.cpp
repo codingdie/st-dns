@@ -10,7 +10,7 @@
 #include <thread>
 #include <vector>
 #include <chrono>
-
+#include "WhoisClient.h"
 
 void testTcp(const char *const domain, const char *const string1);
 
@@ -49,8 +49,8 @@ template<typename FUNC> void testParallel(FUNC testMethod, int count, int parral
 int main(int argc, char *argv[]) {
 //    cout << st::utils::ip::strToIp("192.168.31.164") << END;
 //    testUdp("baidu.com", "192.168.31.164", 1000, 10);
-    testTcp("www.yutube.com", "8.8.8.8");
-
+    testTcp("www.youtube.com", "8.8.4.4");
+//    WhoisClient::whois("baidu.com", "192.30.45.30", 43, 5000);
 }
 
 void testUdp(const string &domain, const string &server, const int count, const int parral) {
@@ -77,5 +77,5 @@ void testTcp(const char *const domain, const char *const server) {
             return true;
         }
         return false;
-    }, 1, 1);
+    }, 2, 2);
 }

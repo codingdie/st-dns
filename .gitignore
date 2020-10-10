@@ -11,3 +11,8 @@
 /st-dns.cbp
 /.clion.source.upload.marker
 /*debug*
+/.blacklist/
+/.whitelist/
+cmake*/
+Makefile
+build

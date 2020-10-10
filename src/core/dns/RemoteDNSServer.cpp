@@ -34,6 +34,17 @@ vector<RemoteDNSServer *> RemoteDNSServer::calculateQueryServer(const string &do
         if (blackIterator != server->blacklist.end()) {
             continue;
         }
+        if (server->onlyAreaDomain) {
+            unsigned long pos = domain.find_last_of('.');
+            if (pos == string::npos) {
+                continue;
+            }
+            auto fiDomain = domain.substr(pos + 1);
+            transform(fiDomain.begin(), fiDomain.end(), fiDomain.begin(), ::toupper);
+            if (fiDomain != server->area) {
+                continue;
+            }
+        }
         result.emplace_back(server);
     }
 
@@ -41,6 +52,6 @@ vector<RemoteDNSServer *> RemoteDNSServer::calculateQueryServer(const string &do
 }
 
 RemoteDNSServer::RemoteDNSServer(const string &ip, int port, const string &type, const string &whitelistFilePath, const string &blacklistFilePath,
-                                 const string &country, bool onlyCountryIp) : ip(ip), port(port), type(type), whitelistFilePath(
-        whitelistFilePath), blacklistFilePath(blacklistFilePath), country(country), onlyCountryIp(onlyCountryIp) {
+                                 const string &area, bool onlyAreaIp) : ip(ip), port(port), type(type), whitelistFilePath(
+        whitelistFilePath), blacklistFilePath(blacklistFilePath), area(area), onlyAreaIp(onlyAreaIp) {
 }

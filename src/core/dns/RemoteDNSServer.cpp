@@ -36,7 +36,12 @@ vector<RemoteDNSServer *> RemoteDNSServer::calculateQueryServer(const string &do
         }
         if (server->onlyAreaDomain) {
             unsigned long pos = domain.find_last_of('.');
-            if (pos == string::npos || domain.substr(pos + 1) != server->area) {
+            if (pos == string::npos) {
+                continue;
+            }
+            auto fiDomain = domain.substr(pos + 1);
+            transform(fiDomain.begin(), fiDomain.end(), fiDomain.begin(), ::toupper);
+            if (fiDomain != server->area) {
                 continue;
             }
         }

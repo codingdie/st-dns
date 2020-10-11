@@ -58,10 +58,9 @@ namespace st {
                             string filename = RemoteDNSServer::generateServerId(serverIp, serverPort);
                             string whitelist = serverNode.get("whitelist", BASE_CONF_PATH + "whitelist/" + filename);
                             string blacklist = serverNode.get("blacklist", BASE_CONF_PATH + "blacklist/" + filename);
-                            string country = serverNode.get("country", "");
-                            bool onlyCountryIp = serverNode.get("only_country_ip", false);
-                            RemoteDNSServer *dnsServer = new RemoteDNSServer(serverIp, serverPort, type, whitelist, blacklist, country,
-                                                                             onlyCountryIp);
+                            string area = serverNode.get("area", "");
+                            bool onlyAreaIp = serverNode.get("only_area_ip", false);
+                            RemoteDNSServer *dnsServer = new RemoteDNSServer(serverIp, serverPort, type, whitelist, blacklist, area, onlyAreaIp);
                             servers.emplace_back(dnsServer);
                         }
                     }

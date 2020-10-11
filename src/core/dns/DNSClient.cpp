@@ -3,10 +3,10 @@
 //
 
 #include "DNSClient.h"
+#include "asio/STUtils.h"
 
 DNSClient DNSClient::instance;
 
-static thread_local boost::asio::io_context ctxThreadLocal;
 
 UdpDNSResponse *DNSClient::udpDns(const string &domain, const string &dnsServer, uint32_t port, uint64_t timeout) {
     vector<string> domains;
@@ -94,6 +94,7 @@ TcpDNSResponse *DNSClient::queryTcpOverTls(const vector<string> &domains, const 
     tcp::endpoint serverEndpoint(make_address_v4(dnsServer), port);
     TcpDnsRequest dnsRequest(domains);
     unsigned short qid = dnsRequest.dnsHeader->id;
+    io_context &ctxThreadLocal = asio::TLIOContext::getIOContext();
     boost::asio::ssl::stream<tcp::socket> socket(ctxThreadLocal, sslCtx);
     socket.set_verify_mode(ssl::verify_none);
     byte dataBytes[1024];

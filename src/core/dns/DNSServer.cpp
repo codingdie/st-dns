@@ -9,13 +9,13 @@
 #include "DNSClient.h"
 #include "STUtils.h"
 #include "DNSCache.h"
-#include "CountryIpManager.h"
+#include "AreaIpManager.h"
 
 using namespace std::placeholders;
 using namespace std;
 
 
-DNSServer::DNSServer(st::dns::Config &config) : config(config), pool(10) {
+DNSServer::DNSServer(st::dns::Config &config) : config(config), pool(50) {
     socketS = new udp::socket(ioContext, udp::endpoint(boost::asio::ip::make_address_v4(config.ip), config.port));
 }
 
@@ -108,9 +108,9 @@ set<uint32_t> DNSServer::queryDNS(const string &host, const RemoteDNSServer *ser
             delete udpDnsResponse;
         }
     }
-    if (!ips.empty() && server->whitelist.find(host) == server->whitelist.end() && !server->country.empty() && server->onlyCountryIp) {
+    if (!ips.empty() && server->whitelist.find(host) == server->whitelist.end() && !server->area.empty() && server->onlyAreaIp) {
         for (auto it = ips.begin(); it != ips.end();) {
-            if (!CountryIpManager::isCountryIP(server->country, *it)) {
+            if (!AreaIpManager::isAreaIP(server->area, *it)) {
                 it = ips.erase(it);
             } else {
                 it++;

@@ -25,6 +25,7 @@ public:
     set<string> blacklist;
     string area;
     bool onlyAreaIp;
+    bool onlyAreaDomain = false;
 
     static string generateServerId(const string &serverIp, int serverPort) {
         return boost::algorithm::ireplace_all_copy(serverIp, ".", "_") + "_" + to_string(serverPort);

@@ -31,7 +31,7 @@ target_link_libraries(st-dns-test ${Boost_LIBRARIES} ${OPENSSL_LIBRARIES})
 
 include(GNUInstallDirs)
 install(TARGETS st-dns DESTINATION ${CMAKE_INSTALL_BINDIR})
-install(FILES confs/st-dns.json DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/st-dns RENAME config.json)
+install(DIRECTORY confs/ DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/st-dns)
 
 #get_cmake_property(_variableNames VARIABLES)
 #foreach (_variableName ${_variableNames})

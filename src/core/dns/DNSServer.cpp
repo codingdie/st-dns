@@ -15,7 +15,7 @@ using namespace std::placeholders;
 using namespace std;
 
 
-DNSServer::DNSServer(st::dns::Config &config) : config(config), pool(50) {
+DNSServer::DNSServer(st::dns::Config &config) : config(config), pool(30) {
     socketS = new udp::socket(ioContext, udp::endpoint(boost::asio::ip::make_address_v4(config.ip), config.port));
 }
 

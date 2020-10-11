@@ -34,6 +34,12 @@ vector<RemoteDNSServer *> RemoteDNSServer::calculateQueryServer(const string &do
         if (blackIterator != server->blacklist.end()) {
             continue;
         }
+        if (server->onlyAreaDomain) {
+            unsigned long pos = domain.find_last_of('.');
+            if (pos == string::npos || domain.substr(pos + 1) != server->area) {
+                continue;
+            }
+        }
         result.emplace_back(server);
     }
 

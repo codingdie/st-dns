@@ -16,6 +16,7 @@ include_directories(${OPENSSL_INCLUDE_DIR})
 message("${OPENSSL_INCLUDE_DIR}")
 message("${OPENSSL_LIBRARIES}")
 include_directories(src/core/dns)
+include_directories(src/core/whois)
 include_directories(src/core/protocol/dns)
 include_directories(src/core/utils)
 
@@ -30,7 +31,7 @@ target_link_libraries(st-dns-test ${Boost_LIBRARIES} ${OPENSSL_LIBRARIES})
 
 include(GNUInstallDirs)
 install(TARGETS st-dns DESTINATION ${CMAKE_INSTALL_BINDIR})
-install(FILES st-dns.json DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/st-dns RENAME config.json)
+install(FILES confs/st-dns.json DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/st-dns RENAME config.json)
 
 #get_cmake_property(_variableNames VARIABLES)
 #foreach (_variableName ${_variableNames})

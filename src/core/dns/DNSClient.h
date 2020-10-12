@@ -14,6 +14,7 @@ static const int DEFAULT_DNS_PORT = 53;
 #include "DNS.h"
 #include <boost/asio/ssl.hpp>
 #include <vector>
+#include <unordered_set>
 
 using namespace boost::asio::ip;
 using namespace boost::asio;
@@ -40,8 +41,9 @@ public:
 private:
     boost::asio::io_context ioContext;
 
-
     boost::asio::io_context::work *ioContextWork;
+
+    unordered_set<string> hostsInQuery;
 
     vector<thread> ioThreads;
 

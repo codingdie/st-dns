@@ -3,9 +3,11 @@ project(st-dns)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lpthread -Wall -g")
-
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Os")
 
+if (NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif ()
 
 find_package(Boost 1.66.0 REQUIRED COMPONENTS system program_options thread filesystem)
 find_package(OpenSSL 1.1.1 REQUIRED)

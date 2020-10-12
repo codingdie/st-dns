@@ -14,3 +14,5 @@
 /.blacklist/
 /.whitelist/
 cmake*/
+Makefile
+build

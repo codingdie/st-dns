@@ -5,6 +5,8 @@
 #include "DNSClient.h"
 #include "asio/STUtils.h"
 
+static mutex rLock;
+
 DNSClient DNSClient::instance;
 
 
@@ -90,6 +92,14 @@ DNSClient::DNSClient() {
 }
 
 TcpDNSResponse *DNSClient::queryTcpOverTls(const vector<string> &domains, const string &dnsServer, uint16_t port, uint64_t timeout) {
+    {
+        lock_guard<mutex> lockGuard(rLock);
+        if (hostsInQuery.find(domains[0]) != hostsInQuery.end()) {
+            return nullptr;
+        } else {
+            hostsInQuery.emplace(domains[0]);
+        }
+    }
     boost::asio::ssl::context sslCtx(boost::asio::ssl::context::sslv23_client);
     tcp::endpoint serverEndpoint(make_address_v4(dnsServer), port);
     TcpDnsRequest dnsRequest(domains);
@@ -227,7 +237,7 @@ TcpDNSResponse *DNSClient::queryTcpOverTls(const vector<string> &domains, const 
     socket.lowest_layer().shutdown(boost::asio::socket_base::shutdown_both, errorCode);
     socket.lowest_layer().cancel(errorCode);
     socket.lowest_layer().close(errorCode);
-
+    hostsInQuery.erase(domains[0]);
     return dnsResponse;
 }
 

@@ -75,15 +75,20 @@ void DNSServer::proxyDnsOverTcpTls(DNSSession *session) {
 set<uint32_t> DNSServer::queryDNS(const string &host) const {
     auto ips = DNSCache::query(host);
     if (ips.empty()) {
-        vector<RemoteDNSServer *> servers = RemoteDNSServer::calculateQueryServer(host, config.servers);
-        for (auto it = servers.begin(); it != servers.end(); it++) {
-            RemoteDNSServer *&server = *it;
-            ips = queryDNS(host, server);
-            if (!ips.empty()) {
-                DNSCache::addCache(host, ips, server->id());
-                break;
+        if (host == "localhost") {
+            ips.emplace(2130706433);
+        } else {
+            vector<RemoteDNSServer *> servers = RemoteDNSServer::calculateQueryServer(host, config.servers);
+            for (auto it = servers.begin(); it != servers.end(); it++) {
+                RemoteDNSServer *&server = *it;
+                ips = queryDNS(host, server);
+                if (!ips.empty()) {
+                    DNSCache::addCache(host, ips, server->id());
+                    break;
+                }
             }
         }
+
 
     }
     return move(ips);

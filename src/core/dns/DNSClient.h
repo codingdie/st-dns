@@ -14,7 +14,6 @@ static const int DEFAULT_DNS_PORT = 53;
 #include "DNS.h"
 #include <boost/asio/ssl.hpp>
 #include <vector>
-#include <unordered_set>
 
 using namespace boost::asio::ip;
 using namespace boost::asio;
@@ -33,6 +32,8 @@ public:
 
     static TcpDNSResponse *tcpDns(const std::vector<string> &domains, const std::string &dnsServer, uint16_t port, uint64_t timeout);
 
+    static TcpDNSResponse *EDNS(const std::string &domain, const std::string &dnsServer, uint16_t port, uint32_t ip, uint64_t timeout);
+
 
     DNSClient();
 
@@ -43,13 +44,14 @@ private:
 
     boost::asio::io_context::work *ioContextWork;
 
-    unordered_set<string> hostsInQuery;
 
     vector<thread> ioThreads;
 
     UdpDNSResponse *queryUdp(const std::vector<string> &domains, const std::string &dnsServer, uint32_t port, uint64_t timeout);
 
     TcpDNSResponse *queryTcpOverTls(const std::vector<string> &domains, const std::string &dnsServer, uint16_t port, uint64_t timeout);
+
+    TcpDNSResponse *queryEDNS(const vector<string> &domains, const string &dnsServer, uint16_t port, uint32_t ip, uint64_t timeout);
 
 };
 

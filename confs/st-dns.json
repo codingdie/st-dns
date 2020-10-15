@@ -7,13 +7,12 @@
       "ip": "192.168.31.1",
       "port": 53,
       "area": "LAN",
-      "only_area_ip": true,
-      "only_area_domain": true
+      "only_area_ip": true
     },
     {
-      "type": "UDP",
-      "ip": "114.114.114.114",
-      "port": 53,
+      "type": "TCP_SSL",
+      "ip": "223.5.5.5",
+      "port": 853,
       "area": "CN",
       "only_area_ip": true
     },
@@ -24,5 +23,6 @@
       "area": "US"
     }
   ],
-  "cacheFile": "/etc/std-dns/hosts"
+  "dns_cache_expire": 600,
+  "st_proxy_conf": "/Volumes/code/st-proxy/confs"
 }

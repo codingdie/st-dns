@@ -9,9 +9,13 @@
 #include "DNSSession.h"
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
+#include "STUtils.h"
+#include <string>
+#include <unordered_set>
 
 using namespace boost::asio;
 using namespace boost::asio::ip;
+using namespace std;
 
 class DNSServer {
 public:
@@ -23,17 +27,17 @@ private:
     st::dns::Config config;
     udp::socket *socketS = nullptr;
     io_context ioContext;
-    thread_pool pool;
-    int i = 0;
+    unordered_set<string> hostsInQuery;
 
-private:
     void receive();
 
     void proxyDnsOverTcpTls(DNSSession *session);
 
-    set<uint32_t> queryDNS(const string &host) const;
+    set<uint32_t> queryDNS(const string &host);
 
     set<uint32_t> queryDNS(const string &host, const RemoteDNSServer *server) const;
+
+    void filterIPByArea(const string &host, const RemoteDNSServer *server, set<uint32_t> &ips) const;
 };
 
 

@@ -16,3 +16,5 @@
 cmake*/
 Makefile
 build
+/confs/whitelist/
+/confs/blacklist/

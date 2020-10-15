@@ -3,6 +3,7 @@
 //
 
 #include "RemoteDNSServer.h"
+#include "Config.h"
 
 bool RemoteDNSServer::init() {
     if (!file::createIfNotExits(blacklistFilePath)) {
@@ -21,14 +22,18 @@ bool RemoteDNSServer::init() {
 }
 
 vector<RemoteDNSServer *> RemoteDNSServer::calculateQueryServer(const string &domain, const vector<RemoteDNSServer *> &servers) {
+    set<string> &tunnelRealHosts = st::dns::Config::INSTANCE.stProxyTunnelRealHosts;
     vector<RemoteDNSServer *> result;
     for (auto it = servers.begin(); it != servers.end(); it++) {
         RemoteDNSServer *server = *it.base();
+        if (tunnelRealHosts.find(domain) != tunnelRealHosts.end()) {
+            result.emplace_back(server);
+            continue;
+        }
         auto whiteIterator = server->whitelist.find(domain);
         if (whiteIterator != server->whitelist.end()) {
-            result.clear();
             result.emplace_back(server);
-            return move(result);
+            continue;
         }
         auto blackIterator = server->blacklist.find(domain);
         if (blackIterator != server->blacklist.end()) {

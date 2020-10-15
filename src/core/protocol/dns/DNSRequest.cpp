@@ -88,8 +88,19 @@ TcpDnsRequest::TcpDnsRequest(const vector<std::string> &hosts) {
     initDataZone();
 }
 
+
+TcpDnsRequest::TcpDnsRequest(const vector<std::string> &hosts, uint32_t ip) {
+    this->dnsHeader = DNSHeader::generate(hosts.size(), 1);
+    this->dnsQueryZone = DNSQueryZone::generate(hosts);
+    this->ENDSZone = EDNSAdditionalZone::generate(ip);
+    initDataZone();
+}
+
 void TcpDnsRequest::initDataZone() {
     uint16_t len = dnsHeader->len + dnsQueryZone->len + 2;
+    if (ENDSZone != nullptr) {
+        len += ENDSZone->len;
+    }
     byte lenArr[2];
     uint16_t dataLen = len - 2;
     st::utils::toBytes(lenArr, dataLen);
@@ -100,7 +111,64 @@ void TcpDnsRequest::initDataZone() {
     st::utils::copy(dnsHeader->data, data, 0U, pos, dnsHeader->len);
     pos += dnsHeader->len;
     st::utils::copy(dnsQueryZone->data, data, 0U, pos, dnsQueryZone->len);
+    pos += dnsQueryZone->len;
+    if (ENDSZone != nullptr) {
+        st::utils::copy(ENDSZone->data, data, 0U, pos, ENDSZone->len);
+    }
     BasicData::len = len;
     BasicData::data = data;
     BasicData::setDataOwner(true);
+}
+
+TcpDnsRequest::~TcpDnsRequest() {
+    if (ENDSZone != nullptr) {
+        delete ENDSZone;
+    }
+
+}
+
+EDNSAdditionalZone *EDNSAdditionalZone::generate(uint32_t ip) {
+    int size = 23;
+    EDNSAdditionalZone *zone = new EDNSAdditionalZone(size);
+    byte *data = zone->data;
+    //name empty
+    data[0] = 0;
+    //type
+    data[1] = 0;
+    data[2] = 41;
+    //udp size
+    data[3] = 0x10;
+    data[4] = 0;
+
+    //header
+    data[5] = 0;
+    data[6] = 0;
+    data[7] = 0;
+    data[8] = 0;
+    //len
+    data[9] = 0;
+    data[10] = 12;
+    //data
+    data[11] = 0;
+    data[12] = 0x08;
+
+    //len
+    data[13] = 0;
+    data[14] = 8;
+    //family
+    data[15] = 0;
+    data[16] = 1;
+
+    //address len
+    data[17] = 0;
+    data[18] = 0;
+    //ipv4
+    data[19] = (ip >> (8 * 3)) & 0xFF;
+    data[20] = (ip >> (8 * 2)) & 0xFF;
+    data[21] = (ip >> (8 * 1)) & 0xFF;
+    data[22] = ip & 0xFF;
+    return zone;
+}
+
+EDNSAdditionalZone::EDNSAdditionalZone(uint32_t len) : BasicData(len) {
 }

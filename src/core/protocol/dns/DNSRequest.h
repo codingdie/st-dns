@@ -38,13 +38,28 @@ protected:
 
 };
 
+class EDNSAdditionalZone : public BasicData {
+
+public:
+    EDNSAdditionalZone(uint32_t len);
+
+    static EDNSAdditionalZone *generate(uint32_t ip);
+};
+
 class TcpDnsRequest : public UdpDnsRequest {
 public:
+
     explicit TcpDnsRequest(const vector<std::string> &hosts);
+
+    explicit TcpDnsRequest(const vector<std::string> &hosts, uint32_t ip);
+
+    virtual ~TcpDnsRequest();
 
 protected:
     void initDataZone() override;
-};
 
+private:
+    EDNSAdditionalZone *ENDSZone = nullptr;
+};
 
 #endif //ST_DNS_DNSREQUEST_H

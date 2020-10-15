@@ -58,6 +58,9 @@ public:
 
     explicit BasicData(uint32_t len) : len(len) {
         data = new byte[len];
+        for (int i = 0; i < len; i++) {
+            *(data + i) = 0;
+        }
         dataOwner = true;
 
     }
@@ -160,6 +163,10 @@ public:
     }
 
     static DNSHeader *generate(uint16_t id, int hostCount, bool isAnswer) {
+        return generate(id, hostCount, 0, isAnswer);
+    }
+
+    static DNSHeader *generate(uint16_t id, int hostCount, int additionalCount, bool isAnswer) {
         auto *dnsHeader = new DNSHeader(DEFAULT_LEN);
         uint16_t tmpData[DEFAULT_LEN / 2];
         tmpData[0] = id;
@@ -176,7 +183,7 @@ public:
         }
 
         tmpData[4] = 0;
-        tmpData[5] = 0;
+        tmpData[5] = additionalCount;
 
         byte *data = dnsHeader->data;
         uint16_t maskA = 0xFFU << 8U;
@@ -193,7 +200,11 @@ public:
     }
 
     static DNSHeader *generate(int hostCount) {
-        return generate(DnsIdGenerator::id16(), hostCount, false);
+        return generate(hostCount, 0);
+    }
+
+    static DNSHeader *generate(int hostCount, int additionalCount) {
+        return generate(DnsIdGenerator::id16(), hostCount, additionalCount, false);
     }
 
     void updateId(uint16_t id) {

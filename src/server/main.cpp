@@ -5,20 +5,15 @@
 #include <boost/thread.hpp>
 
 using namespace boost::asio;
-st::dns::Config getConfig(int argc, char *const *argv);
 
 int main(int argc, char *argv[]) {
-
-    st::dns::Config config = getConfig(argc, argv);
-    DNSServer dnsServer(config);
+    if (argc > 1) {
+        st::dns::Config::INSTANCE.load(string(argv[1]));
+    } else {
+        st::dns::Config::INSTANCE.load("/etc/config/st-dns/");
+    }
+    DNSServer dnsServer(st::dns::Config::INSTANCE);
     dnsServer.start();
     return 0;
 }
 
-st::dns::Config getConfig(int argc, char *const *argv) {
-    if (argc > 1) {
-        return st::dns::Config(string(argv[1]));
-    } else {
-        return st::dns::Config("/etc/config/st-dns/");
-    }
-}

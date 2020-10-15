@@ -21,19 +21,20 @@ using namespace std;
 namespace st {
     namespace dns {
 
-
         class Config {
         public:
-            static string BASE_CONF_PATH;
+            static Config INSTANCE;
             string ip = "127.0.0.1";
             int port = 53;
+            int dnsCacheExpire = 60 * 5;
+            string baseConfDir = "/etc/st/dns";
             vector<RemoteDNSServer *> servers;
 
             Config() = default;
 
-            Config(const string &baseConfDir) {
-                BASE_CONF_PATH = boost::filesystem::absolute(baseConfDir).normalize().string();
-                string configPath = BASE_CONF_PATH + "/st-dns.json";
+            void load(const string &baseConfDir) {
+                this->baseConfDir = baseConfDir;
+                string configPath = baseConfDir + "/st-dns.json";
                 if (st::utils::file::exit(configPath)) {
                     ptree tree;
                     try {
@@ -44,6 +45,7 @@ namespace st {
                     }
                     this->ip = tree.get("ip", string("127.0.0.1"));
                     this->port = stoi(tree.get("port", string("1080")));
+                    this->dnsCacheExpire = stoi(tree.get("dns_cache_expire", string("300")));
                     auto serversNodes = tree.get_child("servers");
                     if (!serversNodes.empty()) {
                         for (auto it = serversNodes.begin(); it != serversNodes.end(); it++) {
@@ -56,8 +58,8 @@ namespace st {
                             int serverPort = serverNode.get("port", 53);
                             string type = serverNode.get("type", "UDP");
                             string filename = RemoteDNSServer::generateServerId(serverIp, serverPort);
-                            string whitelist = serverNode.get("whitelist", BASE_CONF_PATH + "/whitelist/" + filename);
-                            string blacklist = serverNode.get("blacklist", BASE_CONF_PATH + "/blacklist/" + filename);
+                            string whitelist = serverNode.get("whitelist", baseConfDir + "/whitelist/" + filename);
+                            string blacklist = serverNode.get("blacklist", baseConfDir + "/blacklist/" + filename);
                             string area = serverNode.get("area", "");
                             bool onlyAreaIp = serverNode.get("only_area_ip", false);
                             RemoteDNSServer *dnsServer = new RemoteDNSServer(serverIp, serverPort, type, whitelist, blacklist, area, onlyAreaIp);
@@ -83,7 +85,6 @@ namespace st {
                     exit(1);
                 }
             }
-
 
         };
 

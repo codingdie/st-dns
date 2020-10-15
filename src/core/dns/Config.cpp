@@ -3,4 +3,5 @@
 //
 #include "Config.h"
 
-string st::dns::Config::BASE_CONF_PATH = "/etc/st-dns/";
+
+st::dns::Config st::dns::Config::INSTANCE;

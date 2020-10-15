@@ -8,6 +8,7 @@
 #include <string>
 #include <chrono>
 #include <iostream>
+#include <set>
 #include <mutex>
 
 #define END Logger::MASK::ENDL;
@@ -59,6 +60,8 @@ namespace st {
             Logger &operator<<(const string &string);
 
             Logger &operator<<(char *log);
+
+            Logger &operator<<(const set<string> &strs);
 
             template<typename A> Logger &operator<<(const A &str1) {
                 if (typeid(str1) == typeid(MASK) && str1 == ENDL) {

@@ -29,6 +29,8 @@ namespace st {
             int dnsCacheExpire = 60 * 5;
             string baseConfDir = "/etc/st/dns";
             vector<RemoteDNSServer *> servers;
+            string stProxyConfDir = "";
+            set<string> stProxyTunnelRealHosts;
 
             Config() = default;
 
@@ -46,6 +48,8 @@ namespace st {
                     this->ip = tree.get("ip", string("127.0.0.1"));
                     this->port = stoi(tree.get("port", string("1080")));
                     this->dnsCacheExpire = stoi(tree.get("dns_cache_expire", string("300")));
+                    this->stProxyConfDir = tree.get("st_proxy_conf", string(""));
+                    loadSTProxyRealHosts();
                     auto serversNodes = tree.get_child("servers");
                     if (!serversNodes.empty()) {
                         for (auto it = serversNodes.begin(); it != serversNodes.end(); it++) {
@@ -86,6 +90,31 @@ namespace st {
                 }
             }
 
+            void loadSTProxyRealHosts() {
+                if (!stProxyConfDir.empty()) {
+                    ptree stProxyConf;
+                    try {
+                        read_json(stProxyConfDir + "/st-proxy.json", stProxyConf);
+                    } catch (json_parser_error e) {
+                        Logger::ERROR << " parse st-proxy config file " + stProxyConfDir + " error!" << e.message() << END;
+                        exit(1);
+                    }
+                    auto tunnelNodes = stProxyConf.get_child("tunnels");
+                    if (!tunnelNodes.empty()) {
+                        for (auto it = tunnelNodes.begin(); it != tunnelNodes.end(); it++) {
+                            auto tunnel = it->second;
+                            string realServerHost = tunnel.get("real_server_host", "");
+                            if (!realServerHost.empty()) {
+                                stProxyTunnelRealHosts.emplace(realServerHost);
+                            }
+                        }
+                    }
+                    if (!stProxyTunnelRealHosts.empty()) {
+                        Logger::INFO << "load st-proxy tunnel real hosts:" << stProxyTunnelRealHosts << END;
+
+                    }
+                }
+            }
         };
 
 

@@ -27,9 +27,9 @@ void Logger::doLog(const string &level, const string &info) {
     string result = " [" + level + "] " + time + " " + info;
     std::lock_guard<std::mutex> lg(logMutex);
     this->str.clear();
-    if (this->tag == "DEBUG") {
-        return;
-    }
+//    if (this->tag == "DEBUG") {
+//        return;
+//    }
     cout << "[" << this_thread::get_id() << "]" << result << endl;
 }
 
@@ -65,5 +65,12 @@ Logger &Logger::operator<<(const string &string) {
 
 void Logger::appendStr(const string &info) {
     this->str.append(info).append(" ");
+}
+
+Logger &Logger::operator<<(const set<string> &strs) {
+    for (auto str:strs) {
+        appendStr(str);
+    }
+    return *this;
 }
 

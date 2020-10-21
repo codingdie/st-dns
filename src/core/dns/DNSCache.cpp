@@ -9,7 +9,7 @@ DNSCache DNSCache::INSTANCE;
 
 static mutex rLock;
 
-void DNSCache::addCache(const string &domain, const set<uint32_t> &ips, const string &dnsServer) {
+void DNSCache::addCache(const string &domain, const set<uint32_t> &ips, const string &dnsServer, const int expire) {
     lock_guard<mutex> lockGuard(rLock);
     Logger::INFO << "addDNSCache" << domain << ipv4::ipsToStr(ips) << "from" << dnsServer << END;
     auto iterator = INSTANCE.caches.find(domain);
@@ -32,8 +32,11 @@ void DNSCache::addCache(const string &domain, const set<uint32_t> &ips, const st
     for (uint32_t ip:ips) {
         record->ips.emplace(ip);
     }
-    record->ctime = time::now();
+    record->expireTime = time::now() + expire;
+}
 
+void DNSCache::addCache(const string &domain, const set<uint32_t> &ips, const string &dnsServer) {
+    addCache(domain, ips, dnsServer, st::dns::Config::INSTANCE.dnsCacheExpire * 1000);
 }
 
 
@@ -42,15 +45,18 @@ set<uint32_t> DNSCache::query(const string &host) {
     auto iterator = INSTANCE.caches.find(host);
     if (iterator != INSTANCE.caches.end()) {
         auto allServerMap = iterator->second;
-        for (auto it = allServerMap->begin(); it != allServerMap->end(); it++) {
+        for (auto it = allServerMap->begin(); it != allServerMap->end();) {
             auto pair = *it;
             auto record = pair.second;
-            long expire = time::now() - record->ctime;
-            if (expire < st::dns::Config::INSTANCE.dnsCacheExpire * 1000) {
+            if (record->expireTime > st::utils::time::now()) {
                 for (auto ipIt = record->ips.begin(); ipIt != record->ips.end(); ipIt++) {
                     auto ip = *ipIt;
                     result.emplace(ip);
                 }
+                it++;
+            } else {
+                it = allServerMap->erase(it);
+                Logger::DEBUG << "remove dns cache" << host << pair.first << END;
             }
 
         }

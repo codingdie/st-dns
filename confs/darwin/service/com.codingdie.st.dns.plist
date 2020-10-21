@@ -6,17 +6,19 @@
 	<string>com.codingdie.st.dns</string>
 	<key>UserName</key>
 	<string>root</string>
-    <key>KeepAlive</key>
+	<key>KeepAlive</key>
 	<true/>
-
 	<key>ProgramArguments</key>
 	<array>
-		<string>st-dns</string>
-		<string>Full</string>
+		<string>/usr/local/bin/st-dns</string>
 	</array>
 	<key>RunAtLoad</key>
 	<true/>
 	<key>WorkingDirectory</key>
-	<string>/Applications/TeamViewer.app/Contents/MacOS</string>
+	<string>/tmp</string>
+	<key>StandardOutPath</key>
+    <string>/tmp/st-dns.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/st-dns.error</string>
 </dict>
 </plist>

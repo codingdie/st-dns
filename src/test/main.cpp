@@ -52,7 +52,7 @@ template<typename FUNC> void testParallel(FUNC testMethod, int count, int parral
 int main(int argc, char *argv[]) {
 //    cout << st::utils::ip::strToIp("192.168.31.164") << END;
 //    testUdp("baidu.com", "192.168.31.164", 1000, 10);
-    testEDNS("www.baidu.com", "8.8.8.8");
+//    testEDNS("www.baidu.com", "8.8.8.8");
 //    WhoisClient::whois("baidu.com", "192.30.45.30", 43, 5000);
 }
 
@@ -82,19 +82,19 @@ void testTcp(const char *const domain, const char *const server) {
         return false;
     }, 2, 2);
 }
-
-void testEDNS(const char *const domain, const char *const server) {
-    testParallel([=]() {
-        int cn = 1032296584;
-        int us = 96217087;
-        auto tcpDnsResponse = DNSClient::EDNS(domain, server, 53, cn, 20000);
-        if (tcpDnsResponse != nullptr) {
-            UdpDNSResponse *dnsResponse = tcpDnsResponse->udpDnsResponse;
-            Logger::INFO << "success" << dnsResponse->header->id << dnsResponse->queryZone->querys.front()->domain->domain << dnsResponse->header->id << st::utils::ipv4::ipsToStr(
-                    dnsResponse->ips) << END;
-            delete tcpDnsResponse;
-            return true;
-        }
-        return false;
-    }, 1, 1);
-}
+//
+//void testEDNS(const char *const domain, const char *const server) {
+//    testParallel([=]() {
+//        int cn = 1032296584;
+//        int us = 96217087;
+//        auto tcpDnsResponse = DNSClient::EDNS(domain, server, 53, cn, 20000);
+//        if (tcpDnsResponse != nullptr) {
+//            UdpDNSResponse *dnsResponse = tcpDnsResponse->udpDnsResponse;
+//            Logger::INFO << "success" << dnsResponse->header->id << dnsResponse->queryZone->querys.front()->domain->domain << dnsResponse->header->id << st::utils::ipv4::ipsToStr(
+//                    dnsResponse->ips) << END;
+//            delete tcpDnsResponse;
+//            return true;
+//        }
+//        return false;
+//    }, 1, 1);
+//}

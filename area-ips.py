@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 
 
 def download(area_code):
-    dir = "confs/area-ips/"
+    dir = "area-ips/"
     filepath = dir + area_code
     if os.path.isfile(filepath):
         return

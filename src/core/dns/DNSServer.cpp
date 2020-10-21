@@ -16,7 +16,7 @@ static mutex rLock;
 using namespace std::placeholders;
 using namespace std;
 
-DNSServer::DNSServer(st::dns::Config &config) : config(config) {
+DNSServer::DNSServer(st::dns::Config &config) : config(config), num(0) {
     socketS = new udp::socket(ioContext, udp::endpoint(boost::asio::ip::make_address_v4(config.ip), config.port));
 }
 
@@ -24,16 +24,17 @@ DNSServer::DNSServer(st::dns::Config &config) : config(config) {
 void DNSServer::start() {
     boost::asio::io_context::work ioContextWork(ioContext);
     vector<thread> threads;
-    for (int i = 0; i < 1; i++) {
+    for (int i = 0; i < 8; i++) {
         threads.emplace_back([this]() {
             receive();
             ioContext.run();
         });
     }
+    Logger::INFO << "st-dns start" << END;
     for (auto &th:threads) {
         th.join();
     }
-    Logger::INFO << "server end" << END;
+    Logger::INFO << "st-dns end" << END;
 }
 
 void DNSServer::receive() {
@@ -44,7 +45,6 @@ void DNSServer::receive() {
     socketS->async_receive_from(buffer(session->udpDnsRequest.data, session->udpDnsRequest.len), session->clientEndpoint,
                                 [=, this](boost::system::error_code errorCode, std::size_t size) {
                                     Logger::DEBUG << curNum << "received!" << END;
-
                                     if (!errorCode && size > 0) {
                                         session->udpDnsRequest.len = size;
                                         if (session->udpDnsRequest.parse()) {
@@ -54,6 +54,8 @@ void DNSServer::receive() {
                                             Logger::ERROR << "invalid dns request" << END;
                                         }
 
+                                    } else {
+                                        delete session;
                                     }
                                     Logger::DEBUG << curNum << "finished!" << END;
                                     receive();
@@ -76,8 +78,11 @@ void DNSServer::proxyDnsOverTcpTls(DNSSession *session) {
                                    delete udpResponse;
                                    delete session;
                                });
+        if (*ips.begin() == 0) {
+            Logger::ERROR << "dns failed!" << session->udpDnsRequest.getFirstHost() << END;
+        }
     } else {
-        Logger::ERROR << "dns failed!" << session->udpDnsRequest.getFirstHost() << END;
+        delete session;
     }
 
 }
@@ -106,23 +111,21 @@ set<uint32_t> DNSServer::queryDNS(const string &host) {
                     rLock.lock();
                     this->hostsInQuery.erase(host);
                     rLock.unlock();
-
                 }
-
             }
-
-
         }
-
     }
-
+    if (ips.empty()) {
+        ips.emplace(0);
+        DNSCache::addCache(host, ips, "error", 1000 * 10);
+    }
     return move(ips);
 }
 
 set<uint32_t> DNSServer::queryDNS(const string &host, const RemoteDNSServer *server) const {
     set<uint32_t> ips;
     if (server->type.compare("TCP_SSL") == 0) {
-        auto tcpResponse = DNSClient::tcpDns(host, server->ip, server->port, 5000);
+        auto tcpResponse = DNSClient::tcpDns(host, server->ip, server->port, 10000);
         if (tcpResponse != nullptr && tcpResponse->isValid()) {
             ips = move(tcpResponse->udpDnsResponse->ips);
         }
@@ -130,7 +133,7 @@ set<uint32_t> DNSServer::queryDNS(const string &host, const RemoteDNSServer *ser
             delete tcpResponse;
         }
     } else if (server->type.compare("UDP") == 0) {
-        auto udpDnsResponse = DNSClient::udpDns(host, server->ip, server->port, 5000);
+        auto udpDnsResponse = DNSClient::udpDns(host, server->ip, server->port, 10000);
         if (udpDnsResponse != nullptr && udpDnsResponse->isValid()) {
             ips = move(udpDnsResponse->ips);
         }

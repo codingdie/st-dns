@@ -10,10 +10,16 @@ AreaIpManager AreaIpManager::INSTANCE;
 
 static mutex rLock;
 
-bool AreaIpManager::isAreaIP(const string &areaCode, const uint32_t &ip) {
+bool AreaIpManager::isAreaIP(const string &areaReg, const uint32_t &ip) {
+    string areaCode = areaReg;
+    bool matchNot = false;
+    if (areaReg[0] == '!') {
+        areaCode = areaReg.substr(1, areaReg.size() - 1);
+        matchNot = true;
+    }
     rLock.lock();
     if (INSTANCE.caches.find(areaCode) == INSTANCE.caches.end()) {
-        string dataPath = st::dns::Config::INSTANCE.baseConfDir + "/area-ips/" + areaCode;
+        string dataPath = st::dns::Config::INSTANCE.baseConfDir + "/../area-ips/" + areaCode;
         ifstream in(dataPath);
         string line;
         vector<pair<uint32_t, uint32_t>> *ips = new vector<pair<uint32_t, uint32_t>>();
@@ -41,9 +47,9 @@ bool AreaIpManager::isAreaIP(const string &areaCode, const uint32_t &ip) {
         for (auto it = ipRanges->begin(); it != ipRanges->end(); it++) {
             pair<uint32_t, uint32_t> &ipRange = *it;
             if (ip <= ipRange.second && ip >= ipRange.first) {
-                return true;
+                return matchNot ? false : true;
             }
         }
     }
-    return false;
+    return matchNot ? true : false;
 }

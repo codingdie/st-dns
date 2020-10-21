@@ -24,7 +24,7 @@ class DNSCacheRecord {
 
 public:
     set<uint32_t> ips;
-    uint64_t ctime;
+    uint64_t expireTime;
 };
 
 class DNSCache {
@@ -34,6 +34,8 @@ private:
 public:
 
     static void addCache(const string &domain, const set<uint32_t> &ips, const string &dnsServer);
+
+    static void addCache(const string &domain, const set<uint32_t> &ips, const string &dnsServer, const int expire);
 
     static set<uint32_t> query(const string &host);
 };

@@ -76,8 +76,10 @@ void DNSServer::proxyDnsOverTcpTls(DNSSession *session) {
                                    delete udpResponse;
                                    delete session;
                                });
-    } else {
-        Logger::ERROR << "dns failed!" << session->udpDnsRequest.getFirstHost() << END;
+        if (*ips.begin() == 0) {
+            Logger::ERROR << "dns failed!" << session->udpDnsRequest.getFirstHost() << END;
+        }
+
     }
 
 }
@@ -106,16 +108,14 @@ set<uint32_t> DNSServer::queryDNS(const string &host) {
                     rLock.lock();
                     this->hostsInQuery.erase(host);
                     rLock.unlock();
-
                 }
-
             }
-
-
         }
-
     }
-
+    if (ips.empty()) {
+        ips.emplace(0);
+        DNSCache::addCache(host, ips, "error", 1000 * 10);
+    }
     return move(ips);
 }
 

@@ -37,9 +37,14 @@ void DNSServer::start() {
 }
 
 void DNSServer::receive() {
+    auto curNum = num++;
+    Logger::DEBUG << curNum << "begin receive!" << END;
+
     DNSSession *session = new DNSSession();
     socketS->async_receive_from(buffer(session->udpDnsRequest.data, session->udpDnsRequest.len), session->clientEndpoint,
                                 [=, this](boost::system::error_code errorCode, std::size_t size) {
+                                    Logger::DEBUG << curNum << "received!" << END;
+
                                     if (!errorCode && size > 0) {
                                         session->udpDnsRequest.len = size;
                                         if (session->udpDnsRequest.parse()) {
@@ -50,6 +55,7 @@ void DNSServer::receive() {
                                         }
 
                                     }
+                                    Logger::DEBUG << curNum << "finished!" << END;
                                     receive();
                                 });
 

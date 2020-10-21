@@ -24,6 +24,7 @@ public:
     void start();
 
 private:
+    atomic_int64_t num;
     st::dns::Config config;
     udp::socket *socketS = nullptr;
     io_context ioContext;
@@ -31,6 +32,7 @@ private:
 
     void receive();
 
+//    ato
     void proxyDnsOverTcpTls(DNSSession *session);
 
     set<uint32_t> queryDNS(const string &host);

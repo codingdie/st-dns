@@ -24,8 +24,12 @@ bool RemoteDNSServer::init() {
 vector<RemoteDNSServer *> RemoteDNSServer::calculateQueryServer(const string &domain, const vector<RemoteDNSServer *> &servers) {
     set<string> &tunnelRealHosts = st::dns::Config::INSTANCE.stProxyTunnelRealHosts;
     vector<RemoteDNSServer *> result;
+    string fiDomain = getFiDomain(domain);
     for (auto it = servers.begin(); it != servers.end(); it++) {
         RemoteDNSServer *server = *it.base();
+        if ((fiDomain == "LAN" || fiDomain == "ARPA") && server->area != fiDomain) {
+            continue;
+        }
         if (tunnelRealHosts.find(domain) != tunnelRealHosts.end()) {
             result.emplace_back(server);
             continue;
@@ -40,12 +44,6 @@ vector<RemoteDNSServer *> RemoteDNSServer::calculateQueryServer(const string &do
             continue;
         }
         if (server->onlyAreaDomain) {
-            unsigned long pos = domain.find_last_of('.');
-            if (pos == string::npos) {
-                continue;
-            }
-            auto fiDomain = domain.substr(pos + 1);
-            transform(fiDomain.begin(), fiDomain.end(), fiDomain.begin(), ::toupper);
             if (fiDomain != server->area) {
                 continue;
             }
@@ -54,6 +52,16 @@ vector<RemoteDNSServer *> RemoteDNSServer::calculateQueryServer(const string &do
     }
 
     return move(result);
+}
+
+string RemoteDNSServer::getFiDomain(const string &domain) {
+    unsigned long pos = domain.find_last_of('.');
+    if (pos == string::npos) {
+        return "";
+    }
+    string fiDomain = domain.substr(pos + 1);
+    transform(fiDomain.begin(), fiDomain.end(), fiDomain.begin(), ::toupper);
+    return move(fiDomain);
 }
 
 RemoteDNSServer::RemoteDNSServer(const string &ip, int port, const string &type, const string &whitelistFilePath, const string &blacklistFilePath,

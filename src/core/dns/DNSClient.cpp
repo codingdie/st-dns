@@ -104,7 +104,9 @@ TcpDNSResponse *DNSClient::queryTcpOverTls(const vector<string> &domains, const 
     uint16_t length = 0;
     bool error = false;
     long begin = time::now();
+    ctxThreadLocal.reset();
     ctxThreadLocal.stop();
+    Logger::DEBUG << dnsRequest.dnsHeader->id << "begin connect" << END;
     auto connectFuture = socket.lowest_layer().async_connect(serverEndpoint, boost::asio::use_future([](boost::system::error_code ec) {
         if (ec.failed()) {
             Logger::ERROR << "connect error!" << ec.message() << END;
@@ -121,13 +123,18 @@ TcpDNSResponse *DNSClient::queryTcpOverTls(const vector<string> &domains, const 
         Logger::ERROR << dnsRequest.dnsHeader->id << "connect timeout!" << END;
         error = true;
     } else {
-        auto shakeFuture = socket.async_handshake(boost::asio::ssl::stream_base::client, boost::asio::use_future([](boost::system::error_code error) {
-            if (error.failed()) {
-                Logger::ERROR << "ssl handshake error!" << error.message() << END;
-                return false;
-            }
-            return true;
-        }));
+        Logger::DEBUG << dnsRequest.dnsHeader->id << "connected" << timeout << END;
+
+        auto shakeFuture = socket.async_handshake(boost::asio::ssl::stream_base::client,
+                                                  boost::asio::use_future([&](boost::system::error_code error) {
+                                                      if (error.failed()) {
+                                                          Logger::ERROR << "ssl handshake error!" << error.message() << END;
+                                                          return false;
+                                                      }
+                                                      return true;
+                                                  }));
+        ctxThreadLocal.restart();
+        ctxThreadLocal.run();
         ctxThreadLocal.restart();
         ctxThreadLocal.run();
         bool isTimeout = shakeFuture.wait_for(std::chrono::milliseconds(timeout)) != std::future_status::ready;
@@ -137,6 +144,8 @@ TcpDNSResponse *DNSClient::queryTcpOverTls(const vector<string> &domains, const 
             Logger::ERROR << dnsRequest.dnsHeader->id << "ssl handshake timeout!" << END
             error = true;
         } else { ;
+            Logger::DEBUG << dnsRequest.dnsHeader->id << "ssl finish  handshake" << END;
+
             st::utils::copy(dnsRequest.data, dataBytes, 0, 0, dnsRequest.len);
             auto sendFuture = socket.async_write_some(buffer(dataBytes, dnsRequest.len),
                                                       boost::asio::use_future([](boost::system::error_code error, std::size_t length) {
@@ -156,9 +165,9 @@ TcpDNSResponse *DNSClient::queryTcpOverTls(const vector<string> &domains, const 
                 error = true;
             } else {
                 auto receiveLenFuture = boost::asio::async_read(socket, buffer(lengthBytes, 2),
-                                                                boost::asio::use_future([](boost::system::error_code error, std::size_t length) {
+                                                                boost::asio::use_future([&](boost::system::error_code error, std::size_t length) {
                                                                     if (error.failed()) {
-                                                                        Logger::ERROR << "ssl async_read error!" << END;
+                                                                        Logger::ERROR << dnsRequest.dnsHeader->id << "ssl async_read error!" << END;
                                                                         return false;
                                                                     }
                                                                     return true;
@@ -173,14 +182,14 @@ TcpDNSResponse *DNSClient::queryTcpOverTls(const vector<string> &domains, const 
                     error = true;
                 } else {
                     st::utils::read(lengthBytes, length);
-                    auto receiveDataFuture = boost::asio::async_read(socket, buffer(dataBytes, length),
-                                                                     boost::asio::use_future([](boost::system::error_code error, std::size_t length) {
-                                                                         if (error.failed()) {
-                                                                             Logger::ERROR << "ssl async_read error!" << END;
-                                                                             return false;
-                                                                         }
-                                                                         return true;
-                                                                     }));
+                    auto receiveDataFuture = boost::asio::async_read(socket, buffer(dataBytes, length), boost::asio::use_future(
+                            [&](boost::system::error_code error, std::size_t length) {
+                                if (error.failed()) {
+                                    Logger::ERROR << dnsRequest.dnsHeader->id << "ssl read data len error!" << error.message() << END;
+                                    return false;
+                                }
+                                return true;
+                            }));
                     ctxThreadLocal.restart();
                     ctxThreadLocal.run();
                     if (receiveDataFuture.wait_for(

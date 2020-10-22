@@ -21,6 +21,12 @@
       "ip": "8.8.8.8",
       "port": 853,
       "area": "US"
+    },
+    {
+      "type": "TCP_SSL",
+      "ip": "223.5.5.5",
+      "port": 853,
+      "area": "CN"
     }
   ],
   "dns_cache_expire": 600,

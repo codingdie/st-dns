@@ -122,7 +122,7 @@ set<uint32_t> DNSServer::queryDNS(const string &host) {
 set<uint32_t> DNSServer::queryDNS(const string &host, const RemoteDNSServer *server) const {
     set<uint32_t> ips;
     if (server->type.compare("TCP_SSL") == 0) {
-        auto tcpResponse = DNSClient::tcpDns(host, server->ip, server->port, 5000);
+        auto tcpResponse = DNSClient::tcpDns(host, server->ip, server->port, 3000);
         if (tcpResponse != nullptr && tcpResponse->isValid()) {
             ips = move(tcpResponse->udpDnsResponse->ips);
         }
@@ -130,7 +130,7 @@ set<uint32_t> DNSServer::queryDNS(const string &host, const RemoteDNSServer *ser
             delete tcpResponse;
         }
     } else if (server->type.compare("UDP") == 0) {
-        auto udpDnsResponse = DNSClient::udpDns(host, server->ip, server->port, 5000);
+        auto udpDnsResponse = DNSClient::udpDns(host, server->ip, server->port, 3000);
         if (udpDnsResponse != nullptr && udpDnsResponse->isValid()) {
             ips = move(udpDnsResponse->ips);
         }

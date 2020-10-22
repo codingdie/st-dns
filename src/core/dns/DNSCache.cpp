@@ -56,6 +56,7 @@ set<uint32_t> DNSCache::query(const string &host) {
                 it++;
             } else {
                 it = allServerMap->erase(it);
+                Logger::DEBUG << "remove dns cache" << host << pair.first << END;
             }
 
         }

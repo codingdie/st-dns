@@ -32,7 +32,7 @@ public:
 
     static TcpDNSResponse *tcpDns(const std::vector<string> &domains, const std::string &dnsServer, uint16_t port, uint64_t timeout);
 
-    static TcpDNSResponse *EDNS(const std::string &domain, const std::string &dnsServer, uint16_t port, uint32_t ip, uint64_t timeout);
+//    static TcpDNSResponse *EDNS(const std::string &domain, const std::string &dnsServer, uint16_t port, uint32_t ip, uint64_t timeout);
 
 
     DNSClient();
@@ -51,8 +51,12 @@ private:
 
     TcpDNSResponse *queryTcpOverTls(const std::vector<string> &domains, const std::string &dnsServer, uint16_t port, uint64_t timeout);
 
-    TcpDNSResponse *queryEDNS(const vector<string> &domains, const string &dnsServer, uint16_t port, uint32_t ip, uint64_t timeout);
+//    TcpDNSResponse *queryEDNS(const vector<string> &domains, const string &dnsServer, uint16_t port, uint32_t ip, uint64_t timeout);
 
+    bool isTimeoutOrError(long begin, long timeout, long &restTime, future<bool> &future, const string logTag);
+
+
+    void setSSLSocketTimeoutOpts(const string &logTag, ssl::stream<tcp::socket> &socket, long timeout) const;
 };
 
 #endif //ST_DNS_DNSCLIENT_H

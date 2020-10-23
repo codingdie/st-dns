@@ -10,6 +10,7 @@
 #include "Logger.h"
 #include "FileUtils.h"
 #include "IPUtils.h"
+#include "ShellUtils.h"
 
 using namespace st::utils;
 #endif //ST_UTILS_H

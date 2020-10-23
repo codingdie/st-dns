@@ -19,7 +19,7 @@ bool AreaIpManager::isAreaIP(const string &areaReg, const uint32_t &ip) {
     }
     rLock.lock();
     if (INSTANCE.caches.find(areaCode) == INSTANCE.caches.end()) {
-        string dataPath = st::dns::Config::INSTANCE.baseConfDir + "/area-ips/" + areaCode;
+        string dataPath = st::dns::Config::INSTANCE.baseConfDir + "/../area-ips/" + areaCode;
         ifstream in(dataPath);
         string line;
         vector<pair<uint32_t, uint32_t>> *ips = new vector<pair<uint32_t, uint32_t>>();

@@ -45,7 +45,6 @@ void DNSServer::receive() {
     socketS->async_receive_from(buffer(session->udpDnsRequest.data, session->udpDnsRequest.len), session->clientEndpoint,
                                 [=, this](boost::system::error_code errorCode, std::size_t size) {
                                     Logger::DEBUG << curNum << "received!" << END;
-
                                     if (!errorCode && size > 0) {
                                         session->udpDnsRequest.len = size;
                                         if (session->udpDnsRequest.parse()) {
@@ -55,6 +54,8 @@ void DNSServer::receive() {
                                             Logger::ERROR << "invalid dns request" << END;
                                         }
 
+                                    } else {
+                                        delete session;
                                     }
                                     Logger::DEBUG << curNum << "finished!" << END;
                                     receive();
@@ -80,7 +81,8 @@ void DNSServer::proxyDnsOverTcpTls(DNSSession *session) {
         if (*ips.begin() == 0) {
             Logger::ERROR << "dns failed!" << session->udpDnsRequest.getFirstHost() << END;
         }
-
+    } else {
+        delete session;
     }
 
 }

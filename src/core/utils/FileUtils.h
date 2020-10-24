@@ -13,6 +13,19 @@
 namespace st {
     namespace utils {
         namespace file {
+
+            static inline bool pid(const string &pidFile) {
+                int pid = getpid();
+                ofstream fileStream(pidFile);
+                if (fileStream.is_open()) {
+                    fileStream << pid;
+                    fileStream.flush();
+                    fileStream.close();
+                    return true;
+                }
+                return false;
+            }
+
             static inline bool exit(const string &path) {
                 bool exits = false;
                 fstream fileStream;
@@ -53,7 +66,7 @@ namespace st {
 
             }
 
-            static void read(const string &path, set <string> &data) {
+            static void read(const string &path, set<string> &data) {
                 fstream fileStream;
                 fileStream.open(path, ios::in);
                 if (fileStream) {

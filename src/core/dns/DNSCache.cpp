@@ -13,26 +13,19 @@ void DNSCache::addCache(const string &domain, const set<uint32_t> &ips, const st
     lock_guard<mutex> lockGuard(rLock);
     Logger::INFO << "addDNSCache" << domain << ipv4::ipsToStr(ips) << "from" << dnsServer << END;
     auto iterator = INSTANCE.caches.find(domain);
-    unordered_map<string, DNSCacheRecord *> *serverCaches = nullptr;
+    DNSRecord *record = nullptr;
     if (iterator == INSTANCE.caches.end()) {
-        serverCaches = new unordered_map<string, DNSCacheRecord *>();
-        INSTANCE.caches.emplace(domain, serverCaches);
+        record = new DNSRecord();
+        INSTANCE.caches.emplace(domain, record);
     } else {
-        serverCaches = iterator->second;
-    }
-    DNSCacheRecord *record = nullptr;
-    auto treeIterator = serverCaches->find(dnsServer);
-    if (treeIterator == serverCaches->end()) {
-        record = new DNSCacheRecord;
-        serverCaches->emplace(make_pair(dnsServer, record));
-    } else {
-        record = treeIterator->second;
+        record = iterator->second;
     }
     record->ips.clear();
     for (uint32_t ip:ips) {
         record->ips.emplace(ip);
     }
     record->expireTime = time::now() + expire;
+    record->dnsServer = dnsServer;
 }
 
 void DNSCache::addCache(const string &domain, const set<uint32_t> &ips, const string &dnsServer) {
@@ -40,26 +33,15 @@ void DNSCache::addCache(const string &domain, const set<uint32_t> &ips, const st
 }
 
 
-set<uint32_t> DNSCache::query(const string &host) {
-    std::set<uint32_t> result;
+bool DNSCache::query(const string &host, DNSRecord &record) {
     auto iterator = INSTANCE.caches.find(host);
     if (iterator != INSTANCE.caches.end()) {
-        auto allServerMap = iterator->second;
-        for (auto it = allServerMap->begin(); it != allServerMap->end();) {
-            auto pair = *it;
-            auto record = pair.second;
-            if (record->expireTime > st::utils::time::now()) {
-                for (auto ipIt = record->ips.begin(); ipIt != record->ips.end(); ipIt++) {
-                    auto ip = *ipIt;
-                    result.emplace(ip);
-                }
-                it++;
-            } else {
-                it = allServerMap->erase(it);
-                Logger::DEBUG << "remove dns cache" << host << pair.first << END;
-            }
-
+        record.dnsServer = iterator->second->dnsServer;
+        record.expireTime = iterator->second->expireTime;
+        record.ips = iterator->second->ips;
+        if (record.expireTime > st::utils::time::now()) {
+            return false;
         }
     }
-    return move(result);
+    return true;
 }

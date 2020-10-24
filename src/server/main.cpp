@@ -10,8 +10,8 @@ using namespace boost::asio;
 int main(int argc, char *argv[]) {
     bool inputConfigPath = false;
     string confPath = "";
-    if (argc >= 3 && argv[1] == "-c") {
-        string confPath = argv[2];
+    if (argc >= 3 && string(argv[1]) == "-c") {
+        confPath = argv[2];
         inputConfigPath = true;
     } else {
         vector<string> availablePaths({"/usr/local/etc/st/dns", "/etc/st/dns"});
@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
     bool startServer = false;
     if (argc == 1) {
         startServer = true;
-    } else if (argc == 3 && argv[1] == "-c") {
+    } else if (argc == 3 && string(argv[1]) == "-c") {
         startServer = true;
     }
     if (startServer) {

@@ -20,24 +20,25 @@
 
 using namespace std;
 
-class DNSCacheRecord {
+class DNSRecord {
 
 public:
     set<uint32_t> ips;
     uint64_t expireTime;
+    string dnsServer;
 };
 
 class DNSCache {
 private:
     static DNSCache INSTANCE;
-    unordered_map<string, unordered_map<string, DNSCacheRecord *> *> caches;
+    unordered_map<string, DNSRecord *> caches;
 public:
 
     static void addCache(const string &domain, const set<uint32_t> &ips, const string &dnsServer);
 
     static void addCache(const string &domain, const set<uint32_t> &ips, const string &dnsServer, const int expire);
 
-    static set<uint32_t> query(const string &host);
+    static bool query(const string &host, DNSRecord &recode);
 };
 
 

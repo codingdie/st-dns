@@ -162,26 +162,23 @@ public:
 
     }
 
-    static DNSHeader *generate(uint16_t id, int hostCount, bool isAnswer) {
-        return generate(id, hostCount, 0, isAnswer);
+    static DNSHeader *generateAnswer(uint16_t id, int answerCount) {
+        return generate(id, 1, 0, answerCount, true);
     }
 
-    static DNSHeader *generate(uint16_t id, int hostCount, int additionalCount, bool isAnswer) {
+    static DNSHeader *generate(uint16_t id, int hostCount, int additionalCount, int answerCount, bool isAnswer) {
         auto *dnsHeader = new DNSHeader(DEFAULT_LEN);
         uint16_t tmpData[DEFAULT_LEN / 2];
         tmpData[0] = id;
         tmpData[1] = 0x0100;
         if (isAnswer) {
             tmpData[1] = 0x8000;
+            if (answerCount == 0) {
+                tmpData[1] = 0x8002;
+            }
         }
-        if (isAnswer) {
-            tmpData[2] = hostCount;
-            tmpData[3] = hostCount;
-        } else {
-            tmpData[2] = hostCount;
-            tmpData[3] = 0;
-        }
-
+        tmpData[2] = hostCount;
+        tmpData[3] = answerCount;
         tmpData[4] = 0;
         tmpData[5] = additionalCount;
 
@@ -199,12 +196,8 @@ public:
         return dnsHeader;
     }
 
-    static DNSHeader *generate(int hostCount) {
-        return generate(hostCount, 0);
-    }
-
-    static DNSHeader *generate(int hostCount, int additionalCount) {
-        return generate(DnsIdGenerator::id16(), hostCount, additionalCount, false);
+    static DNSHeader *generateQuery(int hostCount) {
+        return generate(DnsIdGenerator::id16(), hostCount, 0, 0, false);
     }
 
     void updateId(uint16_t id) {

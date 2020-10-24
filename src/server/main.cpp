@@ -33,6 +33,7 @@ int main(int argc, char *argv[]) {
         startServer = true;
     }
     if (startServer) {
+        file::pid("/run/st-dns.pid");
         st::dns::Config::INSTANCE.load(confPath);
         DNSServer dnsServer(st::dns::Config::INSTANCE);
         dnsServer.start();

@@ -85,7 +85,7 @@ namespace st {
                     }
 
                 } else {
-                    Logger::INFO << "st-dns config file not exit！use default" << configPath << boost::filesystem::initial_path<boost::filesystem::path>().string() << END;
+                    Logger::ERROR << "st-dns config file not exit！" << configPath << END;
                     exit(1);
                 }
             }
@@ -114,6 +114,16 @@ namespace st {
 
                     }
                 }
+            }
+
+            RemoteDNSServer *getDNSServerById(string serverId) {
+                for (auto it = servers.begin(); it != servers.end(); it++) {
+                    RemoteDNSServer *server = *it.base();
+                    if (server->id() == serverId) {
+                        return server;
+                    }
+                }
+                return nullptr;
             }
         };
 

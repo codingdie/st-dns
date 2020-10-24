@@ -14,10 +14,14 @@ public:
     boost::asio::ip::udp::endpoint clientEndpoint;
     UdpDnsRequest udpDnsRequest = UdpDnsRequest(1024);
 
-    DNSSession();
+    DNSSession(uint64_t id);
 
     virtual ~DNSSession();
 
+private:
+    uint64_t id;
+public:
+    uint64_t getId() const;
 };
 
 

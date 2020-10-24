@@ -364,7 +364,9 @@ bool DNSClient::isTimeoutOrError(long begin, long timeout, long &restTime, futur
     Logger::DEBUG << logTag << "begin!" << restTime << END;
     io_context &ctxThreadLocal = asio::TLIOContext::getIOContext();
     //todo change to thread pool for not create/destroy to frequncy;
+    u_int64_t traceId = Logger::traceId;
     std::thread th([=, &ctxThreadLocal]() {
+        Logger::traceId = traceId;
         ctxThreadLocal.restart();
         ctxThreadLocal.run();
         Logger::DEBUG << logTag << "context finish run!" << END;

@@ -27,6 +27,7 @@ static std::string _CutParenthesesNTail(std::string &&prettyFuncon) {
 #define __STR_FUNCTION__ _CutParenthesesNTail(std::string(__PRETTY_FUNCTION__))
 
 
+static const char *const SPLIT = " ";
 using namespace std;
 namespace st {
     namespace utils {
@@ -40,6 +41,7 @@ namespace st {
             static void getTime(string &timeStr);
 
         public:
+            static thread_local uint64_t traceId;
             enum MASK {
                 ENDL
             };
@@ -51,7 +53,8 @@ namespace st {
 
             explicit Logger(string tag);
 
-            void doLog(const string &level, const string &info);
+
+            void doLog();
 
             Logger &operator<<(const char *log);
 
@@ -65,12 +68,14 @@ namespace st {
 
             template<typename A> Logger &operator<<(const A &str1) {
                 if (typeid(str1) == typeid(MASK) && str1 == ENDL) {
-                    doLog(this->tag, this->str);
+                    doLog();
                 } else {
                     this->appendStr(to_string(str1));
                 }
                 return *this;
             }
+
+            ostream *getStream();
         };
     }
 }

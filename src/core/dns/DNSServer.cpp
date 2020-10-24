@@ -24,13 +24,13 @@ DNSServer::DNSServer(st::dns::Config &config) : config(config), num(0) {
 void DNSServer::start() {
     boost::asio::io_context::work ioContextWork(ioContext);
     vector<thread> threads;
+    Logger::INFO << "st-dns start" << END;
     for (int i = 0; i < 8; i++) {
         threads.emplace_back([this]() {
             receive();
             ioContext.run();
         });
     }
-    Logger::INFO << "st-dns start" << END;
     for (auto &th:threads) {
         th.join();
     }
@@ -38,28 +38,25 @@ void DNSServer::start() {
 }
 
 void DNSServer::receive() {
-    DNSSession *session = new DNSSession(num++);
-    Logger::DEBUG << session->getId() << "begin receive dns request!" << END;
-
+    DNSSession *session = new DNSSession(++num);
     socketS->async_receive_from(buffer(session->udpDnsRequest.data, session->udpDnsRequest.len), session->clientEndpoint,
                                 [=, this](boost::system::error_code errorCode, std::size_t size) {
-                                    Logger::DEBUG << session->getId() << "dns request received!" << END;
+                                    Logger::traceId = session->getId();
+                                    Logger::DEBUG << "dns request received!" << END;
                                     if (!errorCode && size > 0) {
                                         session->udpDnsRequest.len = size;
                                         if (session->udpDnsRequest.parse()) {
                                             proxyDnsOverTcpTls(session);
                                         } else {
                                             delete session;
-                                            Logger::ERROR << session->getId() << "invalid dns request" << END;
+                                            Logger::ERROR << "invalid dns request" << END;
                                         }
-
                                     } else {
                                         delete session;
                                     }
-                                    Logger::DEBUG << session->getId() << "finished!" << END;
+                                    Logger::DEBUG << "dns request finished!" << END;
                                     receive();
                                 });
-
 }
 
 void DNSServer::proxyDnsOverTcpTls(DNSSession *session) {
@@ -72,6 +69,7 @@ void DNSServer::proxyDnsOverTcpTls(DNSSession *session) {
         UdpDNSResponse *udpResponse = new UdpDNSResponse(id, host, ips);
         socketS->async_send_to(buffer(udpResponse->data, udpResponse->len), clientEndpoint,
                                [udpResponse, session](boost::system::error_code writeError, size_t writeSize) {
+                                   Logger::traceId = session->getId();
                                    Logger::DEBUG << "dns success!" << session->udpDnsRequest.getFirstHost() << st::utils::ipv4::ipsToStr(
                                            udpResponse->ips) << END;
                                    delete udpResponse;
@@ -86,7 +84,7 @@ void DNSServer::proxyDnsOverTcpTls(DNSSession *session) {
 }
 
 set<uint32_t> DNSServer::queryDNS(DNSSession *session) {
-    auto host = session->udpDnsRequest.getFirstHost();
+    auto host = session->getHost();
     set<uint32_t> ips;
     if (host == "localhost") {
         ips.emplace(2130706433);
@@ -102,18 +100,18 @@ set<uint32_t> DNSServer::queryDNS(DNSSession *session) {
                 string logTag = "";
                 if (record.ips.empty()) {
                     logTag = "query dns record" + host;
-                    success = getDNSRecord(host, record);
+                    success = getDNSRecord(session, record);
                 } else if (expire) {
                     RemoteDNSServer *server = config.getDNSServerById(record.dnsServer);
                     if (server != nullptr) {
-                        success = getDNSRecord(host, record, server);
+                        success = getDNSRecord(session, record, server);
                     } else {
-                        success = getDNSRecord(host, record);
+                        success = getDNSRecord(session, record);
                     }
                     logTag = "update dns record " + host + " from " + record.dnsServer;
                 }
                 if (!success) {
-                    Logger::ERROR << session->getId() << logTag << "failed" << END;
+                    Logger::ERROR << logTag << "failed" << END;
                 }
                 rLock.lock();
                 this->hostsInQuery.erase(host);
@@ -125,7 +123,8 @@ set<uint32_t> DNSServer::queryDNS(DNSSession *session) {
     return move(ips);
 }
 
-bool DNSServer::getDNSRecord(const string &host, DNSRecord &record, const RemoteDNSServer *server) const {
+bool DNSServer::getDNSRecord(DNSSession *session, DNSRecord &record, const RemoteDNSServer *server) const {
+    auto host = session->getHost();
     set<uint32_t> queryIps = queryDNS(host, server);
     if (!queryIps.empty()) {
         DNSCache::addCache(host, queryIps, server->id());
@@ -135,7 +134,8 @@ bool DNSServer::getDNSRecord(const string &host, DNSRecord &record, const Remote
     return false;
 }
 
-bool DNSServer::getDNSRecord(const string &host, DNSRecord &record) {
+bool DNSServer::getDNSRecord(DNSSession *session, DNSRecord &record) {
+    auto host = session->getHost();
     vector<RemoteDNSServer *> servers = RemoteDNSServer::calculateQueryServer(host, config.servers);
     for (auto it = servers.begin(); it != servers.end(); it++) {
         RemoteDNSServer *&server = *it;

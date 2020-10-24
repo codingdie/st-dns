@@ -7,29 +7,26 @@
 # Default-Start:	2 3 4 5
 # Default-Stop:
 # Short-Description: smart dns server, support UDP/DOT/TCP
-program=/usr/local/bin/st-dns
+### END INIT INFO
+set -e
 case "$1" in
   start)
-        if start-stop-daemon --start -b -v --make-pidfile --oknodo --pidfile /run/st-dns.pid --exec /usr/local/bin/st-dns ; then
-            log_end_msg 0
-        else
-            log_end_msg 1
-        fi
+        nohup /usr/local/bin/st-dns > /tmp/st-dns.log 2>/tmp/st-dns.error &
         ;;
   stop)
-        if start-stop-daemon --stop --quiet --oknodo --pidfile /run/st-proxy.pid --exec $program ; then
-            log_end_msg 0
-        else
-            log_end_msg 1
+        pid=`cat /var/run/st-dns.pid`
+        if [ "$pid" != "" ];then
+            kill -9 `cat /var/run/st-dns.pid`
         fi
+        rm -rf /var/run/st-dns.pid
         ;;
   restart)
-        start-stop-daemon --stop --oknodo --retry 30 --pidfile /run/st-proxy.pid --exec $program
-        if start-stop-daemon --start -b --oknodo --pidfile /run/st-proxy.pid --exec $program ; then
-          log_end_msg 0
-        else
-          log_end_msg 1
+        pid=`cat /var/run/st-dns.pid`
+        if [ "$pid" != "" ];then
+            kill -9 `cat /var/run/st-dns.pid`
         fi
+        rm -rf /var/run/st-dns.pid
+        nohup /usr/local/bin/st-dns > /tmp/st-dns.log 2>/tmp/st-dns.error &
         ;;
   *)
         echo "Usage: st-dns <start|stop|restart>"

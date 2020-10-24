@@ -30,7 +30,11 @@ void Logger::doLog(const string &level, const string &info) {
 //    if (this->tag == "DEBUG") {
 //        return;
 //    }
-    cout << "[" << this_thread::get_id() << "]" << result << endl;
+    if (this->tag == "ERROR") {
+        cerr << "[" << this_thread::get_id() << "]" << result << endl;
+    } else {
+        cout << "[" << this_thread::get_id() << "]" << result << endl;
+    }
 }
 
 thread_local Logger Logger::INFO("INFO");

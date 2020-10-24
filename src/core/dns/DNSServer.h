@@ -10,6 +10,7 @@
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
 #include "STUtils.h"
+#include "DNSCache.h"
 #include <string>
 #include <unordered_set>
 
@@ -35,11 +36,15 @@ private:
 //    ato
     void proxyDnsOverTcpTls(DNSSession *session);
 
-    set<uint32_t> queryDNS(const string &host);
+    set<uint32_t> queryDNS(DNSSession *session);
 
     set<uint32_t> queryDNS(const string &host, const RemoteDNSServer *server) const;
 
     void filterIPByArea(const string &host, const RemoteDNSServer *server, set<uint32_t> &ips) const;
+
+    bool getDNSRecord(const string &host, DNSRecord &record);
+
+    bool getDNSRecord(const string &host, DNSRecord &record, const RemoteDNSServer *server) const;
 };
 
 

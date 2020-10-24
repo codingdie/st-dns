@@ -1,0 +1,38 @@
+#! /bin/sh
+
+### BEGIN INIT INFO
+# Provides:		st-dns
+# Required-Start:	$all
+# Required-Stop:	$all
+# Default-Start:	2 3 4 5
+# Default-Stop:
+# Short-Description: smart dns server, support UDP/DOT/TCP
+program=/usr/local/bin/st-dns
+case "$1" in
+  start)
+        if start-stop-daemon --start -b -v --make-pidfile --oknodo --pidfile /run/st-dns.pid --exec /usr/local/bin/st-dns ; then
+            log_end_msg 0
+        else
+            log_end_msg 1
+        fi
+        ;;
+  stop)
+        if start-stop-daemon --stop --quiet --oknodo --pidfile /run/st-proxy.pid --exec $program ; then
+            log_end_msg 0
+        else
+            log_end_msg 1
+        fi
+        ;;
+  restart)
+        start-stop-daemon --stop --oknodo --retry 30 --pidfile /run/st-proxy.pid --exec $program
+        if start-stop-daemon --start -b --oknodo --pidfile /run/st-proxy.pid --exec $program ; then
+          log_end_msg 0
+        else
+          log_end_msg 1
+        fi
+        ;;
+  *)
+        echo "Usage: st-dns <start|stop|restart>"
+esac
+
+exit 0

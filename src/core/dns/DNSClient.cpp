@@ -364,10 +364,10 @@ bool DNSClient::isTimeoutOrError(long begin, long timeout, long &restTime, futur
     Logger::DEBUG << logTag << "begin!" << restTime << END;
     io_context &ctxThreadLocal = asio::TLIOContext::getIOContext();
     //todo change to thread pool for not create/destroy to frequncy;
-    thread th([=, &ctxThreadLocal]() {
+    std::thread th([=, &ctxThreadLocal]() {
         ctxThreadLocal.restart();
         ctxThreadLocal.run();
-        Logger::ERROR << logTag << "context finish run!" << END;
+        Logger::DEBUG << logTag << "context finish run!" << END;
     });
     future_status status = future.wait_for(std::chrono::milliseconds(restTime));
     th.detach();

@@ -3,11 +3,11 @@ st-dns is a smart local dns server which support to config multi UDP/TCP/DOT DNS
 
 ### Dependencies
 - [CMake](https://cmake.org/) >= 3.7.2
-- [Boost](http://www.boost.org/) >= 1.66.0
+- [Boost](http://www.boost.org/) >= 1.66.0 (system,filesystem,thread)
 - [OpenSSL](https://www.openssl.org/) >= 1.1.0
 
 ### How to install?  
-1. git clone the source code
+1. download the source code
 2. execute ```sudo -E install.sh```
 3. the st-dns will install to /usr/local/bin, the default configs will install to /usr/local/etc/st/dns
 
@@ -16,8 +16,8 @@ st-dns is a smart local dns server which support to config multi UDP/TCP/DOT DNS
 *  `st-dns`search config in /etc/st/dns or /usr/local/etc/st/dns
 *  `st-dns  -c /xxx/xxx`  specific the config folder
 #### 2. Run As Service(Recommend)
-*  `st-dns -d start`  
-*  `st-dns -d stop`  
+*  `sudo st-dns -d start`  
+*  `sudo st-dns -d stop`  
 
 ### How to config?  
 ```

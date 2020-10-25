@@ -5,12 +5,12 @@
 #ifndef ST_DNS_REMOTEDNSSERVER_H
 #define ST_DNS_REMOTEDNSSERVER_H
 
-#include <string>
-#include <set>
-#include <iostream>
-#include <fstream>
 #include "STUtils.h"
 #include <boost/algorithm/string/replace.hpp>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <unordered_set>
 
 using namespace std;
 
@@ -21,11 +21,14 @@ public:
     string type;
     string whitelistFilePath;
     string blacklistFilePath;
-    set<string> whitelist;
-    set<string> blacklist;
+    unordered_set<string> whitelist;
+    unordered_set<string> blacklist;
     string area;
     bool onlyAreaIp;
     bool onlyAreaDomain = false;
+    int timeout = 100;
+    int dnsCacheExpire = 60 * 60;
+    int parallel = 4;
 
     static string generateServerId(const string &serverIp, int serverPort) {
         return boost::algorithm::ireplace_all_copy(serverIp, ".", "_") + "_" + to_string(serverPort);
@@ -44,14 +47,4 @@ public:
 
     static string getFiDomain(const string &domain);
 };
-
-#include <string>
-#include <vector>
-#include <boost/property_tree/json_parser.hpp>
-#include <boost/algorithm/string/replace.hpp>
-#include <iostream>
-#include <fstream>
-#include <boost/filesystem.hpp>
-#include "STUtils.h"
-
-#endif //ST_DNS_REMOTEDNSSERVER_H
+#endif//ST_DNS_REMOTEDNSSERVER_H

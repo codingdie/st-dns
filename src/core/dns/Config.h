@@ -5,38 +5,40 @@
 #ifndef ST_DNS_CONFIG_H
 #define ST_DNS_CONFIG_H
 
+#include <boost/algorithm/string/replace.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/property_tree/json_parser.hpp>
+#include <fstream>
+#include <iostream>
 #include <string>
 #include <vector>
-#include <boost/property_tree/json_parser.hpp>
-#include "STUtils.h"
+
 #include "RemoteDNSServer.h"
-#include <boost/algorithm/string/replace.hpp>
-#include <iostream>
-#include <fstream>
-#include <boost/filesystem.hpp>
+#include "STUtils.h"
 
 using namespace std;
 using namespace boost::property_tree;
 using namespace std;
 namespace st {
     namespace dns {
-
         class Config {
         public:
             static Config INSTANCE;
             string ip = "127.0.0.1";
             int port = 53;
-            int dnsCacheExpire = 60 * 5;
-            string baseConfDir = "/etc/st/dns";
+            int dnsCacheExpire = 60 * 60;
+            string dnsCacheFile = "";
+            string baseConfDir = "/usr/local/etc/st/dns";
             vector<RemoteDNSServer *> servers;
             string stProxyConfDir = "";
-            set<string> stProxyTunnelRealHosts;
+            uint8_t parallel = 4;
+            int logLevel = 2;
 
             Config() = default;
 
             void load(const string &baseConfDir) {
                 this->baseConfDir = baseConfDir;
-                string configPath = baseConfDir + "/st-dns.json";
+                string configPath = baseConfDir + "/config.json";
                 if (st::utils::file::exit(configPath)) {
                     ptree tree;
                     try {
@@ -47,9 +49,11 @@ namespace st {
                     }
                     this->ip = tree.get("ip", string("127.0.0.1"));
                     this->port = stoi(tree.get("port", string("1080")));
-                    this->dnsCacheExpire = stoi(tree.get("dns_cache_expire", string("300")));
+                    this->dnsCacheExpire = stoi(tree.get("dns_cache_expire", to_string(this->dnsCacheExpire)));
                     this->stProxyConfDir = tree.get("st_proxy_conf", string(""));
-                    loadSTProxyRealHosts();
+                    this->parallel = stoi(tree.get("parallel", to_string(this->parallel)));
+                    this->logLevel = stoi(tree.get("log", string(to_string(this->logLevel))));
+                    Logger::LEVEL = this->logLevel;
                     auto serversNodes = tree.get_child("servers");
                     if (!serversNodes.empty()) {
                         for (auto it = serversNodes.begin(); it != serversNodes.end(); it++) {
@@ -66,9 +70,15 @@ namespace st {
                             string blacklist = serverNode.get("blacklist", baseConfDir + "/blacklist/" + filename);
                             string area = serverNode.get("area", "");
                             bool onlyAreaIp = serverNode.get("only_area_ip", false);
-                            RemoteDNSServer *dnsServer = new RemoteDNSServer(serverIp, serverPort, type, whitelist, blacklist, area, onlyAreaIp);
+
+                            RemoteDNSServer *dnsServer = new RemoteDNSServer(serverIp, serverPort, type, whitelist,
+                                                                             blacklist, area, onlyAreaIp);
+                            dnsServer->dnsCacheExpire = stoi(tree.get("dns_cache_expire", to_string(this->dnsCacheExpire)));
+                            dnsServer->parallel = stoi(tree.get("parallel", to_string(this->parallel)));
                             bool onlyAreaDomain = serverNode.get("only_area_domain", false);
                             dnsServer->onlyAreaDomain = onlyAreaDomain;
+                            int timeout = serverNode.get("timeout", 100);
+                            dnsServer->timeout = timeout;
                             servers.emplace_back(dnsServer);
                         }
                     }
@@ -79,7 +89,8 @@ namespace st {
                     for (auto it = servers.begin(); it != servers.end(); it++) {
                         RemoteDNSServer *remoteDnsServer = *(it.base());
                         if (!remoteDnsServer->init()) {
-                            Logger::ERROR << "st-dns config  remote dns server init failed!" << remoteDnsServer->ip << END;
+                            Logger::ERROR << "st-dns config  remote dns server init failed!" << remoteDnsServer->ip
+                                          << END;
                             exit(1);
                         }
                     }
@@ -87,32 +98,6 @@ namespace st {
                 } else {
                     Logger::ERROR << "st-dns config file not exit！" << configPath << END;
                     exit(1);
-                }
-            }
-
-            void loadSTProxyRealHosts() {
-                if (!stProxyConfDir.empty()) {
-                    ptree stProxyConf;
-                    try {
-                        read_json(stProxyConfDir + "/st-proxy.json", stProxyConf);
-                    } catch (json_parser_error e) {
-                        Logger::ERROR << " parse st-proxy config file " + stProxyConfDir + " error!" << e.message() << END;
-                        exit(1);
-                    }
-                    auto tunnelNodes = stProxyConf.get_child("tunnels");
-                    if (!tunnelNodes.empty()) {
-                        for (auto it = tunnelNodes.begin(); it != tunnelNodes.end(); it++) {
-                            auto tunnel = it->second;
-                            string realServerHost = tunnel.get("real_server_host", "");
-                            if (!realServerHost.empty()) {
-                                stProxyTunnelRealHosts.emplace(realServerHost);
-                            }
-                        }
-                    }
-                    if (!stProxyTunnelRealHosts.empty()) {
-                        Logger::INFO << "load st-proxy tunnel real hosts:" << stProxyTunnelRealHosts << END;
-
-                    }
                 }
             }
 
@@ -127,9 +112,7 @@ namespace st {
             }
         };
 
+    }// namespace dns
+}// namespace st
 
-    }
-}
-
-
-#endif //ST_DNS_CONFIG_H
+#endif//ST_DNS_CONFIG_H

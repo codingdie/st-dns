@@ -4,7 +4,7 @@
 
 #include "DNSMessage.h"
 
-byte  DNSQuery::DEFAULT_FLAGS[DEFAULT_FLAGS_SIZE] = {0x00, 0x01, 0x00, 0x01};
+uint8_t DNSQuery::DEFAULT_FLAGS[DEFAULT_FLAGS_SIZE] = {0x00, 0x01, 0x00, 0x01};
 
 DNSQuery::~DNSQuery() {
     if (domain != nullptr) {

@@ -27,7 +27,7 @@ bool AreaIpManager::isAreaIP(const string &areaReg, const uint32_t &ip) {
         if (in) {
             while (getline(in, line)) {
                 if (!line.empty()) {
-                    unsigned long index = line.find_first_of(' ');
+                    uint64_t index = line.find_first_of(' ');
                     auto beginIp = st::utils::ipv4::strToIp(line.substr(0, index));
                     auto endIp = st::utils::ipv4::strToIp(line.substr(index + 1, line.length()));
                     ips->emplace_back(make_pair(beginIp, endIp));

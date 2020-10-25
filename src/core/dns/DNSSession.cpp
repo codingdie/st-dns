@@ -15,5 +15,9 @@ uint64_t DNSSession::getId() const {
     return id;
 }
 
+string DNSSession::getHost() const {
+    return udpDnsRequest.getFirstHost();
+}
+
 
 

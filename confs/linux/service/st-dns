@@ -9,10 +9,9 @@
 # Short-Description: smart dns server, support UDP/DOT/TCP
 ### END INIT INFO
 set -e
-st_dns=/usr/local/bin/st-dns
 case "$1" in
   start)
-        nohup $st_dns > /tmp/st-dns.log 2>/tmp/st-dns.error &
+        nohup /usr/local/bin/st-dns > /tmp/st-dns.log 2>/tmp/st-dns.error &
         ;;
   stop)
         pid=`cat /run/st-dns.pid`
@@ -27,7 +26,7 @@ case "$1" in
             kill -9 `cat /run/st-dns.pid`
         fi
         rm -rf /run/st-dns.pid
-        nohup $st_dns > /tmp/st-dns.log 2>/tmp/st-dns.error &
+        nohup /usr/local/bin/st-dns > /tmp/st-dns.log 2>/tmp/st-dns.error &
         ;;
   *)
         echo "Usage: st-dns <start|stop|restart>"

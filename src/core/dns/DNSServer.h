@@ -33,7 +33,6 @@ private:
 
     void receive();
 
-//    ato
     void proxyDnsOverTcpTls(DNSSession *session);
 
     set<uint32_t> queryDNS(DNSSession *session);
@@ -42,9 +41,9 @@ private:
 
     void filterIPByArea(const string &host, const RemoteDNSServer *server, set<uint32_t> &ips) const;
 
-    bool getDNSRecord(const string &host, DNSRecord &record);
+    bool getDNSRecord(DNSSession *session, DNSRecord &record);
 
-    bool getDNSRecord(const string &host, DNSRecord &record, const RemoteDNSServer *server) const;
+    bool getDNSRecord(DNSSession *session, DNSRecord &record, const RemoteDNSServer *server) const;
 };
 
 

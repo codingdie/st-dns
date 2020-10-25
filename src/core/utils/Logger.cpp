@@ -21,20 +21,27 @@ void Logger::getTime(std::string &timeStr) {
 }
 
 
-void Logger::doLog(const string &level, const string &info) {
+void Logger::doLog() {
     string time;
     getTime(time);
-    string result = " [" + level + "] " + time + " " + info;
     std::lock_guard<std::mutex> lg(logMutex);
-    this->str.clear();
-//    if (this->tag == "DEBUG") {
-//        return;
-//    }
-    if (this->tag == "ERROR") {
-        cerr << "[" << this_thread::get_id() << "]" << result << endl;
-    } else {
-        cout << "[" << this_thread::get_id() << "]" << result << endl;
+    ostream &st = *(getStream());
+    st << "[" << this_thread::get_id();
+    if (traceId != 0) {
+        st << "-" << traceId;
     }
+    st << "]" << SPLIT << "[" << this->tag << "]" << SPLIT << time << SPLIT;
+
+    st << this->str << endl;
+    this->str.clear();
+}
+
+ostream *Logger::getStream() {
+    ostream *stream = &cout;
+    if (tag == "ERROR") {
+        stream = &cerr;
+    }
+    return stream;
 }
 
 thread_local Logger Logger::INFO("INFO");
@@ -54,7 +61,7 @@ Logger &Logger::operator<<(char *log) {
 
 Logger &Logger::operator<<(char ch) {
     this->str.push_back(ch);
-    this->str.append(" ");
+    this->str.append(SPLIT);
     return *this;
 }
 
@@ -68,7 +75,7 @@ Logger &Logger::operator<<(const string &string) {
 
 
 void Logger::appendStr(const string &info) {
-    this->str.append(info).append(" ");
+    this->str.append(info).append(SPLIT);
 }
 
 Logger &Logger::operator<<(const set<string> &strs) {
@@ -78,3 +85,5 @@ Logger &Logger::operator<<(const set<string> &strs) {
     return *this;
 }
 
+
+thread_local uint64_t Logger::traceId = 0;

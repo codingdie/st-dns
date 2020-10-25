@@ -20,8 +20,12 @@ public:
 
 private:
     uint64_t id;
+
 public:
     uint64_t getId() const;
+
+    string getHost() const;
+
 };
 
 

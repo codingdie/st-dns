@@ -31,7 +31,7 @@ public:
 
     bool parse();
 
-    string getFirstHost();
+    string getFirstHost() const;
 
 protected:
     virtual void initDataZone();

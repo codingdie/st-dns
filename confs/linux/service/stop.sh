@@ -1,15 +1,11 @@
-set -e
+#!/bin/sh
 scriptDir=$(
   cd $(dirname $0)
   pwd
 )
-unamestr=$(uname -a | tr 'A-Z' 'a-z')
-type=""
-if [ "$(echo "$unamestr" | grep ubuntu)" != "" ]; then
-  service st-dns stop
-  systemctl daemon-reload
-  update-rc.d -f st-dns remove
-  systemctl daemon-reload
-  type="ubuntu"
-fi
-echo "st-dns service stop success in $type!"
+cp -f ${scriptDir}/st-dns.service /usr/lib/systemd/system/st-dns.service
+systemctl daemon-reload  
+systemctl stop st-dns  
+systemctl disable st-dns  
+sleep 3s
+systemctl status st-dns 

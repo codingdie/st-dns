@@ -8,3 +8,4 @@ rm -rf /usr/local/bin/st-dns
 rm -rf /usr/bin/st-dns
 rm -rf /usr/local/etc/st/dns
 rm -rf /etc/st/dns
+rm -rf /lib/systemd/system/st-dns.service;

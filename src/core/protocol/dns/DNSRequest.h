@@ -5,8 +5,8 @@
 #ifndef ST_DNS_DNSREQUEST_H
 #define ST_DNS_DNSREQUEST_H
 
-#include <iostream>
 #include "DNSMessage.h"
+#include <iostream>
 
 
 using namespace std;
@@ -21,7 +21,7 @@ public:
     UdpDnsRequest(const vector<std::string> &hosts);
 
 
-    UdpDnsRequest(byte *data, uint64_t len, bool dataOwner);
+    UdpDnsRequest(uint8_t *data, uint64_t len, bool dataOwner);
 
     UdpDnsRequest(uint64_t len);
 
@@ -31,11 +31,11 @@ public:
 
     bool parse();
 
-    string getFirstHost() const;
+    string getHost() const;
+    DNSQuery::Type getQueryType() const;
 
 protected:
     virtual void initDataZone();
-
 };
 
 class EDNSAdditionalZone : public BasicData {
@@ -48,7 +48,6 @@ public:
 
 class TcpDnsRequest : public UdpDnsRequest {
 public:
-
     explicit TcpDnsRequest(const vector<std::string> &hosts);
 
     explicit TcpDnsRequest(const vector<std::string> &hosts, uint32_t ip);
@@ -62,4 +61,4 @@ private:
     EDNSAdditionalZone *ENDSZone = nullptr;
 };
 
-#endif //ST_DNS_DNSREQUEST_H
+#endif//ST_DNS_DNSREQUEST_H

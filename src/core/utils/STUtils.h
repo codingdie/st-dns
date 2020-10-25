@@ -11,6 +11,7 @@
 #include "FileUtils.h"
 #include "IPUtils.h"
 #include "ShellUtils.h"
+#include "StringUtils.h"
 
 using namespace st::utils;
 #endif //ST_UTILS_H

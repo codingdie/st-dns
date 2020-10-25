@@ -19,3 +19,5 @@ build
 /confs/whitelist/
 /confs/blacklist/
 script/
+/confs/cache.txt
+/.vscode

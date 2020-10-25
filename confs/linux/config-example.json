@@ -7,23 +7,32 @@
       "ip": "192.168.31.1",
       "port": 53,
       "area": "LAN",
-      "only_area_ip": true
+      "only_area_ip": true,
+      "timeout": "100",
+      "dns_cache_expire": 60,
+      "parallel":2
     },
     {
       "type": "TCP_SSL",
       "ip": "223.5.5.5",
       "port": 853,
       "area": "CN",
-      "only_area_ip": true
+      "only_area_ip": true,
+      "timeout": "1000",
+      "dns_cache_expire": 3600,
+      "parallel":4
     },
     {
       "type": "TCP_SSL",
       "ip": "8.8.8.8",
       "port": 853,
       "area": "!CN",
-      "only_area_ip": true
+      "only_area_ip": true,
+      "timeout": "10000",
+      "dns_cache_expire": 36000,      
+      "parallel":16
     }
   ],
   "dns_cache_expire": 3600,
-  "st_proxy_conf": "/Volumes/code/st-proxy/confs"
+  "parallel":4
 }

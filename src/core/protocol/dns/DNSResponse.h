@@ -6,8 +6,9 @@
 #define ST_DNS_DNSRESPONSE_H
 
 
-#include <iostream>
 #include "DNSMessage.h"
+#include <DNSCache.h>
+#include <iostream>
 
 using namespace std;
 
@@ -17,11 +18,11 @@ public:
     DNSQueryZone *queryZone = nullptr;
     vector<DNSResourceZone *> answerZones;
     uint32_t answerZonesSize = 0;
-    set<uint32_t> ips;
+    unordered_set<uint32_t> ips;
 
-    UdpDNSResponse(uint16_t id, string host, set<uint32_t> ips);
+    UdpDNSResponse(uint16_t id, DNSRecord &record);
 
-    UdpDNSResponse(byte *data, uint64_t len);
+    UdpDNSResponse(uint8_t *data, uint64_t len);
 
     UdpDNSResponse(uint64_t len);
 
@@ -44,7 +45,6 @@ public:
     TcpDNSResponse(uint16_t len);
 
     void parse(uint64_t maxReadable);
-
 };
 
-#endif //ST_DNS_DNSRESPONSE_H
+#endif//ST_DNS_DNSRESPONSE_H

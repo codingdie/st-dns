@@ -50,7 +50,6 @@ st-dns is a smart local dns server which support to config multi UDP/TCP/DOT DNS
     }
   ],
   "dns_cache_expire": 3600, #the dns record cache time
-  "st_proxy_conf": ""       #when use together with st-proxy(recommend), need to config it
 }
 ```
 

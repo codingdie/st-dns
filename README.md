@@ -8,7 +8,7 @@ st-dns is a smart local dns server which support to config multi UDP/TCP/DOT DNS
 
 ### How to install?  
 1. download the source code
-2. execute ```sudo -E install.sh```
+2. execute ```install.sh```
 3. the st-dns will install to /usr/local/bin, the default configs will install to /usr/local/etc/st/dns
 
 ### How to run?  

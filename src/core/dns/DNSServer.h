@@ -6,12 +6,13 @@
 #define ST_DNS_DNSSERVER_H
 
 #include "Config.h"
+#include "DNSCache.h"
 #include "DNSSession.h"
+#include "STUtils.h"
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
-#include "STUtils.h"
-#include "DNSCache.h"
 #include <string>
+#include <unordered_map>
 #include <unordered_set>
 
 using namespace boost::asio;
@@ -25,26 +26,37 @@ public:
     void start();
 
 private:
-    atomic_int64_t num;
+    atomic_int64_t rid;
     st::dns::Config config;
     udp::socket *socketS = nullptr;
     io_context ioContext;
-    unordered_set<string> hostsInQuery;
+    unordered_map<string, thread_pool *> workThreads;
 
     void receive();
 
-    void proxyDnsOverTcpTls(DNSSession *session);
+    void processSession(DNSSession *session);
 
-    set<uint32_t> queryDNS(DNSSession *session);
+    void queryDNSRecord(DNSSession *session, std::function<void(DNSSession *)> completeHandler);
 
-    set<uint32_t> queryDNS(const string &host, const RemoteDNSServer *server) const;
+    void syncDNSRecordFromServer(const string host, std::function<void(DNSRecord &record)> complete, vector<RemoteDNSServer *> servers, int pos);
 
-    void filterIPByArea(const string &host, const RemoteDNSServer *server, set<uint32_t> &ips) const;
+    void filterIPByArea(const string host, RemoteDNSServer *server, unordered_set<uint32_t> &ips);
 
-    bool getDNSRecord(DNSSession *session, DNSRecord &record);
+    void queryDNSRecordFromServer(DNSSession *session, std::function<void(DNSSession *session)> completeHandler);
 
-    bool getDNSRecord(DNSSession *session, DNSRecord &record, const RemoteDNSServer *server) const;
+    void forwardUdpDNSRequest(DNSSession *session, std::function<void(DNSSession *)> completeHandler);
+    void forwardUdpDNSRequest(DNSSession *session, std::function<void(UdpDNSResponse *)> complete, vector<RemoteDNSServer *> servers, int pos);
+
+    void endDNSSession(const DNSSession *session) const;
+
+    void updateDNSRecord(DNSRecord record);
+
+    void calRemoteDNSServers(const DNSRecord &record, vector<RemoteDNSServer *> &servers);
+
+    bool beginQuery(const string host);
+
+    void endQuery(const string host);
 };
 
 
-#endif //ST_DNS_DNSSERVER_H
+#endif//ST_DNS_DNSSERVER_H

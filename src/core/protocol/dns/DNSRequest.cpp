@@ -16,7 +16,7 @@ UdpDnsRequest::UdpDnsRequest(const vector<std::string> &hosts) {
 
 void UdpDnsRequest::initDataZone() {
     uint16_t len = dnsHeader->len + dnsQueryZone->len;
-    byte *data = new byte[len];
+    uint8_t *data = new uint8_t[len];
     int j = 0;
     for (int i = 0; i < dnsHeader->len; i++) {
         data[j] = dnsHeader->data[i];
@@ -47,13 +47,17 @@ bool UdpDnsRequest::parse() {
             dnsHeader = header;
             DNSQueryZone *queryZone = new DNSQueryZone(data + DNSHeader::DEFAULT_LEN, len - DNSHeader::DEFAULT_LEN, header->questionCount);
             if (queryZone->isValid()) {
+
                 if (queryZone->querys.size() == 0) {
                     this->printHex();
-                    cout << "123" << endl;
-                }
-                dnsQueryZone = queryZone;
-                for (auto it:queryZone->querys) {
-                    this->hosts.emplace_back(it->domain->domain);
+                    markInValid();
+                } else {
+                    dnsQueryZone = queryZone;
+                    for (auto it : queryZone->querys) {
+                        if (!it->domain->domain.empty()) {
+                            this->hosts.emplace_back(it->domain->domain);
+                        }
+                    }
                 }
             } else {
                 markInValid();
@@ -67,15 +71,21 @@ bool UdpDnsRequest::parse() {
     return isValid();
 }
 
-UdpDnsRequest::UdpDnsRequest(byte *data, uint64_t len, bool dataOwner) : BasicData(data, len) {
+UdpDnsRequest::UdpDnsRequest(uint8_t *data, uint64_t len, bool dataOwner) : BasicData(data, len) {
     this->setDataOwner(dataOwner);
 }
 
 UdpDnsRequest::UdpDnsRequest(uint64_t len) : BasicData(len) {
 }
 
-string UdpDnsRequest::getFirstHost() const {
+string UdpDnsRequest::getHost() const {
+    if (hosts.empty()) {
+        return "";
+    }
     return hosts.front();
+}
+DNSQuery::Type UdpDnsRequest::getQueryType() const {
+    return this->dnsQueryZone->querys[0]->queryType;
 }
 
 UdpDnsRequest::UdpDnsRequest() {
@@ -100,10 +110,10 @@ void TcpDnsRequest::initDataZone() {
     if (ENDSZone != nullptr) {
         len += ENDSZone->len;
     }
-    byte lenArr[2];
+    uint8_t lenArr[2];
     uint16_t dataLen = len - 2;
     st::utils::toBytes(lenArr, dataLen);
-    byte *data = new byte[len];
+    uint8_t *data = new uint8_t[len];
     uint32_t pos = 0;
     st::utils::copy(lenArr, data, 0U, pos, 2U);
     pos += 2;
@@ -123,13 +133,12 @@ TcpDnsRequest::~TcpDnsRequest() {
     if (ENDSZone != nullptr) {
         delete ENDSZone;
     }
-
 }
 
 EDNSAdditionalZone *EDNSAdditionalZone::generate(uint32_t ip) {
     int size = 23;
     EDNSAdditionalZone *zone = new EDNSAdditionalZone(size);
-    byte *data = zone->data;
+    uint8_t *data = zone->data;
     //name empty
     data[0] = 0;
     //type

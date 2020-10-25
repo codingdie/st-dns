@@ -1,8 +1,8 @@
 #ifndef SHELL_UTILS_H
 #define SHELL_UTILS_H
 
-#include <string>
 #include "boost/process.hpp"
+#include <string>
 
 using namespace std;
 namespace st {
@@ -32,13 +32,19 @@ namespace st {
                     }
                     errorStr += log;
                 }
-                is.close();
-                error.close();
                 return success;
             }
-
-        }
-    }
-}
+            static bool exec(const string &command) {
+                std::error_code ec;
+                int result = boost::process::system(command, ec);
+                bool success = false;
+                if (!ec && result == 0) {
+                    success = true;
+                }
+                return success;
+            }
+        }// namespace shell
+    }    // namespace utils
+}// namespace st
 
 #endif

@@ -3,10 +3,10 @@
 //
 
 #include "Logger.h"
-#include <iostream>
 #include <ctime>
-#include <utility>
+#include <iostream>
 #include <thread>
+#include <utility>
 
 using namespace std;
 using namespace st::utils;
@@ -22,18 +22,34 @@ void Logger::getTime(std::string &timeStr) {
 
 
 void Logger::doLog() {
+    std::lock_guard<std::mutex> lg(logMutex);
     string time;
     getTime(time);
-    std::lock_guard<std::mutex> lg(logMutex);
+    int pos = 0;
+    int lastPos = 0;
     ostream &st = *(getStream());
-    st << "[" << this_thread::get_id();
-    if (traceId != 0) {
-        st << "-" << traceId;
-    }
-    st << "]" << SPLIT << "[" << this->tag << "]" << SPLIT << time << SPLIT;
 
-    st << this->str << endl;
+    while ((pos = this->str.find("\n", pos)) != this->str.npos) {
+        auto line = this->str.substr(lastPos, (pos - lastPos));
+        doLog(time, st, line);
+        pos += 1;
+        lastPos = pos;
+    }
+
+    auto line = this->str.substr(lastPos, (this->str.length() - lastPos));
+    doLog(time, st, line);
     this->str.clear();
+}
+
+void Logger::doLog(const string &time, ostream &st, const string &line) {
+    if (this->level >= LEVEL) {
+        st << "[" << this_thread::get_id();
+        if (traceId != 0) {
+            st << "-" << traceId;
+        }
+        st << "]" << SPLIT << "[" << tag << "]" << SPLIT << time << SPLIT;
+        st << line << endl;
+    }
 }
 
 ostream *Logger::getStream() {
@@ -44,10 +60,12 @@ ostream *Logger::getStream() {
     return stream;
 }
 
-thread_local Logger Logger::INFO("INFO");
-thread_local Logger Logger::ERROR("ERROR");
-thread_local Logger Logger::DEBUG("DEBUG");
+thread_local Logger Logger::TRACE("TRACE", 0);
+thread_local Logger Logger::DEBUG("DEBUG", 1);
+thread_local Logger Logger::INFO("INFO", 2);
+thread_local Logger Logger::ERROR("ERROR", 3);
 
+uint32_t Logger::LEVEL = 2;
 
 Logger &Logger::operator<<(const char *log) {
     appendStr(log);
@@ -65,7 +83,7 @@ Logger &Logger::operator<<(char ch) {
     return *this;
 }
 
-Logger::Logger(string tag) : tag(tag) {
+Logger::Logger(string tag, uint32_t level) : tag(tag), level(level) {
 }
 
 Logger &Logger::operator<<(const string &string) {
@@ -78,8 +96,8 @@ void Logger::appendStr(const string &info) {
     this->str.append(info).append(SPLIT);
 }
 
-Logger &Logger::operator<<(const set<string> &strs) {
-    for (auto str:strs) {
+Logger &Logger::operator<<(const unordered_set<string> &strs) {
+    for (auto str : strs) {
         appendStr(str);
     }
     return *this;

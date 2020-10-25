@@ -5,10 +5,10 @@
 #ifndef ST_FILEUTILS_H
 #define ST_FILEUTILS_H
 
-#include <iostream>
-#include <fstream>
 #include <boost/filesystem.hpp>
-#include <set>
+#include <fstream>
+#include <iostream>
+#include <unordered_set>
 
 namespace st {
     namespace utils {
@@ -44,7 +44,7 @@ namespace st {
                     if (!boost::filesystem::exists(bpath.parent_path())) {
                         boost::system::error_code errorCode;
                         boost::filesystem::create_directories(bpath.parent_path(), errorCode);
-                        if (errorCode.failed()) {
+                        if (errorCode) {
                             return false;
                         }
                     }
@@ -62,11 +62,9 @@ namespace st {
                     Logger::ERROR << "create file failed!" << ex.what() << path << END;
                 }
                 return result;
-
-
             }
 
-            static void read(const string &path, set<string> &data) {
+            static void read(const string &path, unordered_set<string> &data) {
                 fstream fileStream;
                 fileStream.open(path, ios::in);
                 if (fileStream) {
@@ -76,9 +74,8 @@ namespace st {
                     }
                     fileStream.close();
                 }
-
             }
-        }
-    }
-}
-#endif //ST_FILEUTILS_H
+        }// namespace file
+    }    // namespace utils
+}// namespace st
+#endif//ST_FILEUTILS_H

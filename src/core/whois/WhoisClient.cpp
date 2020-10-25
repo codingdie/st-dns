@@ -6,33 +6,33 @@
 #include "asio/STUtils.h"
 
 string WhoisClient::whois(const string &domain, const string &whoisServerIp, const u_int16_t &whoisServerPort, const u_int32_t &timeout) {
-    long begin = time::now();
+    uint64_t begin = time::now();
     string logTag = "query " + domain + " from whois server " + whoisServerIp + ":" + to_string(whoisServerPort);
     io_context &context = asio::TLIOContext::getIOContext();
     ip::tcp::endpoint serverEndpoint(ip::make_address_v4(whoisServerIp), whoisServerPort);
     ip::tcp::socket socket(context);
     auto connectFuture = socket.async_connect(serverEndpoint, use_future([&](boost::system::error_code error) {
-        if (error.failed()) {
-            Logger::ERROR << logTag << "connect error!" << error.message() << END;
-        }
-        return !error.failed();
-    }));
+                                                  if (error) {
+                                                      Logger::ERROR << logTag << "connect error!" << error.message() << END;
+                                                  }
+                                                  return !error;
+                                              }));
 
     char sBuffer[20480];
     context.restart();
     context.run();
     auto connectStatus = connectFuture.wait_for(std::chrono::milliseconds(timeout));
     if (connectStatus == std::future_status::ready && connectFuture.get()) {
-        unsigned long len = domain.length();
+        uint64_t len = domain.length();
         st::utils::copy(domain.data(), sBuffer, len);
         sBuffer[len] = '\r';
         sBuffer[len + 1] = '\n';
         auto sendFuture = socket.async_send(buffer(sBuffer, (len + 2) * sizeof(char)), use_future([&](boost::system::error_code error, size_t size) {
-            if (error.failed()) {
-                Logger::ERROR << logTag << "send domain error!" << error.message() << END;
-            }
-            return !error.failed();
-        }));
+                                                if (error) {
+                                                    Logger::ERROR << logTag << "send domain error!" << error.message() << END;
+                                                }
+                                                return !error;
+                                            }));
         context.restart();
         context.run();
         auto sendStatus = sendFuture.wait_for(std::chrono::milliseconds((time::now() - begin)));
@@ -42,7 +42,7 @@ string WhoisClient::whois(const string &domain, const string &whoisServerIp, con
             while (!end) {
                 auto receiveFuture = socket.async_read_some(buffer(sBuffer, 1024 * sizeof(char)),
                                                             use_future([&](boost::system::error_code error, size_t size) {
-                                                                if (error.failed()) {
+                                                                if (error) {
                                                                     end = true;
                                                                     bool isEOF = error.category() == error::misc_category && error == error::misc_errors::eof;
                                                                     if (!isEOF) {
@@ -54,7 +54,7 @@ string WhoisClient::whois(const string &domain, const string &whoisServerIp, con
                                                             }));
                 context.restart();
                 context.run();
-                long tim = time::now() - begin;
+                uint64_t tim = time::now() - begin;
                 auto receiveStatus = receiveFuture.wait_for(std::chrono::milliseconds(tim));
                 if (receiveStatus == std::future_status::ready && receiveFuture.get()) {
                     result += sBuffer;

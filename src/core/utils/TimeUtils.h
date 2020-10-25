@@ -10,9 +10,10 @@
 namespace st {
     namespace utils {
         namespace time {
-            static long now() {
+            static uint64_t now() {
                 auto time_now = std::chrono::system_clock::now();
-                auto duration_in_ms = std::chrono::duration_cast<std::chrono::milliseconds>(time_now.time_since_epoch());
+                auto duration_in_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                        time_now.time_since_epoch());
                 return duration_in_ms.count();
             }
         }

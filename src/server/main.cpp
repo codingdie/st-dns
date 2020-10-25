@@ -1,11 +1,23 @@
-#include <iostream>
 #include "Config.h"
 #include "DNSServer.h"
+#include "STUtils.h"
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
-#include "STUtils.h"
+#include <iostream>
 
 using namespace boost::asio;
+static const vector<string> availablePaths({"../confs", "/usr/local/etc/st/dns", "/etc/st/dns"});
+static const string pidFile = "/var/run/st-dns.pid";
+
+void startServer(const string &confPath) {
+    st::dns::Config::INSTANCE.load(confPath);
+    DNSServer dnsServer(st::dns::Config::INSTANCE);
+    dnsServer.start();
+}
+
+void serviceScript(const string confPath, const string op) {
+    shell::exec("sh " + confPath + "/service/" + op + ".sh");
+}
 
 int main(int argc, char *argv[]) {
     bool inputConfigPath = false;
@@ -14,10 +26,10 @@ int main(int argc, char *argv[]) {
         confPath = argv[2];
         inputConfigPath = true;
     } else {
-        vector<string> availablePaths({"/usr/local/etc/st/dns", "/etc/st/dns"});
-        for (auto path:availablePaths) {
-            if (st::utils::file::exit(path)) {
+        for (auto path : availablePaths) {
+            if (st::utils::file::exit(path + "/config.json")) {
                 confPath = path;
+                break;
             }
         }
     }
@@ -26,17 +38,15 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    bool startServer = false;
+    bool directStartServer = false;
     if (argc == 1) {
-        startServer = true;
+        directStartServer = true;
     } else if (argc == 3 && string(argv[1]) == "-c") {
-        startServer = true;
+        directStartServer = true;
     }
-    if (startServer) {
-        file::pid("/var/run/st-dns.pid");
-        st::dns::Config::INSTANCE.load(confPath);
-        DNSServer dnsServer(st::dns::Config::INSTANCE);
-        dnsServer.start();
+    if (directStartServer) {
+        file::pid(pidFile);
+        startServer(confPath);
     } else {
         string serviceOP = "";
         if (inputConfigPath && argc == 5 && string(argv[3]) == "-d") {
@@ -45,26 +55,17 @@ int main(int argc, char *argv[]) {
             serviceOP = string(argv[2]);
         }
         if (!serviceOP.empty()) {
-            string error;
-            string result;
-            bool success = false;
-            if (serviceOP == "start") {
-                success = shell::exec("sh " + confPath + "/service/start.sh", result, error);
-            } else if (serviceOP == "stop") {
-                success = shell::exec("sh " + confPath + "/service/stop.sh", result, error);
+            if (serviceOP == "start" || serviceOP == "stop") {
+                serviceScript(confPath, serviceOP);
+            } else if (serviceOP == "restart") {
+                serviceScript(confPath, "stop");
+                serviceScript(confPath, "start");
             } else {
-                error = "not support command";
-            }
-            if (success) {
-                Logger::INFO << result << END;
-            } else {
-                Logger::ERROR << error << END;
+                Logger::ERROR << "not support command" << END;
             }
             return 0;
         }
-
     }
     Logger::ERROR << "not valid command" << END;
-    return 1;
+    return 0;
 }
-

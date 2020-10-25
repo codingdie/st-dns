@@ -11,35 +11,53 @@
 #include <iostream>
 #include <mutex>
 
-#include <set>
-#include <unordered_map>
-#include <vector>
 #include <iostream>
 #include <mutex>
+#include <unordered_map>
+#include <unordered_set>
 #include <utility>
+#include <vector>
 
 using namespace std;
 
 class DNSRecord {
 
 public:
-    set<uint32_t> ips;
-    uint64_t expireTime;
+    unordered_set<uint32_t> ips;
+    uint64_t expireTime = 0;
     string dnsServer;
+    string host;
+    bool expire = false;
+    bool matchArea = false;
+
+    string serialize();
+
+    bool deserialize(const string &str);
 };
 
 class DNSCache {
 private:
-    static DNSCache INSTANCE;
-    unordered_map<string, DNSRecord *> caches;
+    uint64_t lastSyncTime = 0;
+    unordered_map<string, unordered_map<string, DNSRecord>> caches;
+
+
+    void saveToFile();
+
+
 public:
+    DNSCache();
 
-    static void addCache(const string &domain, const set<uint32_t> &ips, const string &dnsServer);
+    static DNSCache INSTANCE;
 
-    static void addCache(const string &domain, const set<uint32_t> &ips, const string &dnsServer, const int expire);
+    void loadFromFile();
 
-    static bool query(const string &host, DNSRecord &recode);
+    void addCache(const string &domain, const unordered_set<uint32_t> &ips, const string &dnsServer, const int expire,
+                  const bool matchArea);
+
+    void query(const string &host, DNSRecord &recode);
+
+    unordered_set<string> queryNotMatchAreaServers(const string &host);
 };
 
 
-#endif //ST_DNS_DNS_CACHE_H
+#endif//ST_DNS_DNS_CACHE_H

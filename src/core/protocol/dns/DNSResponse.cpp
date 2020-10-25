@@ -22,8 +22,8 @@ UdpDNSResponse::~UdpDNSResponse() {
     if (queryZone != nullptr) {
         delete queryZone;
     }
-    for (auto ptr1:answerZones) {
-        delete ptr1;
+    for (auto &ptr : answerZones) {
+        delete ptr;
     }
 }
 
@@ -34,7 +34,7 @@ void UdpDNSResponse::parse(uint64_t maxReadable) {
     this->markValid();
     if (maxReadable > DNSHeader::DEFAULT_LEN) {
         uint64_t restUnParseSize = maxReadable;
-        byte *dataZone = this->data;
+        uint8_t *dataZone = this->data;
         bool successParsedAll = false;
         while (this->isValid() && successParsedAll == false) {
             if (this->header == nullptr) {
@@ -43,7 +43,8 @@ void UdpDNSResponse::parse(uint64_t maxReadable) {
                     delete parseHeader;
                     this->markInValid();
                 } else {
-                    this->header = parseHeader;;
+                    this->header = parseHeader;
+                    ;
                     dataZone += this->header->len;
                     restUnParseSize -= this->header->len;
                 }
@@ -71,7 +72,7 @@ void UdpDNSResponse::parse(uint64_t maxReadable) {
                                     restUnParseSize -= answer->len;
                                     answerZones.emplace_back(answer);
                                     if (answer->ipv4s.size() != 0) {
-                                        for (auto ip:answer->ipv4s) {
+                                        for (auto ip : answer->ipv4s) {
                                             this->ips.emplace(ip);
                                         }
                                     }
@@ -87,7 +88,6 @@ void UdpDNSResponse::parse(uint64_t maxReadable) {
                 } else {
                     successParsedAll = true;
                 }
-
             }
         }
 
@@ -97,28 +97,35 @@ void UdpDNSResponse::parse(uint64_t maxReadable) {
     this->len = maxReadable;
 }
 
-UdpDNSResponse::UdpDNSResponse(byte *data, uint64_t len) : BasicData(data, len) {
-
+UdpDNSResponse::UdpDNSResponse(uint8_t *data, uint64_t len) : BasicData(data, len) {
 }
 
-UdpDNSResponse::UdpDNSResponse(uint16_t id, string host, set<uint32_t> ips) {
+UdpDNSResponse::UdpDNSResponse(uint16_t id, DNSRecord &record) {
+    unordered_set<uint32_t> &ips = record.ips;
     bool isError = ips.empty() || *ips.begin() == 0;
     if (isError) {
         this->header = DNSHeader::generateAnswer(id, 0);
     } else {
-        this->header = DNSHeader::generateAnswer(id, 1);
+        this->header = DNSHeader::generateAnswer(id, ips.size());
     }
-    this->queryZone = DNSQueryZone::generate(host);
-    this->len = this->header->len + this->queryZone->len;
+    this->queryZone = DNSQueryZone::generate(record.host);
     if (!isError) {
-        DNSResourceZone *pResourceZone = DNSResourceZone::generate(ips);
-        this->answerZones.emplace_back(pResourceZone);
-        this->answerZonesSize = pResourceZone->len;
-        this->ips = ips;
-        this->len += this->answerZonesSize;
+        uint32_t expire = (record.expireTime - time::now()) / 1000L;
+        if (expire <= 0) {
+            expire = 1;
+        }
+        if (!record.matchArea) {
+            expire = 1;
+        }
+        for (auto it = ips.begin(); it != ips.end(); it++) {
+            DNSResourceZone *pResourceZone = DNSResourceZone::generate(*it, expire);
+            this->answerZones.emplace_back(pResourceZone);
+            this->answerZonesSize += pResourceZone->len;
+            this->ips.emplace(*it);
+        }
     }
     this->len = this->header->len + this->queryZone->len + this->answerZonesSize;
-    this->data = new byte[this->len];
+    this->data = new uint8_t[this->len];
     this->setDataOwner(true);
     auto ptr = this->data;
     st::utils::copy(this->header->data, ptr, this->header->len);
@@ -156,7 +163,6 @@ void TcpDNSResponse::parse(uint64_t maxReadable) {
 }
 
 TcpDNSResponse::TcpDNSResponse(uint16_t len) : BasicData(len) {
-
 }
 
 TcpDNSResponse::~TcpDNSResponse() {

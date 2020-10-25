@@ -14,18 +14,18 @@ case "$1" in
         nohup /usr/local/bin/st-dns > /tmp/st-dns.log 2>/tmp/st-dns.error &
         ;;
   stop)
-        pid=`cat /run/st-dns.pid`
+        pid=`cat /var/run/st-dns.pid`
         if [ "$pid" != "" ];then
-            kill -9 `cat /run/st-dns.pid`
+            kill -9 `cat /var/run/st-dns.pid`
         fi
-        rm -rf /run/st-dns.pid
+        rm -rf /var/run/st-dns.pid
         ;;
   restart)
-        pid=`cat /run/st-dns.pid`
+        pid=`cat /var/run/st-dns.pid`
         if [ "$pid" != "" ];then
-            kill -9 `cat /run/st-dns.pid`
+            kill -9 `cat /var/run/st-dns.pid`
         fi
-        rm -rf /run/st-dns.pid
+        rm -rf /var/run/st-dns.pid
         nohup /usr/local/bin/st-dns > /tmp/st-dns.log 2>/tmp/st-dns.error &
         ;;
   *)

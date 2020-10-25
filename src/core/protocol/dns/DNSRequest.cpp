@@ -72,7 +72,6 @@ UdpDnsRequest::UdpDnsRequest(byte *data, uint64_t len, bool dataOwner) : BasicDa
 }
 
 UdpDnsRequest::UdpDnsRequest(uint64_t len) : BasicData(len) {
-
 }
 
 string UdpDnsRequest::getFirstHost() const {

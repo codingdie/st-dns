@@ -33,15 +33,15 @@ int main(int argc, char *argv[]) {
         startServer = true;
     }
     if (startServer) {
-        file::pid("/run/st-dns.pid");
+        file::pid("/var/run/st-dns.pid");
         st::dns::Config::INSTANCE.load(confPath);
         DNSServer dnsServer(st::dns::Config::INSTANCE);
         dnsServer.start();
     } else {
         string serviceOP = "";
-        if (inputConfigPath && argc == 5 && string(argv[3]) == "-s") {
+        if (inputConfigPath && argc == 5 && string(argv[3]) == "-d") {
             serviceOP = string(argv[4]);
-        } else if (!inputConfigPath && argc == 3 && string(argv[1]) == "-s") {
+        } else if (!inputConfigPath && argc == 3 && string(argv[1]) == "-d") {
             serviceOP = string(argv[2]);
         }
         if (!serviceOP.empty()) {
@@ -52,6 +52,8 @@ int main(int argc, char *argv[]) {
                 success = shell::exec("sh " + confPath + "/service/start.sh", result, error);
             } else if (serviceOP == "stop") {
                 success = shell::exec("sh " + confPath + "/service/stop.sh", result, error);
+            } else {
+                error = "not support command";
             }
             if (success) {
                 Logger::INFO << result << END;

@@ -39,9 +39,9 @@ int main(int argc, char *argv[]) {
         dnsServer.start();
     } else {
         string serviceOP = "";
-        if (inputConfigPath && argc == 5 && string(argv[3]) == "service") {
+        if (inputConfigPath && argc == 5 && string(argv[3]) == "-s") {
             serviceOP = string(argv[4]);
-        } else if (!inputConfigPath && argc == 3 && string(argv[1]) == "service") {
+        } else if (!inputConfigPath && argc == 3 && string(argv[1]) == "-s") {
             serviceOP = string(argv[2]);
         }
         if (!serviceOP.empty()) {

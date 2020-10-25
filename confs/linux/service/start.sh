@@ -6,8 +6,11 @@ scriptDir=$(
 cp -f ${scriptDir}/st-dns /etc/init.d/
 chmod +x /etc/init.d/st-dns
 unamestr=$(uname -a | tr 'A-Z' 'a-z')
-if [[ "$unamestr" =~ "ubuntu" ]]; then
+type="unkown"
+if [ "$(echo "$unamestr" | grep ubuntu)" != "" ]; then
   update-rc.d -f st-dns defaults
   service st-dns start
+  systemctl daemon-reload
+  type="ubuntu"
 fi
-echo "st-dns service start success!"
+echo "st-dns service start success in $type!"

@@ -75,7 +75,7 @@ UdpDnsRequest::UdpDnsRequest(uint64_t len) : BasicData(len) {
 
 }
 
-string UdpDnsRequest::getFirstHost() {
+string UdpDnsRequest::getFirstHost() const {
     return hosts.front();
 }
 

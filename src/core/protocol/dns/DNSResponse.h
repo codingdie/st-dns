@@ -9,8 +9,8 @@
 #include "DNSMessage.h"
 #include <DNSCache.h>
 #include <iostream>
-
 using namespace std;
+class DNSSession;
 
 class UdpDNSResponse : public BasicData {
 public:

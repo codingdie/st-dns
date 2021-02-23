@@ -23,13 +23,23 @@ void DNSCache::addCache(const string &domain, const unordered_set<uint32_t> &ips
         record.expireTime = time::now() + expire * 1000;
         Logger::INFO << "addDNSCache" << domain << ipv4::ipsToStr(ips) << "from" << dnsServer << "expire" << expire
                      << record.expireTime << END;
+        string path = st::dns::Config::INSTANCE.baseConfDir + "/cache.txt";
+        if (!st::dns::Config::INSTANCE.dnsCacheFile.empty()) {
+            path = st::dns::Config::INSTANCE.dnsCacheFile;
+        }
+        ofstream fs(path, std::ios_base::out | std::ios_base::app);
+        if (fs.is_open()) {
+            fs << record.serialize() << "\n";
+            fs.flush();
+        }
     }
-    saveToFile();
 }
 
 void DNSCache::query(const string &host, DNSRecord &record) {
+    uint64_t beginTime = time::now();
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
     record.host = host;
+
     auto iterator = INSTANCE.caches.find(host);
     if (iterator != INSTANCE.caches.end()) {
         unordered_map<string, DNSRecord> &maps = iterator->second;
@@ -44,7 +54,7 @@ void DNSCache::query(const string &host, DNSRecord &record) {
             std::shuffle(ips.begin(), ips.end(), std::default_random_engine(seed));
             record.ips = std::unordered_set<uint32_t>(ips.begin(), ips.end());
             if (record.matchArea) {
-                return;
+                break;
             }
         }
     }
@@ -65,58 +75,73 @@ unordered_set<string> DNSCache::queryNotMatchAreaServers(const string &host) {
     return move(result);
 }
 
-DNSCache::DNSCache() : lastSyncTime(time::now()) {
+DNSCache::DNSCache() {
 }
 
 void DNSCache::loadFromFile() {
+    {
+        lock_guard<mutex> lockGuard(rLock);
+        string path = st::dns::Config::INSTANCE.baseConfDir + "/cache.txt";
+        if (!st::dns::Config::INSTANCE.dnsCacheFile.empty()) {
+            path = st::dns::Config::INSTANCE.dnsCacheFile;
+        }
+        ifstream in(path);
+        string line;
+        int count = 0;
+        while (getline(in, line)) {//获取文件的一行字符串到line中
+            DNSRecord record;
+            if (record.deserialize(line)) {
+                caches[record.host][record.dnsServer] = record;
+                count++;
+            }
+        }
+        Logger::INFO << count << "dns record loadFromFile" << path << END;
+    }
+    saveToFile();
+}
+
+void DNSCache::saveToFile() {
     lock_guard<mutex> lockGuard(rLock);
     string path = st::dns::Config::INSTANCE.baseConfDir + "/cache.txt";
     if (!st::dns::Config::INSTANCE.dnsCacheFile.empty()) {
         path = st::dns::Config::INSTANCE.dnsCacheFile;
     }
-    ifstream in(path);
-    string line;
-    int count = 0;
-    while (getline(in, line)) {//获取文件的一行字符串到line中
-        DNSRecord record;
-        if (record.deserialize(line)) {
-            caches[record.host][record.dnsServer] = record;
-            count++;
+    ofstream fileStream(path);
+    if (fileStream.is_open()) {
+        int count = 0;
+        for (auto it = caches.begin(); it != caches.end(); it++) {
+            auto serverRecords = it->second;
+            for (auto it2 = serverRecords.begin(); it2 != serverRecords.end(); it2++) {
+                fileStream << it2->second.serialize() << "\n";
+                count++;
+            }
         }
+        fileStream.flush();
+        fileStream.close();
+        Logger::INFO << count << "dns record saveToFile" << path << END;
     }
-    Logger::INFO << count << "dns record loadFromFile" << path << END;
 }
 
-void DNSCache::saveToFile() {
-    lock_guard<mutex> lockGuard(rLock);
-    if (time::now() - lastSyncTime > 10000) {
-        string path = st::dns::Config::INSTANCE.baseConfDir + "/cache.txt";
-        if (!st::dns::Config::INSTANCE.dnsCacheFile.empty()) {
-            path = st::dns::Config::INSTANCE.dnsCacheFile;
-        }
-        ofstream fileStream(path);
-        if (fileStream.is_open()) {
-            int count = 0;
-            for (auto it = caches.begin(); it != caches.end(); it++) {
-                auto serverRecords = it->second;
-                for (auto it2 = serverRecords.begin(); it2 != serverRecords.end(); it2++) {
-                    fileStream << it2->second.serialize() << "\n";
-                    count++;
-                }
+uint32_t DNSCache::getTotalCount() {
+    uint32_t total = 0;
+    auto iterator = caches.begin();
+    while (iterator != caches.end()) {
+        unordered_map<string, DNSRecord> &maps = iterator->second;
+        for (auto it = maps.begin(); it != maps.end(); it++) {
+            DNSRecord record = it->second;
+            if (record.matchArea) {
+                total++;
             }
-            fileStream.flush();
-            fileStream.close();
-            lastSyncTime = time::now();
-            Logger::INFO << count << "dns record saveToFile" << path << END;
         }
+        iterator++;
     }
+    return total;
 }
 
 string DNSRecord::serialize() {
     return dnsServer + "\t" + host + "\t" + to_string(expireTime) + "\t" + to_string(matchArea) + "\t" +
            st::utils::ipv4::ipsToStr(ips);
 }
-
 bool DNSRecord::deserialize(const string &str) {
     const vector<std::string> &vector = st::utils::str::split(str, "\t");
     if (vector.size() != 5) {
@@ -128,4 +153,12 @@ bool DNSRecord::deserialize(const string &str) {
     matchArea = stoi(vector[3]);
     ips = ipv4::strToIps(vector[4]);
     return true;
+}
+boost::property_tree::ptree DNSRecord::toPT() {
+    boost::property_tree::ptree pt;
+    pt.put<string>("dnsServer", dnsServer);
+    pt.put<uint64_t>("expireTime", expireTime);
+    pt.put<bool>("matchArea", matchArea);
+    pt.put<string>("ips", st::utils::ipv4::ipsToStr(ips));
+    return pt;
 }

@@ -10,7 +10,7 @@ DNSSession::~DNSSession() {
     }
 }
 
-DNSSession::DNSSession(uint64_t id) : id(id) {
+DNSSession::DNSSession(uint64_t id) : id(id), stepLogger("st-dns", to_string(id)) {
 }
 
 uint64_t DNSSession::getId() const {
@@ -23,6 +23,11 @@ string DNSSession::getHost() const {
 DNSQuery::Type DNSSession::getQueryType() const {
     return udpDnsRequest.getQueryType();
 }
+
+uint16_t DNSSession::getQueryTypeValue() const {
+    return udpDnsRequest.getQueryTypeValue();
+}
+
 
 uint64_t DNSSession::getTime() const {
     return time;

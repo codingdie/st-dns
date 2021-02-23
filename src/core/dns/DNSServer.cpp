@@ -16,12 +16,11 @@
 #include "STUtils.h"
 
 static mutex rLock;
-static unordered_set<string> hostsInQuery;
 
 using namespace std::placeholders;
 using namespace std;
 
-DNSServer::DNSServer(st::dns::Config &config) : rid(1), config(config) {
+DNSServer::DNSServer(st::dns::Config &config) : rid(time::now()), config(config) {
     try {
         socketS = new udp::socket(ioContext, udp::endpoint(boost::asio::ip::make_address_v4(config.ip), config.port));
         for (auto it = config.servers.begin(); it != config.servers.end(); it++) {
@@ -59,9 +58,12 @@ void DNSServer::receive() {
                                     Logger::traceId = session->getId();
                                     Logger::DEBUG << "dns request received!" << END;
                                     session->setTime(time::now());
+                                    session->stepLogger.start();
                                     if (!errorCode && size > 0) {
                                         session->udpDnsRequest.len = size;
-                                        if (session->udpDnsRequest.parse()) {
+                                        bool parsed = session->udpDnsRequest.parse();
+                                        session->stepLogger.step("parseRequest");
+                                        if (parsed) {
                                             processSession(session);
                                         } else {
                                             Logger::ERROR << "invalid dns request" << END;
@@ -74,12 +76,53 @@ void DNSServer::receive() {
                                 });
 }
 
-void DNSServer::endDNSSession(const DNSSession *session) const {
+
+void DNSServer::processSession(DNSSession *session) {
+    auto complete = [=](DNSSession *se) {
+        se->stepLogger.step("buildResponse", se->record.toPT());
+        udp::endpoint &clientEndpoint = se->clientEndpoint;
+        UdpDNSResponse *udpResponse = se->udpDNSResponse;
+        if (udpResponse != nullptr) {
+            socketS->async_send_to(buffer(udpResponse->data, udpResponse->len), clientEndpoint,
+                                   [=](boost::system::error_code writeError, size_t writeSize) {
+                                       Logger::traceId = se->getId();
+                                       se->stepLogger.step("response");
+                                       endDNSSession(se);
+                                   });
+        } else {
+            endDNSSession(se);
+        }
+    };
+    session->record.host = session->getHost();
+    session->stepLogger.addDimension("queryType", session->getQueryTypeValue());
+    session->stepLogger.addDimension("domain", session->getHost());
+    if (session->getQueryType() == DNSQuery::A || session->getQueryType() == DNSQuery::CNAME) {
+        session->stepLogger.addDimension("processMethod", "resolve");
+        queryDNSRecord(session, complete);
+    } else if (session->getQueryType() != DNSQuery::AAAA) {
+        session->processType = DNSSession::ProcessType::FORWARD;
+        session->stepLogger.addDimension("processMethod", "forward");
+        forwardUdpDNSRequest(session, complete);
+    } else {
+        session->processType = DNSSession::ProcessType::DROP;
+        session->stepLogger.addDimension("processMethod", "drop");
+        auto id = session->udpDnsRequest.dnsHeader->id;
+        session->udpDNSResponse = new UdpDNSResponse(id, session->record);
+        complete(session);
+    }
+}
+
+void DNSServer::endDNSSession(DNSSession *session) {
     bool success = session->udpDNSResponse != nullptr;
-    if (!session->forward) {
+    if (session->processType == DNSSession::ProcessType::QUERY) {
         success &= !session->record.ips.empty();
     }
-    Logger::INFO << "dns from" << session->clientEndpoint.address().to_string() << session->clientEndpoint.port() << (session->forward ? "forward" : "query") << (success ? "success!" : "failed!");
+    session->stepLogger.addMetric("cacheTotalCount", DNSCache::INSTANCE.getTotalCount());
+    session->stepLogger.addMetric("inQueryingHostCount", watingSessions.size());
+    session->stepLogger.addDimension("success", success);
+    session->stepLogger.end();
+
+    Logger::INFO << "dns from" << session->clientEndpoint.address().to_string() << session->clientEndpoint.port() << session->processType << (success ? "success!" : "failed!");
     Logger::INFO << "type:" << session->getQueryType();
     Logger::INFO << "rlen:" << session->udpDnsRequest.len;
     if (session->udpDNSResponse != nullptr) {
@@ -95,27 +138,38 @@ void DNSServer::endDNSSession(const DNSSession *session) const {
     // if (session->forward) {
     //     session->udpDNSResponse->printHex();
     // }
+
     delete session;
 }
+
 void DNSServer::queryDNSRecord(DNSSession *session, std::function<void(DNSSession *)> finalComplete) {
     auto complete = [=](DNSSession *se) {
-        auto id = session->udpDnsRequest.dnsHeader->id;
-        session->udpDNSResponse = new UdpDNSResponse(id, session->record);
-        finalComplete(session);
+        auto id = se->udpDnsRequest.dnsHeader->id;
+        se->udpDNSResponse = new UdpDNSResponse(id, se->record);
+        finalComplete(se);
     };
     auto host = session->getHost();
     DNSRecord &record = session->record;
-
     if (host == "localhost") {
         record.dnsServer = "st-dns";
         record.host = host;
         record.expireTime = std::numeric_limits<uint64_t>::max();
+        session->stepLogger.addDimension("dnsRecordSource", "cache");
         complete(session);
     } else {
         DNSCache::INSTANCE.query(host, record);
         if (record.ips.empty()) {
+            string fiDomain = DNSDomain::getFIDomain(host);
+            if (fiDomain == "LAN") {
+                DNSCache::INSTANCE.query(DNSDomain::removeFIDomain(host), record);
+                record.host = host;
+            }
+        }
+        if (record.ips.empty()) {
+            session->stepLogger.addDimension("dnsRecordSource", "server");
             queryDNSRecordFromServer(session, complete);
         } else {
+            session->stepLogger.addDimension("dnsRecordSource", "cache");
             if (record.expire || !record.matchArea) {
                 updateDNSRecord(record);
             }
@@ -124,46 +178,27 @@ void DNSServer::queryDNSRecord(DNSSession *session, std::function<void(DNSSessio
     }
 }
 
-void DNSServer::processSession(DNSSession *session) {
-    session->record.host = session->getHost();
-
-    auto complete = [=](DNSSession *session) {
-        udp::endpoint &clientEndpoint = session->clientEndpoint;
-        UdpDNSResponse *udpResponse = session->udpDNSResponse;
-        if (udpResponse != nullptr) {
-            socketS->async_send_to(buffer(udpResponse->data, udpResponse->len), clientEndpoint,
-                                   [=](boost::system::error_code writeError, size_t writeSize) {
-                                       Logger::traceId = session->getId();
-                                       endDNSSession(session);
-                                   });
-        } else {
-            endDNSSession(session);
-        }
-    };
-    if (session->getQueryType() == DNSQuery::A || session->getQueryType() == DNSQuery::CNAME) {
-        queryDNSRecord(session, complete);
-    } else {
-        session->forward = true;
-        forwardUdpDNSRequest(session, complete);
-    }
-}
-
-
 void DNSServer::queryDNSRecordFromServer(DNSSession *session, std::function<void(DNSSession *session)> completeHandler) {
     auto record = session->record;
     auto host = record.host;
     vector<RemoteDNSServer *> &servers = session->servers;
     calRemoteDNSServers(record, servers);
-    if (beginQuery(host)) {
+    if (servers.empty()) {
+        completeHandler(session);
+        return;
+    }
+    if (beginQuery(host, session)) {
         syncDNSRecordFromServer(
                 host, [=](DNSRecord &record) {
-                    endQuery(host);
-                    session->record = move(record);
-                    completeHandler(session);
+                    auto sessions = endQuery(host);
+                    Logger::INFO << END;
+                    for (auto it = sessions.begin(); it != sessions.end(); it++) {
+                        DNSSession *se = *it;
+                        se->record = record;
+                        completeHandler(se);
+                    }
                 },
-                servers, 0);
-    } else {
-        completeHandler(session);
+                servers, 0, true);
     }
 }
 void DNSServer::forwardUdpDNSRequest(DNSSession *session, std::function<void(DNSSession *session)> completeHandler) {
@@ -230,33 +265,43 @@ void DNSServer::calRemoteDNSServers(const DNSRecord &record, vector<RemoteDNSSer
         }
     }
 }
-bool DNSServer::beginQuery(const string host) {
+bool DNSServer::beginQuery(const string host, DNSSession *session) {
     bool result = false;
     rLock.lock();
-    if (hostsInQuery.find(host) == hostsInQuery.end()) {
-        hostsInQuery.emplace(host);
+    auto it = watingSessions.find(host);
+    if (it == watingSessions.end()) {
+        unordered_set<DNSSession *> ses;
+        watingSessions.emplace(make_pair(host, ses));
         result = true;
+    }
+    if (session != nullptr) {
+        watingSessions[host].emplace(session);
     }
     rLock.unlock();
     return result;
 }
-void DNSServer::endQuery(const string host) {
+unordered_set<DNSSession *> DNSServer::endQuery(const string host) {
+    unordered_set<DNSSession *> result;
     rLock.lock();
-    hostsInQuery.erase(host);
+    result = watingSessions[host];
+    watingSessions.erase(host);
     rLock.unlock();
+    return result;
 }
 void DNSServer::updateDNSRecord(DNSRecord record) {
+    Logger::DEBUG << "begin updateDNSRecord !" << record.host << END;
+
     auto host = record.host;
     vector<RemoteDNSServer *> servers;
     calRemoteDNSServers(record, servers);
-    if (beginQuery(host)) {
+    if (beginQuery(host, nullptr)) {
         if (!servers.empty()) {
             syncDNSRecordFromServer(
                     host, [=](DNSRecord &record) {
                         endQuery(host);
                         Logger::DEBUG << "updateDNSRecord finished!" << END;
                     },
-                    servers, 0);
+                    servers, 0, false);
         } else {
             Logger::ERROR << "updateDNSRecord servers empty!" << END;
             endQuery(host);
@@ -268,7 +313,7 @@ void DNSServer::updateDNSRecord(DNSRecord record) {
 
 void DNSServer::syncDNSRecordFromServer(const string host, std::function<void(DNSRecord &record)> complete,
                                         vector<RemoteDNSServer *> servers,
-                                        int pos) {
+                                        int pos, bool completedWithAnyRecord) {
     if (pos >= servers.size()) {
         Logger::ERROR << "not known host" << host << END;
         DNSRecord record;
@@ -322,12 +367,17 @@ void DNSServer::syncDNSRecordFromServer(const string host, std::function<void(DN
                                                 server->dnsCacheExpire, false);
                 }
             }
-            Logger::DEBUG << host << "query dns from" << server->id() << (ips.empty() ? "invalid" : "success") << END;
+            Logger::DEBUG << host << "query dns from" << server->id() << (ips.empty() ? "not match area" : "success") << END;
+            DNSRecord record;
+            DNSCache::INSTANCE.query(host, record);
+            if (!record.ips.empty() && completedWithAnyRecord) {
+                complete(record);
+                updateDNSRecord(record);
+                return;
+            }
             if (ips.empty() && pos + 1 < servers.size()) {
-                syncDNSRecordFromServer(host, complete, servers, pos + 1);
+                syncDNSRecordFromServer(host, complete, servers, pos + 1, completedWithAnyRecord);
             } else {
-                DNSRecord record;
-                DNSCache::INSTANCE.query(host, record);
                 complete(record);
             }
         };

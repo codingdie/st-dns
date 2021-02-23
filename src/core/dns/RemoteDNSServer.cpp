@@ -4,6 +4,7 @@
 
 #include "RemoteDNSServer.h"
 #include "Config.h"
+#include "DNS.h"
 
 bool RemoteDNSServer::init() {
     if (!file::createIfNotExits(blacklistFilePath)) {
@@ -24,11 +25,11 @@ bool RemoteDNSServer::init() {
 vector<RemoteDNSServer *>
 RemoteDNSServer::calculateQueryServer(const string &domain, const vector<RemoteDNSServer *> &servers) {
     vector<RemoteDNSServer *> result;
-    string fiDomain = getFiDomain(domain);
+    string fiDomain = DNSDomain::getFIDomain(domain);
     for (auto it = servers.begin(); it != servers.end(); it++) {
         RemoteDNSServer *server = *it.base();
 
-        if ((fiDomain == "LAN" || fiDomain == "arpa") && server->area != "LAN") {
+        if ((fiDomain == "LAN" || fiDomain == "ARPA") && server->area != "LAN") {
             continue;
         }
 
@@ -50,16 +51,6 @@ RemoteDNSServer::calculateQueryServer(const string &domain, const vector<RemoteD
     }
 
     return move(result);
-}
-
-string RemoteDNSServer::getFiDomain(const string &domain) {
-    uint64_t pos = domain.find_last_of('.');
-    if (pos == string::npos) {
-        return "";
-    }
-    string fiDomain = domain.substr(pos + 1);
-    transform(fiDomain.begin(), fiDomain.end(), fiDomain.begin(), ::toupper);
-    return move(fiDomain);
 }
 
 RemoteDNSServer::RemoteDNSServer(const string &ip, int port, const string &type, const string &whitelistFilePath,

@@ -44,7 +44,5 @@ public:
     bool init();
 
     static vector<RemoteDNSServer *> calculateQueryServer(const string &domain, const vector<RemoteDNSServer *> &servers);
-
-    static string getFiDomain(const string &domain);
 };
 #endif//ST_DNS_REMOTEDNSSERVER_H

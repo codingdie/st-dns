@@ -102,14 +102,9 @@ UdpDNSResponse::UdpDNSResponse(uint8_t *data, uint64_t len) : BasicData(data, le
 
 UdpDNSResponse::UdpDNSResponse(uint16_t id, DNSRecord &record) {
     unordered_set<uint32_t> &ips = record.ips;
-    bool isError = ips.empty() || *ips.begin() == 0;
-    if (isError) {
-        this->header = DNSHeader::generateAnswer(id, 0);
-    } else {
-        this->header = DNSHeader::generateAnswer(id, ips.size());
-    }
-    this->queryZone = DNSQueryZone::generate(record.host);
-    if (!isError) {
+    bool hasRecord = !ips.empty();
+    this->header = DNSHeader::generateAnswer(id, record.host.empty() ? 0 : 1, ips.size());
+    if (hasRecord) {
         uint32_t expire = (record.expireTime - time::now()) / 1000L;
         if (expire <= 0) {
             expire = 1;
@@ -117,6 +112,7 @@ UdpDNSResponse::UdpDNSResponse(uint16_t id, DNSRecord &record) {
         if (!record.matchArea) {
             expire = 1;
         }
+        expire = max(expire, (uint32_t) 1 * 60);
         for (auto it = ips.begin(); it != ips.end(); it++) {
             DNSResourceZone *pResourceZone = DNSResourceZone::generate(*it, expire);
             this->answerZones.emplace_back(pResourceZone);
@@ -124,7 +120,10 @@ UdpDNSResponse::UdpDNSResponse(uint16_t id, DNSRecord &record) {
             this->ips.emplace(*it);
         }
     }
-    this->len = this->header->len + this->queryZone->len + this->answerZonesSize;
+
+    this->len = this->header->len + this->answerZonesSize;
+    this->queryZone = DNSQueryZone::generate(record.host);
+    this->len += this->queryZone->len;
     this->data = new uint8_t[this->len];
     this->setDataOwner(true);
     auto ptr = this->data;
@@ -132,7 +131,7 @@ UdpDNSResponse::UdpDNSResponse(uint16_t id, DNSRecord &record) {
     ptr += this->header->len;
     st::utils::copy(this->queryZone->data, ptr, this->queryZone->len);
     ptr += this->queryZone->len;
-    if (!isError) {
+    if (hasRecord) {
         for (auto it = this->answerZones.begin(); it < this->answerZones.end(); it++) {
             DNSResourceZone *pZone = *it.base();
             st::utils::copy(pZone->data, ptr, pZone->len);

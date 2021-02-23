@@ -6,6 +6,7 @@
 #define ST_TIMEUTILS_H
 
 #include <chrono>
+#include <string>
 
 namespace st {
     namespace utils {
@@ -16,7 +17,14 @@ namespace st {
                         time_now.time_since_epoch());
                 return duration_in_ms.count();
             }
-        }
-    }
-}
-#endif //ST_TIMEUTILS_H
+            static std::string nowStr() {
+                char buff[20];
+                time_t now = time::now() / 1000;
+                tm *time = localtime(&now);
+                strftime(buff, sizeof(buff), "%Y-%m-%d %H:%M:%S", time);
+                return buff;
+            }
+        }// namespace time
+    }    // namespace utils
+}// namespace st
+#endif//ST_TIMEUTILS_H

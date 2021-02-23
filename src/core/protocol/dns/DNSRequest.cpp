@@ -88,6 +88,10 @@ DNSQuery::Type UdpDnsRequest::getQueryType() const {
     return this->dnsQueryZone->querys[0]->queryType;
 }
 
+uint16_t UdpDnsRequest::getQueryTypeValue() const {
+    return this->dnsQueryZone->querys[0]->queryTypeValue;
+}
+
 UdpDnsRequest::UdpDnsRequest() {
 }
 

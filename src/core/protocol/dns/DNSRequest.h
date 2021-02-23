@@ -33,6 +33,7 @@ public:
 
     string getHost() const;
     DNSQuery::Type getQueryType() const;
+    uint16_t getQueryTypeValue() const;
 
 protected:
     virtual void initDataZone();

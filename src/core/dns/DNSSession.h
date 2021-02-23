@@ -5,24 +5,28 @@
 #ifndef ST_DNS_DNSSESSION_H
 #define ST_DNS_DNSSESSION_H
 
-#include "STUtils.h"
 #include "DNS.h"
-#include <boost/asio.hpp>
 #include "RemoteDNSServer.h"
-
+#include "STUtils.h"
+#include <boost/asio.hpp>
 class DNSSession {
 public:
+    enum ProcessType {
+        QUERY = 1,
+        FORWARD = 2,
+        DROP = 3
+    };
     boost::asio::ip::udp::endpoint clientEndpoint;
     UdpDnsRequest udpDnsRequest = UdpDnsRequest(1024);
     DNSRecord record;
-    bool forward = false;
+    ProcessType processType = QUERY;
     UdpDNSResponse *udpDNSResponse = nullptr;
 
     DNSSession(uint64_t id);
 
     vector<RemoteDNSServer *> servers;
-
     virtual ~DNSSession();
+    APMLogger stepLogger;
 
 private:
     uint64_t id;
@@ -34,6 +38,7 @@ public:
     string getHost() const;
 
     DNSQuery::Type getQueryType() const;
+    uint16_t getQueryTypeValue() const;
 
     void setTime(uint64_t time);
 
@@ -41,4 +46,4 @@ public:
 };
 
 
-#endif //ST_DNS_DNSSESSION_H
+#endif//ST_DNS_DNSSESSION_H

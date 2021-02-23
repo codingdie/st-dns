@@ -1,6 +1,6 @@
 {
-  "ip": "127.0.0.53",
-  "port": "53",
+  "ip": "127.0.0.1",
+  "port": "5353",
   "servers": [
     {
       "type": "UDP",
@@ -10,7 +10,7 @@
       "only_area_ip": true,
       "timeout": "100",
       "dns_cache_expire": 60,
-      "parallel":2
+      "parallel": 2
     },
     {
       "type": "TCP_SSL",
@@ -20,7 +20,7 @@
       "only_area_ip": true,
       "timeout": "1000",
       "dns_cache_expire": 3600,
-      "parallel":4
+      "parallel": 4
     },
     {
       "type": "TCP_SSL",
@@ -29,10 +29,21 @@
       "area": "!CN",
       "only_area_ip": true,
       "timeout": "10000",
-      "dns_cache_expire": 36000,      
-      "parallel":16
+      "dns_cache_expire": 36000,
+      "parallel": 16
     }
   ],
   "dns_cache_expire": 3600,
-  "parallel":4
+  "parallel": 4,
+  "log": {
+    "level": 0,
+    "raw_log_server": {
+      "ip": "192.168.31.10",
+      "port": 30500
+    },
+    "apm_log_server": {
+      "ip": "192.168.31.10",
+      "port": 30501
+    }
+  }
 }

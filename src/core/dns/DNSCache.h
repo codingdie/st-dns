@@ -26,26 +26,28 @@ public:
     unordered_set<uint32_t> ips;
     uint64_t expireTime = 0;
     string dnsServer;
-    string host;
+    string host = "";
     bool expire = false;
     bool matchArea = false;
 
     string serialize();
+    boost::property_tree::ptree
+    toPT();
 
     bool deserialize(const string &str);
 };
 
 class DNSCache {
 private:
-    uint64_t lastSyncTime = 0;
     unordered_map<string, unordered_map<string, DNSRecord>> caches;
-
 
     void saveToFile();
 
 
 public:
     DNSCache();
+
+    uint32_t getTotalCount();
 
     static DNSCache INSTANCE;
 

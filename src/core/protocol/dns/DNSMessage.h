@@ -8,11 +8,13 @@
 
 #include "STUtils.h"
 #include <atomic>
+#include <boost/asio.hpp>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <unordered_set>
 #include <vector>
+
 
 using namespace std;
 
@@ -157,8 +159,8 @@ public:
     explicit DNSHeader(uint64_t len) : BasicData(len) {
     }
 
-    static DNSHeader *generateAnswer(uint16_t id, int answerCount) {
-        return generate(id, 1, 0, answerCount, true);
+    static DNSHeader *generateAnswer(uint16_t id, int hostCount, int answerCount) {
+        return generate(id, hostCount, 0, answerCount, true);
     }
 
     static DNSHeader *generate(uint16_t id, int hostCount, int additionalCount, int answerCount, bool isAnswer) {
@@ -211,44 +213,6 @@ public:
     explicit DNSDomain(uint64_t size) : BasicData(size) {
     }
 
-    static DNSDomain *generateDomain(const string &host) {
-        const char *hostChar = host.data();
-        vector<pair<unsigned char, unsigned char>> subLens;
-        int total = 0;
-        int lastBegin = 0;
-        int strLen = strlen(hostChar);
-        for (auto i = 0; i <= strLen; i++) {
-            if (i != strLen) {
-                char ch = hostChar[i];
-
-                if (ch == '.') {
-                    subLens.emplace_back(lastBegin, i - 1);
-                    lastBegin = i + 1;
-                } else {
-                    total++;
-                }
-            } else {
-                subLens.emplace_back(lastBegin, i - 1);
-            }
-        }
-        uint64_t finalDataLen = subLens.size() + total + 1;
-
-        auto *dnsDomain = new DNSDomain(finalDataLen);
-        auto hostCharData = dnsDomain->data;
-        int i = 0;
-        for (auto &pair : subLens) {
-            auto len = pair.second - pair.first + 1;
-            *(hostCharData + i) = len;
-            i++;
-            for (int j = pair.first; j <= pair.second; j++) {
-                *(hostCharData + i) = hostChar[j];
-                i++;
-            }
-        }
-        *(hostCharData + i) = 0x00;
-        dnsDomain->domain = host;
-        return dnsDomain;
-    }
 
     DNSDomain(uint8_t *data, uint64_t len) : BasicData(data, len) {
         uint64_t actualLen = parseDomain(data, len, 0, len, domain);
@@ -276,70 +240,42 @@ public:
             this->len = actualLen;
         }
     }
-
-    uint64_t static parseDomain(uint8_t *allData, uint64_t max, uint64_t begin, uint64_t maxParse, string &domain) {
-        uint8_t *data = allData + begin;
-        int actualLen = 0;
-        while (actualLen < maxParse) {
-            uint8_t frameLen = *(data + actualLen);
-            if ((frameLen & 0b11000000U) == 0b11000000U) {
-                uint16_t pos = 0;
-                pos |= ((*(data + actualLen) & 0b00111111U) << 8U);
-                pos |= *(data + actualLen + 1);
-                actualLen += 2;
-                if (pos != begin) {
-                    string domainRe = "";
-                    uint64_t consume = parseDomain(allData, max, pos, max - pos, domainRe);
-                    if (consume != 0) {
-                        if (domain.size() != 0) {
-                            domain += ".";
-                            domain += domainRe;
-                        } else {
-                            domain = domainRe;
-                            break;
-                        }
-
-                    } else {
-                        return 0;
-                    }
-                } else {
-                    break;
-                }
-
-            } else {
-                actualLen++;
-                if (frameLen == 0) {
-                    break;
-                } else {
-                    if (maxParse - actualLen < frameLen) {
-                        return 0;
-                    }
-                    actualLen += frameLen;
-                    char domainStr[frameLen + 1];
-                    domainStr[frameLen] = '\0';
-                    st::utils::copy(data, domainStr, actualLen - frameLen, 0U, frameLen);
-                    if (domain.length() != 0) {
-                        domain += ".";
-                    }
-                    domain += domainStr;
-                }
-            }
-        }
-        return actualLen;
-    }
+    static DNSDomain *generateDomain(const string &host);
+    static uint64_t parseDomain(uint8_t *allData, uint64_t max, uint64_t begin, uint64_t maxParse, string &domain);
+    static string getFIDomain(const string &domain);
+    static string removeFIDomain(const string &domain);
 };
 
 class DNSQuery : public BasicData {
 public:
     enum Type {
-        A = 1,
-        NS = 2,
-        CNAME = 5
+        A = 0x01,    //指定计算机 IP 地址。
+        NS = 0x02,   //指定用于命名区域的 DNS 名称服务器。
+        MD = 0x03,   //指定邮件接收站（此类型已经过时了，使用MX代替）
+        MF = 0x04,   //指定邮件中转站（此类型已经过时了，使用MX代替）
+        CNAME = 0x05,//指定用于别名的规范名称。
+        SOA = 0x06,  //指定用于 DNS 区域的“起始授权机构”。
+        MB = 0x07,   //指定邮箱域名。
+        MG = 0x08,   //指定邮件组成员。
+        MR = 0x09,   //指定邮件重命名域名。
+        NULLV = 0x0A,//指定空的资源记录
+        WKS = 0x0B,  //描述已知服务。
+        PTR = 0x0C,  //如果查询是 IP 地址，则指定计算机名；否则指定指向其它信息的指针。
+        HINFO = 0x0D,//指定计算机 CPU 以及操作系统类型。
+        MINFO = 0x0E,//指定邮箱或邮件列表信息。
+        MX = 0x0F,   //指定邮件交换器。
+        TXT = 0x10,  //指定文本信息。
+        AAAA = 0x1c, //IPV6资源记录。
+        UINFO = 0x64,//指定用户信息。
+        UID = 0x65,  //指定用户标识符。
+        GID = 0x66,  //指定组名的组标识符。
+        ANY = 0xFF   //指定所有数据类型。
     };
     DNSDomain *domain = nullptr;
     static const uint32_t DEFAULT_FLAGS_SIZE = 4;
     static uint8_t DEFAULT_FLAGS[DEFAULT_FLAGS_SIZE];
     Type queryType = Type::A;
+    uint16_t queryTypeValue = Type::A;
 
     virtual ~DNSQuery();
 
@@ -355,6 +291,7 @@ public:
             this->len = dnsDomain->len + DEFAULT_FLAGS_SIZE;
             uint16_t typeValue = 0;
             st::utils::read(data + dnsDomain->len, typeValue);
+            this->queryTypeValue = typeValue;
             this->queryType = Type(typeValue);
         }
     }

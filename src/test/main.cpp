@@ -7,6 +7,7 @@
 #include "STUtils.h"
 #include <iostream>
 
+#include "DNS.h"
 #include "WhoisClient.h"
 #include <chrono>
 #include <thread>
@@ -53,11 +54,16 @@ void testParallel(FUNC testMethod, int count, int parral) {
 }
 
 int main(int argc, char *argv[]) {
-    //    cout << st::utils::ip::strToIp("192.168.31.164") << END;
-    testTcp("www.google.com", "8.8.8.8");
-    //    testEDNS("www.baidu.com", "8.8.8.8");
-    //    WhoisClient::whois("baidu.com", "192.30.45.30", 43, 5000);
+    string host = "host.LAN";
+    cout << DNSDomain::removeFIDomain(host) << endl;
+
+    // for (int i = 0; i < 100; i++) {
+    //     // UDPLogger::INSTANCE.log("127.0.0.1", 30500, to_string(time::now()) + to_string(i) + "\n");
+    //     UDPLogger::INSTANCE.log("127.0.0.1", 30500, "123123");
+    // }
+    // sleep(5000);
 }
+
 
 void testUdp(const string &domain, const string &server, const int count, const int parral) {
     testParallel([=]() {

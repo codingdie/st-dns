@@ -31,6 +31,7 @@ private:
     udp::socket *socketS = nullptr;
     io_context ioContext;
     unordered_map<string, thread_pool *> workThreads;
+    unordered_map<string, unordered_set<DNSSession *>> watingSessions;
 
     void receive();
 
@@ -38,24 +39,25 @@ private:
 
     void queryDNSRecord(DNSSession *session, std::function<void(DNSSession *)> completeHandler);
 
-    void syncDNSRecordFromServer(const string host, std::function<void(DNSRecord &record)> complete, vector<RemoteDNSServer *> servers, int pos);
+    void syncDNSRecordFromServer(const string host, std::function<void(DNSRecord &record)> complete, vector<RemoteDNSServer *> servers, int pos, bool completed);
 
     void filterIPByArea(const string host, RemoteDNSServer *server, unordered_set<uint32_t> &ips);
 
     void queryDNSRecordFromServer(DNSSession *session, std::function<void(DNSSession *session)> completeHandler);
 
     void forwardUdpDNSRequest(DNSSession *session, std::function<void(DNSSession *)> completeHandler);
+
     void forwardUdpDNSRequest(DNSSession *session, std::function<void(UdpDNSResponse *)> complete, vector<RemoteDNSServer *> servers, int pos);
 
-    void endDNSSession(const DNSSession *session) const;
+    void endDNSSession(DNSSession *session);
 
     void updateDNSRecord(DNSRecord record);
 
     void calRemoteDNSServers(const DNSRecord &record, vector<RemoteDNSServer *> &servers);
 
-    bool beginQuery(const string host);
+    bool beginQuery(const string host, DNSSession *session);
 
-    void endQuery(const string host);
+    unordered_set<DNSSession *> endQuery(const string host);
 };
 
 

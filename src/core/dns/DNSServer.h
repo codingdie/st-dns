@@ -25,6 +25,10 @@ public:
 
     void start();
 
+    void waitStart();
+
+    void shutdown();
+
 private:
     atomic_int64_t rid;
     st::dns::Config config;
@@ -32,6 +36,8 @@ private:
     io_context ioContext;
     unordered_map<string, thread_pool *> workThreads;
     unordered_map<string, unordered_set<DNSSession *>> watingSessions;
+    std::atomic<uint8_t> state;
+    boost::asio::io_context::work *ioWoker;
 
     void receive();
 

@@ -124,8 +124,7 @@ UdpDNSResponse::UdpDNSResponse(uint16_t id, DNSRecord &record) {
     this->len = this->header->len + this->answerZonesSize;
     this->queryZone = DNSQueryZone::generate(record.host);
     this->len += this->queryZone->len;
-    this->data = new uint8_t[this->len];
-    this->setDataOwner(true);
+    this->alloc(len);
     auto ptr = this->data;
     st::utils::copy(this->header->data, ptr, this->header->len);
     ptr += this->header->len;

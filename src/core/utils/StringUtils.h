@@ -9,8 +9,8 @@
 #include <vector>
 namespace st {
     namespace utils {
-        namespace str {
-            static inline std::vector<std::string> split(const std::string &str, const std::string &split) {
+        namespace strutils {
+            static std::vector<std::string> split(const std::string &str, const std::string &split) {
                 std::vector<std::string> result;
                 int pos = 0;
                 int lastPos = 0;

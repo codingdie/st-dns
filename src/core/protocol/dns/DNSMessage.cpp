@@ -3,8 +3,30 @@
 //
 
 #include "DNSMessage.h"
+#include <boost/pool/singleton_pool.hpp>
 
 uint8_t DNSQuery::DEFAULT_FLAGS[DEFAULT_FLAGS_SIZE] = {0x00, 0x01, 0x00, 0x01};
+
+
+BasicData::BasicData(uint32_t size) {
+    this->alloc(size);
+}
+void BasicData::alloc(uint32_t size) {
+    auto mem = st::mem::pmalloc(size);
+    this->data = mem.first;
+    this->mlen = mem.second;
+    this->len = size;
+    for (int i = 0; i < len; i++) {
+        *(this->data + i) = 0;
+    }
+    this->dataOwner = true;
+}
+
+BasicData::~BasicData() {
+    if (data != nullptr && dataOwner) {
+        st::mem::pfree(data, mlen);
+    }
+}
 
 DNSQuery::~DNSQuery() {
     if (domain != nullptr) {

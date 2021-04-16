@@ -3,13 +3,13 @@
 //
 
 #include "Logger.h"
+#include "StringUtils.h"
 #include <boost/property_tree/json_parser.hpp>
 #include <ctime>
 #include <iostream>
 #include <regex>
 #include <thread>
 #include <utility>
-
 using namespace std;
 using namespace st::utils;
 static std::mutex logMutex;
@@ -21,6 +21,7 @@ thread_local Logger Logger::ERROR("ERROR", 3);
 uint32_t Logger::LEVEL = 2;
 string Logger::udpServerIP = "";
 uint16_t Logger::udpServerPort = 0;
+string Logger::tag = "default";
 
 
 void Logger::doLog() {
@@ -40,32 +41,30 @@ void Logger::doLog() {
     string finalStr = st.str();
     STDLogger::INSTANCE.log(finalStr, getSTD());
     if (this->enableUDPLogger()) {
-        UDPLogger::INSTANCE.log(this->udpServerIP, this->udpServerPort, finalStr);
+        for (auto &line : strutils::split(finalStr, "\n")) {
+            if (!line.empty()) {
+                UDPLogger::INSTANCE.log(this->udpServerIP, this->udpServerPort, "[" + tag + "] " + line);
+            }
+        }
     }
     this->str.clear();
 }
 
 void Logger::doLog(const string &time, ostream &st, const string &line) {
     if (this->level >= LEVEL) {
-        st << "[" << this_thread::get_id();
-        if (traceId != 0) {
-            st << "-" << traceId;
-        }
-        st << "]" << SPLIT << "[" << tag << "]" << SPLIT << time << SPLIT;
-        st << line << endl;
+        st << time << SPLIT << "[" << levelName << "]" << SPLIT << "[" << this_thread::get_id() << "]" << SPLIT << "[" << traceId << "]" << SPLIT
+           << line << endl;
     }
 }
 
 ostream *Logger::getSTD() {
     ostream *stream = &cout;
-    if (tag == "ERROR") {
+    if (levelName == "ERROR") {
         stream = &cerr;
     }
     return stream;
 }
-bool Logger::enableUDPLogger() {
-    return udpServerIP.length() > 0 && udpServerPort > 0;
-}
+bool Logger::enableUDPLogger() { return udpServerIP.length() > 0 && udpServerPort > 0; }
 
 
 Logger &Logger::operator<<(const char *log) {
@@ -84,8 +83,7 @@ Logger &Logger::operator<<(char ch) {
     return *this;
 }
 
-Logger::Logger(string tag, uint32_t level) : tag(tag), level(level) {
-}
+Logger::Logger(string levelName, uint32_t level) : levelName(levelName), level(level) {}
 
 Logger &Logger::operator<<(const string &string) {
     appendStr(string);
@@ -93,9 +91,7 @@ Logger &Logger::operator<<(const string &string) {
 }
 
 
-void Logger::appendStr(const string &info) {
-    this->str.append(info).append(SPLIT);
-}
+void Logger::appendStr(const string &info) { this->str.append(info).append(SPLIT); }
 
 Logger &Logger::operator<<(const unordered_set<string> &strs) {
     for (auto str : strs) {
@@ -107,9 +103,7 @@ Logger &Logger::operator<<(const unordered_set<string> &strs) {
 thread_local uint64_t Logger::traceId = 0;
 UDPLogger UDPLogger::INSTANCE;
 UDPLogger::UDPLogger() : ctx(), worker(ctx) {
-    thread th([=]() {
-        ctx.run();
-    });
+    thread th([=]() { ctx.run(); });
     th.detach();
 }
 void UDPLogger::log(const string ip, const int port, const string str) {
@@ -123,11 +117,8 @@ void UDPLogger::log(const string ip, const int port, const string str) {
     });
 }
 STDLogger STDLogger::INSTANCE;
-STDLogger::STDLogger() {
-}
-void STDLogger::log(const string str, ostream *st) {
-    *st << str;
-}
+STDLogger::STDLogger() {}
+void STDLogger::log(const string str, ostream *st) { *st << str; }
 
 APMLogger::APMLogger(const string name, const string traceId) {
     props.put<string>("name", name);
@@ -191,3 +182,22 @@ void APMLogger::perf(const string id, const uint32_t cost, boost::property_tree:
 
 string APMLogger::udpServerIP = "";
 uint16_t APMLogger::udpServerPort = 0;
+
+
+void Logger::init(boost::property_tree::ptree &tree) {
+    auto logConfig = tree.get_child_optional("log");
+    if (logConfig.is_initialized()) {
+        Logger::LEVEL = logConfig.get().get<int>("level", 1);
+        auto rawLogServerConfig = logConfig.get().get_child_optional("raw_log_server");
+        auto apmLogServerConfig = logConfig.get().get_child_optional("apm_log_server");
+        if (rawLogServerConfig.is_initialized()) {
+            Logger::udpServerIP = rawLogServerConfig.get().get<string>("ip", "");
+            Logger::udpServerPort = rawLogServerConfig.get().get<uint16_t>("port", 0);
+            Logger::tag = rawLogServerConfig.get().get<string>("tag", "default");
+        }
+        if (apmLogServerConfig.is_initialized()) {
+            APMLogger::udpServerIP = apmLogServerConfig.get().get<string>("ip", "");
+            APMLogger::udpServerPort = apmLogServerConfig.get().get<uint16_t>("port", 0);
+        }
+    }
+}

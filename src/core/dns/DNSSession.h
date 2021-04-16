@@ -17,7 +17,7 @@ public:
         DROP = 3
     };
     boost::asio::ip::udp::endpoint clientEndpoint;
-    UdpDnsRequest udpDnsRequest = UdpDnsRequest(1024);
+    UdpDnsRequest udpDnsRequest;
     DNSRecord record;
     ProcessType processType = QUERY;
     UdpDNSResponse *udpDNSResponse = nullptr;

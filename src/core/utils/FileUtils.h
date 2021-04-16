@@ -14,7 +14,7 @@ namespace st {
     namespace utils {
         namespace file {
 
-            static inline bool pid(const string &pidFile) {
+            static bool pid(const string &pidFile) {
                 int pid = getpid();
                 ofstream fileStream(pidFile);
                 if (fileStream.is_open()) {
@@ -26,7 +26,7 @@ namespace st {
                 return false;
             }
 
-            static inline bool exit(const string &path) {
+            static bool exit(const string &path) {
                 bool exits = false;
                 fstream fileStream;
                 fileStream.open(path, ios::in);
@@ -37,7 +37,7 @@ namespace st {
                 return exits;
             }
 
-            static inline bool createIfNotExits(const string &path) {
+            static bool createIfNotExits(const string &path) {
                 bool result = false;
                 try {
                     boost::filesystem::path bpath(path);

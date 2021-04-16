@@ -7,7 +7,6 @@
 #include <vector>
 
 UdpDnsRequest::UdpDnsRequest(const vector<std::string> &hosts) {
-    this->data = data;
     this->dnsHeader = DNSHeader::generateQuery(hosts.size());
     this->dnsQueryZone = DNSQueryZone::generate(hosts);
     this->hosts = hosts;
@@ -16,7 +15,7 @@ UdpDnsRequest::UdpDnsRequest(const vector<std::string> &hosts) {
 
 void UdpDnsRequest::initDataZone() {
     uint16_t len = dnsHeader->len + dnsQueryZone->len;
-    uint8_t *data = new uint8_t[len];
+    this->alloc(len);
     int j = 0;
     for (int i = 0; i < dnsHeader->len; i++) {
         data[j] = dnsHeader->data[i];
@@ -26,8 +25,6 @@ void UdpDnsRequest::initDataZone() {
         data[j] = dnsQueryZone->data[i];
         j++;
     }
-    BasicData::len = len;
-    BasicData::data = data;
 }
 
 UdpDnsRequest::~UdpDnsRequest() {
@@ -37,15 +34,16 @@ UdpDnsRequest::~UdpDnsRequest() {
     if (dnsQueryZone != nullptr) {
         delete dnsQueryZone;
     }
+    cout << "123";
 }
 
 
-bool UdpDnsRequest::parse() {
-    if (len > DNSHeader::DEFAULT_LEN) {
+bool UdpDnsRequest::parse(int n) {
+    if (n > DNSHeader::DEFAULT_LEN) {
         DNSHeader *header = new DNSHeader(data, DNSHeader::DEFAULT_LEN);
         if (header->isValid()) {
             dnsHeader = header;
-            DNSQueryZone *queryZone = new DNSQueryZone(data + DNSHeader::DEFAULT_LEN, len - DNSHeader::DEFAULT_LEN, header->questionCount);
+            DNSQueryZone *queryZone = new DNSQueryZone(data + DNSHeader::DEFAULT_LEN, n - DNSHeader::DEFAULT_LEN, header->questionCount);
             if (queryZone->isValid()) {
 
                 if (queryZone->querys.size() == 0) {
@@ -117,7 +115,7 @@ void TcpDnsRequest::initDataZone() {
     uint8_t lenArr[2];
     uint16_t dataLen = len - 2;
     st::utils::toBytes(lenArr, dataLen);
-    uint8_t *data = new uint8_t[len];
+    this->alloc(len);
     uint32_t pos = 0;
     st::utils::copy(lenArr, data, 0U, pos, 2U);
     pos += 2;
@@ -128,9 +126,6 @@ void TcpDnsRequest::initDataZone() {
     if (ENDSZone != nullptr) {
         st::utils::copy(ENDSZone->data, data, 0U, pos, ENDSZone->len);
     }
-    BasicData::len = len;
-    BasicData::data = data;
-    BasicData::setDataOwner(true);
 }
 
 TcpDnsRequest::~TcpDnsRequest() {

@@ -19,27 +19,8 @@ void st::dns::Config::load(const string &baseConfDir) {
         this->ip = tree.get("ip", string("127.0.0.1"));
         this->port = stoi(tree.get("port", string("1080")));
         this->dnsCacheExpire = stoi(tree.get("dns_cache_expire", to_string(this->dnsCacheExpire)));
-        this->stProxyConfDir = tree.get("st_proxy_conf", string(""));
         this->parallel = stoi(tree.get("parallel", to_string(this->parallel)));
-        auto logConfig = tree.get_child_optional("log");
-        if (logConfig.is_initialized()) {
-            this->logger.logLevel = logConfig.get().get<int>("level");
-            auto rawLogServerConfig = logConfig.get().get_child_optional("raw_log_server");
-            auto apmLogServerConfig = logConfig.get().get_child_optional("apm_log_server");
-            if (rawLogServerConfig.is_initialized()) {
-                this->logger.rawLogServer.ip = rawLogServerConfig.get().get<string>("ip", "");
-                this->logger.rawLogServer.port = rawLogServerConfig.get().get<uint16_t>("port", 0);
-                Logger::udpServerIP = this->logger.rawLogServer.ip;
-                Logger::udpServerPort = this->logger.rawLogServer.port;
-            }
-            if (apmLogServerConfig.is_initialized()) {
-                this->logger.apmLogServer.ip = apmLogServerConfig.get().get<string>("ip", "");
-                this->logger.apmLogServer.port = apmLogServerConfig.get().get<uint16_t>("port", 0);
-                APMLogger::udpServerIP = this->logger.apmLogServer.ip;
-                APMLogger::udpServerPort = this->logger.apmLogServer.port;
-            }
-        }
-
+        Logger::init(tree);
 
         auto serversNodes = tree.get_child("servers");
         if (!serversNodes.empty()) {

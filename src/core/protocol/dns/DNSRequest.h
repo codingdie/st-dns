@@ -27,9 +27,9 @@ public:
 
     UdpDnsRequest();
 
-    ~UdpDnsRequest();
+    virtual ~UdpDnsRequest();
 
-    bool parse();
+    bool parse(int n);
 
     string getHost() const;
     DNSQuery::Type getQueryType() const;

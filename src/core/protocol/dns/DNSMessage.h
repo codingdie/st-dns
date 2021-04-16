@@ -22,7 +22,6 @@ class BasicData {
 private:
     bool valid = true;
     bool dataOwner = false;
-
     static void printBit(uint8_t value) {
         for (uint16_t i = 0; i < 8; i++) {
             if (((1U << 7U >> i) & value) > 0) {
@@ -40,6 +39,7 @@ private:
 
 public:
     uint32_t len = 0;
+    uint32_t mlen = 0;
     uint8_t *data = nullptr;
 
     void markInValid() {
@@ -56,23 +56,13 @@ public:
         return valid;
     }
 
-    BasicData(uint32_t len1) : len(len1) {
-        data = new uint8_t[((len - 1) / 1024 + 1) * 1024];
-        for (int i = 0; i < len; i++) {
-            *(data + i) = 0;
-        }
-        dataOwner = true;
-    }
+    BasicData(uint32_t len);
 
+    void alloc(uint32_t size);
+    
     BasicData(uint8_t *data, uint32_t len) : len(len), data(data) {
     }
-
-    BasicData(uint8_t *data, uint32_t len, bool dataOwner) : dataOwner(dataOwner), len(len), data(data) {
-    }
-
     BasicData() = default;
-
-
     virtual void print() const {
         if (data != nullptr) {
             for (int i = 0; i < len; i++) {
@@ -99,11 +89,7 @@ public:
         }
     }
 
-    ~BasicData() {
-        if (data != nullptr && dataOwner) {
-            delete data;
-        }
-    }
+    virtual ~BasicData();
 
     void setDataOwner(bool dataOwner) {
         BasicData::dataOwner = dataOwner;

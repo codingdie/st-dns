@@ -10,7 +10,7 @@ DNSSession::~DNSSession() {
     }
 }
 
-DNSSession::DNSSession(uint64_t id) : id(id), stepLogger("st-dns", to_string(id)) {
+DNSSession::DNSSession(uint64_t id) : id(id), stepLogger("st-dns", to_string(id)), udpDnsRequest(1024) {
 }
 
 uint64_t DNSSession::getId() const {

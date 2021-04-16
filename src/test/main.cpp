@@ -9,6 +9,7 @@
 
 #include "DNS.h"
 #include "WhoisClient.h"
+#include <boost/pool/pool.hpp>
 #include <chrono>
 #include <thread>
 #include <vector>
@@ -54,8 +55,6 @@ void testParallel(FUNC testMethod, int count, int parral) {
 }
 
 int main(int argc, char *argv[]) {
-    string host = "host.LAN";
-    cout << DNSDomain::removeFIDomain(host) << endl;
 
     // for (int i = 0; i < 100; i++) {
     //     // UDPLogger::INSTANCE.log("127.0.0.1", 30500, to_string(time::now()) + to_string(i) + "\n");

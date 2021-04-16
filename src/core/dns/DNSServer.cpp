@@ -34,7 +34,7 @@ DNSServer::DNSServer(st::dns::Config &config) : rid(time::now()), config(config)
 }
 
 void DNSServer::start() {
-    boost::asio::io_context::work ioContextWork(ioContext);
+    ioWoker = new boost::asio::io_context::work(ioContext);
     vector<thread> threads;
     DNSCache::INSTANCE.loadFromFile();
     Logger::INFO << "st-dns start, listen at" << config.ip << config.port << END;
@@ -44,14 +44,31 @@ void DNSServer::start() {
             ioContext.run();
         });
     }
+    state = 1;
     for (auto &th : threads) {
         th.join();
     }
     Logger::INFO << "st-dns end" << END;
 }
 
+void DNSServer::shutdown() {
+    this->state = 2;
+    delete ioWoker;
+    ioContext.stop();
+    Logger::INFO << "st-dns server stoped, listen at" << config.ip + ":" + to_string(config.port) << END;
+}
+
+void DNSServer::waitStart() {
+    cout << state << endl;
+    while (state == 0) {
+        std::this_thread::sleep_for(std::chrono::seconds(3));
+    }
+    cout << state << endl;
+}
 void DNSServer::receive() {
-    DNSSession *session = new DNSSession(rid.fetch_add(1));
+    uint64_t id = rid.fetch_add(1);
+    Logger::traceId = id;
+    DNSSession *session = new DNSSession(id);
     socketS->async_receive_from(buffer(session->udpDnsRequest.data, session->udpDnsRequest.len),
                                 session->clientEndpoint,
                                 [=](boost::system::error_code errorCode, std::size_t size) {
@@ -60,8 +77,7 @@ void DNSServer::receive() {
                                     session->setTime(time::now());
                                     session->stepLogger.start();
                                     if (!errorCode && size > 0) {
-                                        session->udpDnsRequest.len = size;
-                                        bool parsed = session->udpDnsRequest.parse();
+                                        bool parsed = session->udpDnsRequest.parse(size);
                                         session->stepLogger.step("parseRequest");
                                         if (parsed) {
                                             processSession(session);

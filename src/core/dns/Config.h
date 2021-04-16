@@ -21,18 +21,6 @@ using namespace boost::property_tree;
 using namespace std;
 namespace st {
     namespace dns {
-
-        class UDPLogServer {
-        public:
-            string ip = "";
-            uint16_t port = 0;
-        };
-        class LogConfig {
-        public:
-            uint8_t logLevel = 2;
-            UDPLogServer rawLogServer;
-            UDPLogServer apmLogServer;
-        };
         class Config {
         public:
             static Config INSTANCE;
@@ -42,9 +30,7 @@ namespace st {
             string dnsCacheFile = "";
             string baseConfDir = "/usr/local/etc/st/dns";
             vector<RemoteDNSServer *> servers;
-            string stProxyConfDir = "";
             uint8_t parallel = 4;
-            LogConfig logger;
             Config() = default;
             void load(const string &baseConfDir);
             RemoteDNSServer *getDNSServerById(string serverId);

@@ -15,12 +15,22 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#define END Logger::MASK::ENDL;
 
 static const char *const SPLIT = " ";
 using namespace std;
 namespace st {
     namespace utils {
+        class UDPLogServer {
+        public:
+            string ip = "";
+            uint16_t port = 0;
+        };
+        class LogConfig {
+        public:
+            uint8_t logLevel = 2;
+            UDPLogServer rawLogServer;
+            UDPLogServer apmLogServer;
+        };
         class UDPLogger {
         public:
             static UDPLogger INSTANCE;
@@ -33,14 +43,15 @@ namespace st {
         };
         class STDLogger {
         public:
+            string tag = "";
             static STDLogger INSTANCE;
             STDLogger();
             void log(const string str, ostream *st);
         };
         class Logger {
         private:
+            string levelName;
             uint32_t level = 0;
-            string tag;
             string str;
             void appendStr(const string &info);
             void doLog(const string &time, ostream &st, const string &line);
@@ -48,10 +59,9 @@ namespace st {
             bool enableUDPLogger();
 
         public:
+            void static init(boost::property_tree::ptree &config);
             static thread_local uint64_t traceId;
-            enum MASK {
-                ENDL
-            };
+            enum MASK { ENDL };
             static thread_local Logger TRACE;
             static thread_local Logger DEBUG;
             static thread_local Logger INFO;
@@ -61,7 +71,9 @@ namespace st {
             static uint32_t LEVEL;
             static string udpServerIP;
             static uint16_t udpServerPort;
-            explicit Logger(string tag, uint32_t level);
+            static string tag;
+
+            explicit Logger(string levelName, uint32_t level);
 
 
             void doLog();
@@ -86,6 +98,7 @@ namespace st {
                 return *this;
             }
         };
+        #define END st::utils::Logger::MASK::ENDL;
         class APMLogger {
         public:
             static string udpServerIP;

@@ -21,7 +21,7 @@ namespace st {
                 char buff[20];
                 time_t now = time::now() / 1000;
                 tm *time = localtime(&now);
-                strftime(buff, sizeof(buff), "%Y-%m-%d %H:%M:%S", time);
+                strftime(buff, sizeof(buff), "%Y-%m-%dT%H:%M:%S", time);
                 return buff;
             }
         }// namespace time

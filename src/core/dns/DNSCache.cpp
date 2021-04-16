@@ -143,7 +143,7 @@ string DNSRecord::serialize() {
            st::utils::ipv4::ipsToStr(ips);
 }
 bool DNSRecord::deserialize(const string &str) {
-    const vector<std::string> &vector = st::utils::str::split(str, "\t");
+    const vector<std::string> &vector = st::utils::strutils::split(str, "\t");
     if (vector.size() != 5) {
         return false;
     }

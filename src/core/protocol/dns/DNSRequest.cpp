@@ -34,7 +34,6 @@ UdpDnsRequest::~UdpDnsRequest() {
     if (dnsQueryZone != nullptr) {
         delete dnsQueryZone;
     }
-    cout << "123";
 }
 
 
@@ -66,6 +65,7 @@ bool UdpDnsRequest::parse(int n) {
     } else {
         markInValid();
     }
+    this->len = n;
     return isValid();
 }
 

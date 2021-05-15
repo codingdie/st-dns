@@ -1,3 +1,5 @@
 /blacklist
 /whitelist
 cache.txt
+/config.json
+/service

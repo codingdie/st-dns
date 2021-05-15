@@ -9,6 +9,7 @@
 #include <fstream>
 #include <iostream>
 #include <unordered_set>
+#include "Logger.h"
 
 namespace st {
     namespace utils {
@@ -35,6 +36,10 @@ namespace st {
                 }
                 fileStream.close();
                 return exits;
+            }
+             static bool del(const string &path) {
+                 boost::filesystem::path bpath(path);
+                 boost::filesystem::remove(bpath);
             }
 
             static bool createIfNotExits(const string &path) {

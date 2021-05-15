@@ -14,8 +14,8 @@ using namespace std;
 using namespace st::utils;
 static std::mutex logMutex;
 
-thread_local Logger Logger::TRACE("TRACE", 0);
-thread_local Logger Logger::DEBUG("DEBUG", 1);
+thread_local Logger Logger::DEBUG("DEBUG", 0);
+thread_local Logger Logger::WARN("WARN", 1);
 thread_local Logger Logger::INFO("INFO", 2);
 thread_local Logger Logger::ERROR("ERROR", 3);
 uint32_t Logger::LEVEL = 2;
@@ -102,9 +102,15 @@ Logger &Logger::operator<<(const unordered_set<string> &strs) {
 
 thread_local uint64_t Logger::traceId = 0;
 UDPLogger UDPLogger::INSTANCE;
-UDPLogger::UDPLogger() : ctx(), worker(ctx) {
-    thread th([=]() { ctx.run(); });
-    th.detach();
+UDPLogger::UDPLogger() : ctx() {
+    worker = new boost::asio::io_context::work(ctx);
+    th = new std::thread([=]() { ctx.run(); });
+}
+
+UDPLogger::~UDPLogger() {
+    ctx.stop();
+    delete worker;
+    th->join();
 }
 void UDPLogger::log(const string ip, const int port, const string str) {
     ip::udp::endpoint serverEndpoint(ip::make_address_v4(ip), port);

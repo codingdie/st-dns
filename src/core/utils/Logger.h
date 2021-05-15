@@ -35,11 +35,13 @@ namespace st {
         public:
             static UDPLogger INSTANCE;
             UDPLogger();
+            ~UDPLogger();
             void log(const string ip, const int port, const string str);
 
         private:
             boost::asio::io_context ctx;
-            boost::asio::io_context::work worker;
+            boost::asio::io_context::work *worker;
+            std::thread *th;
         };
         class STDLogger {
         public:
@@ -62,8 +64,8 @@ namespace st {
             void static init(boost::property_tree::ptree &config);
             static thread_local uint64_t traceId;
             enum MASK { ENDL };
-            static thread_local Logger TRACE;
             static thread_local Logger DEBUG;
+            static thread_local Logger WARN;
             static thread_local Logger INFO;
             static thread_local Logger ERROR;
             static thread_local boost::asio::io_context ctxThreadLocal;

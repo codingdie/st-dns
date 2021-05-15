@@ -14,6 +14,7 @@ static const int DEFAULT_DNS_PORT = 53;
 #include <boost/asio/ssl.hpp>
 #include <string>
 #include <vector>
+#include <thread>
 
 using namespace boost::asio::ip;
 using namespace boost::asio;
@@ -22,7 +23,7 @@ using namespace std;
 
 class DNSClient {
 public:
-    static DNSClient instance;
+    static DNSClient INSTANCE;
 
     static UdpDNSResponse *
     udpDns(const std::string &domain, const std::string &dnsServer, uint32_t port, uint64_t timeout);
@@ -47,17 +48,21 @@ public:
 
     //    static TcpDNSResponse *EDNS(const std::string &domain, const std::string &dnsServer, uint16_t port, uint32_t ip, uint64_t timeout);
 
+    void asyncForwardUdp(UdpDnsRequest &udpDnsRequest, const std::string &dnsServer, uint32_t port, uint64_t timeout, std::function<void(UdpDNSResponse *)> callback);
 
     DNSClient();
 
     virtual ~DNSClient();
 
 private:
+    io_context ioContext;
+    boost::asio::io_context::work *ioWoker;
+    std::thread *th;
     UdpDNSResponse *
     queryUdp(const std::vector<string> &domains, const std::string &dnsServer, uint32_t port, uint64_t timeout);
-   
+
     UdpDNSResponse *
-    forwardUdp(UdpDnsRequest& UdpDnsRequest, const std::string &dnsServer, uint32_t port, uint64_t timeout);
+    forwardUdp(UdpDnsRequest &UdpDnsRequest, const std::string &dnsServer, uint32_t port, uint64_t timeout);
 
     TcpDNSResponse *
     queryTcpOverTls(const std::vector<string> &domains, const std::string &dnsServer, uint16_t port, uint64_t timeout);

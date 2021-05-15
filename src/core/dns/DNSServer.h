@@ -38,6 +38,7 @@ private:
     unordered_map<string, unordered_set<DNSSession *>> watingSessions;
     std::atomic<uint8_t> state;
     boost::asio::io_context::work *ioWoker;
+    atomic_int64_t counter;
 
     void receive();
 
@@ -61,9 +62,11 @@ private:
 
     void calRemoteDNSServers(const DNSRecord &record, vector<RemoteDNSServer *> &servers);
 
-    bool beginQuery(const string host, DNSSession *session);
+    bool beginQueryRemote(const string host, DNSSession *session);
 
-    unordered_set<DNSSession *> endQuery(const string host);
+    unordered_set<DNSSession *> endQueryRemote(const string host);
+
+    thread_pool *getThreadPool(RemoteDNSServer *server);
 };
 
 

@@ -4,11 +4,11 @@
   "servers": [
     {
       "type": "UDP",
-      "ip": "192.168.31.1",
+      "ip": "114.114.114.114",
       "port": 53,
-      "area": "LAN",
+      "area": "CN",
       "only_area_ip": true,
-      "timeout": "100",
+      "timeout": "500",
       "dns_cache_expire": 60,
       "parallel": 2
     },

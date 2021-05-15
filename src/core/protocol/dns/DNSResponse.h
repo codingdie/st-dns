@@ -7,6 +7,7 @@
 
 
 #include "DNSMessage.h"
+#include "DNSRequest.h"
 #include <DNSCache.h>
 #include <iostream>
 using namespace std;
@@ -20,7 +21,7 @@ public:
     uint32_t answerZonesSize = 0;
     unordered_set<uint32_t> ips;
 
-    UdpDNSResponse(uint16_t id, DNSRecord &record);
+    UdpDNSResponse(UdpDnsRequest &request, DNSRecord &record);
 
     UdpDNSResponse(uint8_t *data, uint64_t len);
 

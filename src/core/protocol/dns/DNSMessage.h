@@ -354,6 +354,11 @@ public:
         hosts.emplace_back(host);
         return generate(hosts);
     }
+   DNSQueryZone * copy(){
+       DNSQueryZone*zone=new DNSQueryZone(this->len);
+       st::utils::copy(this->data, zone->data, this->len);
+       return zone;
+   }
 };
 
 

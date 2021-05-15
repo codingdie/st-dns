@@ -100,10 +100,10 @@ void UdpDNSResponse::parse(uint64_t maxReadable) {
 UdpDNSResponse::UdpDNSResponse(uint8_t *data, uint64_t len) : BasicData(data, len) {
 }
 
-UdpDNSResponse::UdpDNSResponse(uint16_t id, DNSRecord &record) {
+UdpDNSResponse::UdpDNSResponse(UdpDnsRequest &request, DNSRecord &record) {
     unordered_set<uint32_t> &ips = record.ips;
     bool hasRecord = !ips.empty();
-    this->header = DNSHeader::generateAnswer(id, record.host.empty() ? 0 : 1, ips.size());
+    this->header = DNSHeader::generateAnswer(request.dnsHeader->id, request.dnsQueryZone != nullptr ? request.dnsQueryZone->querys.size() : 0, ips.size());
     if (hasRecord) {
         uint32_t expire = (record.expireTime - time::now()) / 1000L;
         if (expire <= 0) {
@@ -122,14 +122,19 @@ UdpDNSResponse::UdpDNSResponse(uint16_t id, DNSRecord &record) {
     }
 
     this->len = this->header->len + this->answerZonesSize;
-    this->queryZone = DNSQueryZone::generate(record.host);
-    this->len += this->queryZone->len;
+    if (request.dnsQueryZone != nullptr) {
+        this->queryZone = request.dnsQueryZone->copy();
+        this->len += this->queryZone->len;
+    }
+
     this->alloc(len);
     auto ptr = this->data;
     st::utils::copy(this->header->data, ptr, this->header->len);
     ptr += this->header->len;
-    st::utils::copy(this->queryZone->data, ptr, this->queryZone->len);
-    ptr += this->queryZone->len;
+    if (request.dnsQueryZone != nullptr) {
+        st::utils::copy(this->queryZone->data, ptr, this->queryZone->len);
+        ptr += this->queryZone->len;
+    }
     if (hasRecord) {
         for (auto it = this->answerZones.begin(); it < this->answerZones.end(); it++) {
             DNSResourceZone *pZone = *it.base();

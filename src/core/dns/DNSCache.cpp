@@ -123,6 +123,7 @@ void DNSCache::saveToFile() {
 }
 
 uint32_t DNSCache::getTotalCount() {
+    lock_guard<mutex> lockGuard(rLock);
     uint32_t total = 0;
     auto iterator = caches.begin();
     while (iterator != caches.end()) {

@@ -27,7 +27,7 @@ namespace st {
             string ip = "127.0.0.1";
             int port = 53;
             int dnsCacheExpire = 60 * 60;
-            string dnsCacheFile = "";
+            string dnsCacheFile = "/var/lib/st/dns/cache.txt";
             string baseConfDir = "/usr/local/etc/st/dns";
             vector<RemoteDNSServer *> servers;
             uint8_t parallel = 4;

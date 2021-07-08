@@ -16,6 +16,9 @@ void DNSCache::addCache(const string &domain, const unordered_set<uint32_t> &ips
         lock_guard<mutex> lockGuard(rLock);
         unordered_map<string, DNSRecord> &records = caches[domain];
         DNSRecord &record = records[dnsServer];
+        if (!record.matchArea && matchArea) {
+            trustedRecordCount++;
+        }
         record.ips = ips;
         record.dnsServer = dnsServer;
         record.host = domain;
@@ -23,11 +26,7 @@ void DNSCache::addCache(const string &domain, const unordered_set<uint32_t> &ips
         record.expireTime = time::now() + expire * 1000;
         Logger::INFO << "addDNSCache" << domain << ipv4::ipsToStr(ips) << "from" << dnsServer << "expire" << expire
                      << record.expireTime << END;
-        string path = st::dns::Config::INSTANCE.baseConfDir + "/cache.txt";
-        if (!st::dns::Config::INSTANCE.dnsCacheFile.empty()) {
-            path = st::dns::Config::INSTANCE.dnsCacheFile;
-        }
-        ofstream fs(path, std::ios_base::out | std::ios_base::app);
+        ofstream fs(st::dns::Config::INSTANCE.dnsCacheFile, std::ios_base::out | std::ios_base::app);
         if (fs.is_open()) {
             fs << record.serialize() << "\n";
             fs.flush();
@@ -93,6 +92,9 @@ void DNSCache::loadFromFile() {
             if (record.deserialize(line)) {
                 caches[record.host][record.dnsServer] = record;
                 count++;
+                if (record.matchArea) {
+                    trustedRecordCount++;
+                }
             }
         }
         Logger::INFO << count << "dns record loadFromFile" << path << END;
@@ -102,11 +104,7 @@ void DNSCache::loadFromFile() {
 
 void DNSCache::saveToFile() {
     lock_guard<mutex> lockGuard(rLock);
-    string path = st::dns::Config::INSTANCE.baseConfDir + "/cache.txt";
-    if (!st::dns::Config::INSTANCE.dnsCacheFile.empty()) {
-        path = st::dns::Config::INSTANCE.dnsCacheFile;
-    }
-    ofstream fileStream(path);
+    ofstream fileStream(st::dns::Config::INSTANCE.dnsCacheFile);
     if (fileStream.is_open()) {
         int count = 0;
         for (auto it = caches.begin(); it != caches.end(); it++) {
@@ -118,25 +116,12 @@ void DNSCache::saveToFile() {
         }
         fileStream.flush();
         fileStream.close();
-        Logger::INFO << count << "dns record saveToFile" << path << END;
+        Logger::INFO << count << "dns record saveToFile" << st::dns::Config::INSTANCE.dnsCacheFile << END;
     }
 }
 
-uint32_t DNSCache::getTotalCount() {
-    lock_guard<mutex> lockGuard(rLock);
-    uint32_t total = 0;
-    auto iterator = caches.begin();
-    while (iterator != caches.end()) {
-        unordered_map<string, DNSRecord> &maps = iterator->second;
-        for (auto it = maps.begin(); it != maps.end(); it++) {
-            DNSRecord record = it->second;
-            if (record.matchArea) {
-                total++;
-            }
-        }
-        iterator++;
-    }
-    return total;
+uint32_t DNSCache::getTrustedCount() {
+    return trustedRecordCount;
 }
 
 string DNSRecord::serialize() {

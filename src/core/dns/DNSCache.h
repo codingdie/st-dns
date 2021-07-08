@@ -39,6 +39,7 @@ public:
 
 class DNSCache {
 private:
+    long trustedRecordCount = 0;
     unordered_map<string, unordered_map<string, DNSRecord>> caches;
 
     void saveToFile();
@@ -47,7 +48,7 @@ private:
 public:
     DNSCache();
 
-    uint32_t getTotalCount();
+    uint32_t getTrustedCount();
 
     static DNSCache INSTANCE;
 

@@ -20,6 +20,11 @@ void st::dns::Config::load(const string &baseConfDir) {
         this->port = stoi(tree.get("port", string("1080")));
         this->dnsCacheExpire = stoi(tree.get("dns_cache_expire", to_string(this->dnsCacheExpire)));
         this->parallel = stoi(tree.get("parallel", to_string(this->parallel)));
+        this->dnsCacheFile = tree.get("dnsCacheFile", this->dnsCacheFile);
+        if (!file::createIfNotExits(this->dnsCacheFile)) {
+            Logger::ERROR << "create dnsCacheFile file error!" << this->dnsCacheFile << END;
+            exit(1);
+        }
         Logger::init(tree);
 
         auto serversNodes = tree.get_child("servers");

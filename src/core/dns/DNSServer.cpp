@@ -130,7 +130,7 @@ void DNSServer::endDNSSession(DNSSession *session) {
     if (session->processType == DNSSession::ProcessType::QUERY) {
         success &= !session->record.ips.empty();
     }
-    session->stepLogger.addMetric("cacheTotalCount", DNSCache::INSTANCE.getTotalCount());
+    session->stepLogger.addMetric("cacheTotalCount", DNSCache::INSTANCE.getTrustedCount());
     session->stepLogger.addMetric("inQueryingHostCount", watingSessions.size());
     session->stepLogger.addDimension("success", success);
     session->stepLogger.end();

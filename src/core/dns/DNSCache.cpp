@@ -33,14 +33,17 @@ void DNSCache::addCache(const string &domain, const unordered_set<uint32_t> &ips
         }
     }
 }
+bool DNSCache::hasAnyRecord(const string &host) {
+    return caches.find(host) != caches.end();
+}
 
 void DNSCache::query(const string &host, DNSRecord &record) {
     uint64_t beginTime = time::now();
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
     record.host = host;
 
-    auto iterator = INSTANCE.caches.find(host);
-    if (iterator != INSTANCE.caches.end()) {
+    auto iterator = caches.find(host);
+    if (iterator != caches.end()) {
         unordered_map<string, DNSRecord> &maps = iterator->second;
         for (auto it = maps.begin(); it != maps.end(); it++) {
             record = it->second;
@@ -61,8 +64,8 @@ void DNSCache::query(const string &host, DNSRecord &record) {
 
 unordered_set<string> DNSCache::queryNotMatchAreaServers(const string &host) {
     unordered_set<string> result;
-    auto iterator = INSTANCE.caches.find(host);
-    if (iterator != INSTANCE.caches.end()) {
+    auto iterator = caches.find(host);
+    if (iterator != caches.end()) {
         unordered_map<string, DNSRecord> &maps = iterator->second;
         for (auto it = maps.begin(); it != maps.end(); it++) {
             auto record = it->second;

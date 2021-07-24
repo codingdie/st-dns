@@ -59,6 +59,8 @@ public:
 
     void query(const string &host, DNSRecord &recode);
 
+    bool hasAnyRecord(const string &host);
+
     unordered_set<string> queryNotMatchAreaServers(const string &host);
 };
 

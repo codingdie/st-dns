@@ -211,7 +211,7 @@ void DNSServer::queryDNSRecordFromServer(DNSSession *session, std::function<void
                         completeHandler(se);
                     }
                 },
-                servers, 0, true);
+                servers, 0, DNSCache::INSTANCE.hasAnyRecord(host));
     } else {
         Logger::DEBUG << host << "is in query!" << END;
     }

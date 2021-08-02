@@ -112,7 +112,8 @@ UdpDNSResponse::UdpDNSResponse(UdpDnsRequest &request, DNSRecord &record) {
         if (!record.matchArea) {
             expire = 1;
         }
-        expire = max(expire, (uint32_t) 1 * 60);
+        expire = max(expire, (uint32_t) 1 * 10);
+        expire = min(expire, (uint32_t) 10 * 60);
         for (auto it = ips.begin(); it != ips.end(); it++) {
             DNSResourceZone *pResourceZone = DNSResourceZone::generate(*it, expire);
             this->answerZones.emplace_back(pResourceZone);

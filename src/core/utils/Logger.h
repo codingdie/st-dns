@@ -14,7 +14,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
-
+#include <atomic>
 
 static const char *const SPLIT = " ";
 using namespace std;
@@ -24,19 +24,14 @@ namespace st {
         public:
             string ip = "";
             uint16_t port = 0;
-        };
-        class LogConfig {
-        public:
-            uint8_t logLevel = 2;
-            UDPLogServer rawLogServer;
-            UDPLogServer apmLogServer;
+            bool isValid();
         };
         class UDPLogger {
         public:
             static UDPLogger INSTANCE;
             UDPLogger();
             ~UDPLogger();
-            void log(const string ip, const int port, const string str);
+            void log(const UDPLogServer &server, const string str);
 
         private:
             boost::asio::io_context ctx;
@@ -71,8 +66,7 @@ namespace st {
             static thread_local boost::asio::io_context ctxThreadLocal;
 
             static uint32_t LEVEL;
-            static string udpServerIP;
-            static uint16_t udpServerPort;
+            static UDPLogServer UDP_LOG_SERVER;
             static string tag;
 
             explicit Logger(string levelName, uint32_t level);
@@ -100,31 +94,37 @@ namespace st {
                 return *this;
             }
         };
-        #define END st::utils::Logger::MASK::ENDL;
+#define END st::utils::Logger::MASK::ENDL;
         class APMLogger {
         public:
-            static string udpServerIP;
-            static uint16_t udpServerPort;
-            APMLogger(const string name, const string traceId);
-            void step(const string step, const boost::property_tree::ptree &properties);
-            void step(const string step);
+            static void enable(const string udpServerIP,const uint16_t udpServerPort);
+            static void disable();
+            static void perf(string name, unordered_map<string, string> &&dimensions, long cost);
+            APMLogger(const string name);
             void start();
+            void step(const string step);
             void end();
             template<class V>
-            void addDimension(const string name, const V value) {
-                this->props.put<V>(name, value);
+            void addDimension(const string name, const V &value) {
+                this->dimensions.put<V>(name, value);
             }
-            template<class V>
-            void addMetric(const string name, const V value) {
-                this->props.put<V>(name, value);
+            void addMetric(const string name, const long &value) {
+                this->metrics.put<long>(name, value);
             }
-            static void perf(const string id, const uint32_t cost, boost::property_tree::ptree &properties);
-
 
         private:
-            void log(boost::property_tree::ptree &properties);
-            static void doLog(boost::property_tree::ptree &properties);
-            boost::property_tree::ptree props;
+            static unordered_map<string, unordered_map<string, unordered_map<string, unordered_map<string, long>>>> STATISTICS;
+            static std::mutex APM_STATISTICS_MUTEX;
+            static UDPLogServer UDP_LOG_SERVER;
+            static boost::asio::deadline_timer LOG_TIMMER;
+            static boost::asio::io_context IO_CONTEXT;
+            static boost::asio::io_context::work *IO_CONTEXT_WORK;
+            static std::thread *LOG_THREAD;
+            static void scheduleLog();
+            static void accumulateMetric(unordered_map<string, long> &metric, long value);
+
+            boost::property_tree::ptree dimensions;
+            boost::property_tree::ptree metrics;
             uint64_t startTime;
             uint64_t lastStepTime;
         };

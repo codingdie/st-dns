@@ -19,6 +19,13 @@ void DNSCache::addCache(const string &domain, const unordered_set<uint32_t> &ips
         if (!record.matchArea && matchArea) {
             trustedRecordCount++;
         }
+        for (auto ip : ips) {
+            if (matchArea) {
+                dnsReverseSHM.addOrUpdate(ip, domain);
+            } else {
+                dnsReverseSHM.add(ip, domain);
+            }
+        }
         record.ips = ips;
         record.dnsServer = dnsServer;
         record.host = domain;
@@ -38,7 +45,6 @@ bool DNSCache::hasAnyRecord(const string &host) {
 }
 
 void DNSCache::query(const string &host, DNSRecord &record) {
-    uint64_t beginTime = time::now();
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
     record.host = host;
 
@@ -74,10 +80,10 @@ unordered_set<string> DNSCache::queryNotMatchAreaServers(const string &host) {
             }
         }
     }
-    return move(result);
+    return result;
 }
 
-DNSCache::DNSCache() {
+DNSCache::DNSCache() : dnsReverseSHM(false) {
 }
 
 void DNSCache::loadFromFile() {
@@ -97,6 +103,13 @@ void DNSCache::loadFromFile() {
                 count++;
                 if (record.matchArea) {
                     trustedRecordCount++;
+                }
+                for (auto ip : record.ips) {
+                    if (record.matchArea) {
+                        dnsReverseSHM.addOrUpdate(ip, record.host);
+                    } else {
+                        dnsReverseSHM.add(ip, record.host);
+                    }
                 }
             }
         }

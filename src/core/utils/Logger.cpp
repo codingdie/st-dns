@@ -10,8 +10,26 @@
 #include <regex>
 #include <thread>
 #include <utility>
+#include "Base64Utils.h"
+#include <boost/lexical_cast.hpp>
 using namespace std;
 using namespace st::utils;
+
+
+string toJson(const boost::property_tree::ptree &properties) {
+    std::ostringstream st;
+    write_json(st, properties, false);
+    std::regex reg("\\\"([0-9]+\\.{0,1}[0-9]*)\\\"");
+    return std::regex_replace(st.str(), reg, "$1");
+}
+
+
+boost::property_tree::ptree fromJson(const string &json) {
+    boost::property_tree::ptree pt;
+    std::stringstream sstream(json);
+    boost::property_tree::json_parser::read_json(sstream, pt);
+    return pt;
+}
 static std::mutex logMutex;
 
 thread_local Logger Logger::DEBUG("DEBUG", 0);
@@ -19,9 +37,8 @@ thread_local Logger Logger::WARN("WARN", 1);
 thread_local Logger Logger::INFO("INFO", 2);
 thread_local Logger Logger::ERROR("ERROR", 3);
 uint32_t Logger::LEVEL = 2;
-string Logger::udpServerIP = "";
-uint16_t Logger::udpServerPort = 0;
 string Logger::tag = "default";
+UDPLogServer Logger::UDP_LOG_SERVER;
 
 
 void Logger::doLog() {
@@ -40,10 +57,10 @@ void Logger::doLog() {
     doLog(time, st, line);
     string finalStr = st.str();
     STDLogger::INSTANCE.log(finalStr, getSTD());
-    if (this->enableUDPLogger()) {
+    if (this->UDP_LOG_SERVER.isValid()) {
         for (auto &line : strutils::split(finalStr, "\n")) {
             if (!line.empty()) {
-                UDPLogger::INSTANCE.log(this->udpServerIP, this->udpServerPort, "[" + tag + "] " + line);
+                UDPLogger::INSTANCE.log(this->UDP_LOG_SERVER, "[" + tag + "] " + line);
             }
         }
     }
@@ -64,7 +81,8 @@ ostream *Logger::getSTD() {
     }
     return stream;
 }
-bool Logger::enableUDPLogger() { return udpServerIP.length() > 0 && udpServerPort > 0; }
+
+bool UDPLogServer::isValid() { return ip.length() > 0 && port > 0; }
 
 
 Logger &Logger::operator<<(const char *log) {
@@ -112,8 +130,8 @@ UDPLogger::~UDPLogger() {
     delete worker;
     th->join();
 }
-void UDPLogger::log(const string ip, const int port, const string str) {
-    ip::udp::endpoint serverEndpoint(ip::make_address_v4(ip), port);
+void UDPLogger::log(const UDPLogServer &server, const string str) {
+    ip::udp::endpoint serverEndpoint(ip::make_address_v4(server.ip), server.port);
     boost::system::error_code error;
     ip::udp::socket sc(ctx, ip::udp::endpoint(ip::udp::v4(), 0));
     sc.async_send_to(buffer(str), serverEndpoint, [=](boost::system::error_code error, std::size_t size) {
@@ -126,9 +144,17 @@ STDLogger STDLogger::INSTANCE;
 STDLogger::STDLogger() {}
 void STDLogger::log(const string str, ostream *st) { *st << str; }
 
-APMLogger::APMLogger(const string name, const string traceId) {
-    props.put<string>("name", name);
-    props.put<string>("traceId", traceId);
+
+UDPLogServer APMLogger::UDP_LOG_SERVER;
+unordered_map<string, unordered_map<string, unordered_map<string, unordered_map<string, long>>>> APMLogger::STATISTICS;
+std::mutex APMLogger::APM_STATISTICS_MUTEX;
+boost::asio::io_context APMLogger::IO_CONTEXT;
+boost::asio::io_context::work *APMLogger::IO_CONTEXT_WORK = nullptr;
+boost::asio::deadline_timer APMLogger::LOG_TIMMER(APMLogger::IO_CONTEXT);
+std::thread *APMLogger::LOG_THREAD;
+
+APMLogger::APMLogger(const string name) {
+    this->addDimension("name", name);
 }
 
 void APMLogger::start() {
@@ -137,58 +163,94 @@ void APMLogger::start() {
 }
 
 void APMLogger::end() {
-    boost::property_tree::ptree properties;
     uint64_t cost = time::now() - this->startTime;
-    properties.put<string>("step", "all");
-    properties.put<uint64_t>("cost", cost);
-    this->log(properties);
-}
-
-
-void APMLogger::step(const string step, const boost::property_tree::ptree &properties) {
-    uint64_t cost = time::now() - this->lastStepTime;
-    this->lastStepTime = time::now();
-    boost::property_tree::ptree pt;
-    pt.put<string>("step", step);
-    pt.put<uint64_t>("cost", cost);
-    if (!properties.empty()) {
-        pt.add_child("extra", properties);
+    this->addMetric("cost", cost);
+    this->addMetric("count", 1);
+    string name = dimensions.get<string>("name");
+    std::lock_guard<std::mutex> lg(APM_STATISTICS_MUTEX);
+    string dimensionsId = base64::encode(toJson(dimensions));
+    for (auto it = metrics.begin(); it != metrics.end(); it++) {
+        string metricName = it->first.data();
+        long value = boost::lexical_cast<long>(it->second.data());
+        accumulateMetric(STATISTICS[name][dimensionsId][metricName], value);
     }
-    this->log(pt);
 }
+
 
 void APMLogger::step(const string step) {
-    boost::property_tree::ptree properties;
-    this->step(step, properties);
-}
-void APMLogger::log(boost::property_tree::ptree &properties) {
-    properties.insert(properties.end(), props.begin(), props.end());
-    doLog(properties);
+    uint64_t cost = time::now() - this->lastStepTime;
+    this->lastStepTime = time::now();
+    this->addMetric(step + "Cost", cost);
 }
 
-void APMLogger::doLog(boost::property_tree::ptree &properties) {
-    std::ostringstream st;
-    write_json(st, properties, false);
-    std::regex reg("\\\"([0-9]+\\.{0,1}[0-9]*)\\\"");
-    string str = std::regex_replace(st.str(), reg, "$1");
-    if (udpServerIP.size() > 0 && udpServerPort > 0) {
-        UDPLogger::INSTANCE.log(udpServerIP, udpServerPort, str);
+void APMLogger::accumulateMetric(unordered_map<string, long> &metric, long value) {
+    if (metric.empty()) {
+        metric["sum"] = 0;
+        metric["min"] = numeric_limits<long>::max();
+        metric["max"] = numeric_limits<long>::min();
     }
+    metric["sum"] += value;
+    metric["min"] = min(value, metric["min"]);
+    metric["max"] = max(value, metric["max"]);
 }
-void APMLogger::perf(const string id, const uint32_t cost, boost::property_tree::ptree &properties) {
+
+void APMLogger::perf(string name, unordered_map<string, string> &&dimensions, long cost) {
     boost::property_tree::ptree pt;
-    pt.put<string>("name", id);
-    pt.put<uint64_t>("cost", cost);
-    if (!properties.empty()) {
-        pt.add_child("extra", properties);
+    for (auto it = dimensions.begin(); it != dimensions.end(); it++) {
+        pt.put(it->first, it->second);
     }
-    doLog(pt);
+    pt.put("name", name);
+    string id = base64::encode(toJson(pt));
+    accumulateMetric(STATISTICS[name][id]["count"], 1);
+    accumulateMetric(STATISTICS[name][id]["cost"], cost);
+}
+void APMLogger::enable(const string udpServerIP, uint16_t udpServerPort) {
+    UDP_LOG_SERVER.ip = udpServerIP;
+    UDP_LOG_SERVER.port = udpServerPort;
+    IO_CONTEXT_WORK = new boost::asio::io_context::work(IO_CONTEXT);
+    LOG_THREAD = new std::thread([]() { IO_CONTEXT.run(); });
+    scheduleLog();
+}
+void APMLogger::disable() {
+    IO_CONTEXT.stop();
+    delete IO_CONTEXT_WORK;
+    LOG_THREAD->join();
 }
 
-
-string APMLogger::udpServerIP = "";
-uint16_t APMLogger::udpServerPort = 0;
-
+void APMLogger::scheduleLog() {
+    LOG_TIMMER.expires_from_now(boost::posix_time::seconds(60));
+    LOG_TIMMER.async_wait([](boost::system::error_code ec) {
+        std::lock_guard<std::mutex> lg(APM_STATISTICS_MUTEX);
+        for (auto it0 = STATISTICS.begin(); it0 != STATISTICS.end(); it0++) {
+            for (auto it1 = it0->second.begin(); it1 != it0->second.end(); it1++) {
+                boost::property_tree::ptree finalPT;
+                boost::property_tree::ptree dimensions = fromJson(base64::decode(it1->first));
+                finalPT.insert(finalPT.end(), dimensions.begin(), dimensions.end());
+                auto asd = it1->second;
+                long count = it1->second["count"]["sum"];
+                if (count <= 0) {
+                    continue;
+                }
+                for (auto it2 = it1->second.begin(); it2 != it1->second.end(); it2++) {
+                    if (it2->first != "count") {
+                        it2->second["avg"] = count > 0 ? it2->second["sum"] / count : 0;
+                        boost::property_tree::ptree metrics;
+                        for (auto it3 = it2->second.begin(); it3 != it2->second.end(); it3++) {
+                            metrics.put<long>(it3->first, it3->second);
+                        }
+                        finalPT.put_child(it2->first, metrics);
+                    }
+                }
+                finalPT.put("count", count);
+                if (UDP_LOG_SERVER.isValid()) {
+                    UDPLogger::INSTANCE.log(UDP_LOG_SERVER, toJson(finalPT));
+                }
+            }
+        }
+        STATISTICS.clear();
+        scheduleLog();
+    });
+}
 
 void Logger::init(boost::property_tree::ptree &tree) {
     auto logConfig = tree.get_child_optional("log");
@@ -197,13 +259,14 @@ void Logger::init(boost::property_tree::ptree &tree) {
         auto rawLogServerConfig = logConfig.get().get_child_optional("raw_log_server");
         auto apmLogServerConfig = logConfig.get().get_child_optional("apm_log_server");
         if (rawLogServerConfig.is_initialized()) {
-            Logger::udpServerIP = rawLogServerConfig.get().get<string>("ip", "");
-            Logger::udpServerPort = rawLogServerConfig.get().get<uint16_t>("port", 0);
+            Logger::UDP_LOG_SERVER.ip = rawLogServerConfig.get().get<string>("ip", "");
+            Logger::UDP_LOG_SERVER.port = rawLogServerConfig.get().get<uint16_t>("port", 0);
             Logger::tag = rawLogServerConfig.get().get<string>("tag", "default");
         }
         if (apmLogServerConfig.is_initialized()) {
-            APMLogger::udpServerIP = apmLogServerConfig.get().get<string>("ip", "");
-            APMLogger::udpServerPort = apmLogServerConfig.get().get<uint16_t>("port", 0);
+            string udpServerIP = apmLogServerConfig.get().get<string>("ip", "");
+            uint16_t udpServerPort = apmLogServerConfig.get().get<uint16_t>("port", 0);
+            APMLogger::enable(udpServerIP, udpServerPort);
         }
     }
 }

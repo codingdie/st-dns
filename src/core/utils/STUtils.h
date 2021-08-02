@@ -4,6 +4,7 @@
 
 #ifndef ST_UTILS_H
 #define ST_UTILS_H
+#include "Base64Utils.h"
 #include "Logger.h"
 #include "Pool.h"
 #include "ByteUtils.h"

@@ -3,6 +3,7 @@
 
 #include "StringUtils.h"
 #include <string>
+#include <unordered_set>
 
 using namespace std;
 namespace st {
@@ -22,8 +23,8 @@ namespace st {
 
             static uint32_t strToIp(const string &ipStr) {
                 uint32_t ip = 0L;
-                int lastPos = 0;
-                int num = 0;
+                std::size_t lastPos = 0;
+                std::size_t num = 0;
                 while (num < 4 && lastPos < ipStr.length()) {
                     auto pos = ipStr.find_first_of('.', lastPos);
                     uint32_t ipNum = stoi(ipStr.substr(lastPos, pos));

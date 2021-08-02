@@ -26,7 +26,7 @@ public:
 
     vector<RemoteDNSServer *> servers;
     virtual ~DNSSession();
-    APMLogger stepLogger;
+    APMLogger apmLogger;
 
 private:
     uint64_t id;

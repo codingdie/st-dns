@@ -73,10 +73,10 @@ void DNSServer::receive() {
                                     Logger::traceId = session->getId();
                                     Logger::DEBUG << "dns request" << ++counter << "received!" << END;
                                     session->setTime(time::now());
-                                    session->stepLogger.start();
+                                    session->apmLogger.start();
                                     if (!errorCode && size > 0) {
                                         bool parsed = session->udpDnsRequest.parse(size);
-                                        session->stepLogger.step("parseRequest");
+                                        session->apmLogger.step("parseRequest");
                                         if (parsed) {
                                             processSession(session);
                                         } else {
@@ -93,7 +93,7 @@ void DNSServer::receive() {
 
 void DNSServer::processSession(DNSSession *session) {
     auto complete = [=](DNSSession *se) {
-        se->stepLogger.step("buildResponse", se->record.toPT());
+        se->apmLogger.step("buildResponse");
         udp::endpoint &clientEndpoint = se->clientEndpoint;
         UdpDNSResponse *udpResponse = se->udpDNSResponse;
         if (udpResponse == nullptr) {
@@ -104,23 +104,22 @@ void DNSServer::processSession(DNSSession *session) {
         socketS->async_send_to(buffer(udpResponse->data, udpResponse->len), clientEndpoint,
                                [=](boost::system::error_code writeError, size_t writeSize) {
                                    Logger::traceId = se->getId();
-                                   se->stepLogger.step("response");
+                                   se->apmLogger.step("response");
                                    endDNSSession(se);
                                });
     };
     session->record.host = session->getHost();
-    session->stepLogger.addDimension("queryType", session->getQueryTypeValue());
-    session->stepLogger.addDimension("domain", session->getHost());
+    session->apmLogger.addDimension("queryType", session->getQueryTypeValue());
+    session->apmLogger.addDimension("domain", session->getHost());
     if (session->getQueryType() == DNSQuery::A) {
-        session->stepLogger.addDimension("processMethod", "resolve");
         queryDNSRecord(session, complete);
     } else if (session->getQueryType() != DNSQuery::AAAA) {
         session->processType = DNSSession::ProcessType::FORWARD;
-        session->stepLogger.addDimension("processMethod", "forward");
+        session->apmLogger.addDimension("processType", "forward");
         forwardUdpDNSRequest(session, complete);
     } else {
         session->processType = DNSSession::ProcessType::DROP;
-        session->stepLogger.addDimension("processMethod", "drop");
+        session->apmLogger.addDimension("processType", "drop");
         complete(session);
     }
 }
@@ -130,10 +129,10 @@ void DNSServer::endDNSSession(DNSSession *session) {
     if (session->processType == DNSSession::ProcessType::QUERY) {
         success &= !session->record.ips.empty();
     }
-    session->stepLogger.addMetric("cacheTotalCount", DNSCache::INSTANCE.getTrustedCount());
-    session->stepLogger.addMetric("inQueryingHostCount", watingSessions.size());
-    session->stepLogger.addDimension("success", success);
-    session->stepLogger.end();
+    session->apmLogger.addMetric("trustedDomainCount", DNSCache::INSTANCE.getTrustedCount());
+    session->apmLogger.addMetric("inQueryingDomainCount", watingSessions.size());
+    session->apmLogger.addDimension("success", success);
+    session->apmLogger.end();
 
     Logger::INFO << "dns from" << session->clientEndpoint.address().to_string() << session->clientEndpoint.port() << session->processType << (success ? "success!" : "failed!");
     Logger::INFO << "type:" << session->getQueryType();
@@ -148,10 +147,6 @@ void DNSServer::endDNSSession(DNSSession *session) {
         Logger::INFO << st::utils::ipv4::ipsToStr(session->record.ips) << session->record.dnsServer;
     }
     Logger::INFO << "cost:" << time::now() - session->getTime() << END;
-    // if (session->forward) {
-    //     session->udpDNSResponse->printHex();
-    // }
-
     delete session;
 }
 
@@ -167,7 +162,7 @@ void DNSServer::queryDNSRecord(DNSSession *session, std::function<void(DNSSessio
         record.dnsServer = "st-dns";
         record.host = host;
         record.expireTime = std::numeric_limits<uint64_t>::max();
-        session->stepLogger.addDimension("dnsRecordSource", "cache");
+        session->apmLogger.addDimension("processType", "local");
         complete(session);
     } else {
         DNSCache::INSTANCE.query(host, record);
@@ -179,10 +174,10 @@ void DNSServer::queryDNSRecord(DNSSession *session, std::function<void(DNSSessio
             }
         }
         if (record.ips.empty()) {
-            session->stepLogger.addDimension("dnsRecordSource", "server");
+            session->apmLogger.addDimension("processType", "remote");
             queryDNSRecordFromServer(session, complete);
         } else {
-            session->stepLogger.addDimension("dnsRecordSource", "cache");
+            session->apmLogger.addDimension("processType", "cache");
             if (record.expire || !record.matchArea) {
                 updateDNSRecord(record);
             }

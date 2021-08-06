@@ -3,15 +3,15 @@
 //
 
 #include "Logger.h"
+#include "Base64Utils.h"
 #include "StringUtils.h"
+#include <boost/lexical_cast.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <ctime>
 #include <iostream>
 #include <regex>
 #include <thread>
 #include <utility>
-#include "Base64Utils.h"
-#include <boost/lexical_cast.hpp>
 using namespace std;
 using namespace st::utils;
 
@@ -69,8 +69,8 @@ void Logger::doLog() {
 
 void Logger::doLog(const string &time, ostream &st, const string &line) {
     if (this->level >= LEVEL) {
-        st << time << SPLIT << "[" << levelName << "]" << SPLIT << "[" << this_thread::get_id() << "]" << SPLIT << "[" << traceId << "]" << SPLIT
-           << line << endl;
+        st << time << SPLIT << "[" << levelName << "]" << SPLIT << "[" << this_thread::get_id() << "]" << SPLIT << "["
+           << traceId << "]" << SPLIT << line << endl;
     }
 }
 
@@ -153,9 +153,7 @@ boost::asio::io_context::work *APMLogger::IO_CONTEXT_WORK = nullptr;
 boost::asio::deadline_timer APMLogger::LOG_TIMMER(APMLogger::IO_CONTEXT);
 std::thread *APMLogger::LOG_THREAD;
 
-APMLogger::APMLogger(const string name) {
-    this->addDimension("name", name);
-}
+APMLogger::APMLogger(const string name) { this->addDimension("name", name); }
 
 void APMLogger::start() {
     this->startTime = time::now();
@@ -167,11 +165,11 @@ void APMLogger::end() {
     this->addMetric("cost", cost);
     this->addMetric("count", 1);
     string name = dimensions.get<string>("name");
-    std::lock_guard<std::mutex> lg(APM_STATISTICS_MUTEX);
     string dimensionsId = base64::encode(toJson(dimensions));
     for (auto it = metrics.begin(); it != metrics.end(); it++) {
         string metricName = it->first.data();
         long value = boost::lexical_cast<long>(it->second.data());
+        std::lock_guard<std::mutex> lg(APM_STATISTICS_MUTEX);
         accumulateMetric(STATISTICS[name][dimensionsId][metricName], value);
     }
 }
@@ -194,27 +192,32 @@ void APMLogger::accumulateMetric(unordered_map<string, long> &metric, long value
     metric["max"] = max(value, metric["max"]);
 }
 
-void APMLogger::perf(string name, unordered_map<string, string> &&dimensions, long cost) {
+void APMLogger::perf(const string &name, unordered_map<string, string> &&dimensions, uint64_t cost) {
+    perf(name, std::move(dimensions), cost, 1);
+}
+void APMLogger::perf(const string & name, unordered_map<string, string> &&dimensions, uint64_t cost, uint64_t count) {
     boost::property_tree::ptree pt;
     for (auto it = dimensions.begin(); it != dimensions.end(); it++) {
         pt.put(it->first, it->second);
     }
     pt.put("name", name);
     string id = base64::encode(toJson(pt));
-    accumulateMetric(STATISTICS[name][id]["count"], 1);
+    std::lock_guard<std::mutex> lg(APM_STATISTICS_MUTEX);
+    accumulateMetric(STATISTICS[name][id]["count"], count);
     accumulateMetric(STATISTICS[name][id]["cost"], cost);
 }
 void APMLogger::enable(const string udpServerIP, uint16_t udpServerPort) {
     UDP_LOG_SERVER.ip = udpServerIP;
     UDP_LOG_SERVER.port = udpServerPort;
     IO_CONTEXT_WORK = new boost::asio::io_context::work(IO_CONTEXT);
-    LOG_THREAD = new std::thread([]() { IO_CONTEXT.run(); });
+    LOG_THREAD = new std::thread([&]() { IO_CONTEXT.run(); });
     scheduleLog();
 }
 void APMLogger::disable() {
     IO_CONTEXT.stop();
     delete IO_CONTEXT_WORK;
     LOG_THREAD->join();
+    delete LOG_THREAD;
 }
 
 void APMLogger::scheduleLog() {

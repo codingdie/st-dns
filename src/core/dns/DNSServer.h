@@ -8,7 +8,7 @@
 #include "Config.h"
 #include "DNSCache.h"
 #include "DNSSession.h"
-#include "STUtils.h"
+#include "utils/STUtils.h"
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
 #include <string>
@@ -34,10 +34,10 @@ private:
     st::dns::Config config;
     udp::socket *socketS = nullptr;
     io_context ioContext;
+    boost::asio::io_context::work *ioWoker;
     unordered_map<string, thread_pool *> workThreads;
     unordered_map<string, unordered_set<DNSSession *>> watingSessions;
     std::atomic<uint8_t> state;
-    boost::asio::io_context::work *ioWoker;
     atomic_int64_t counter;
 
     void receive();

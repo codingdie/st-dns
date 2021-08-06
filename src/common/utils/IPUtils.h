@@ -48,7 +48,7 @@ namespace st {
             }
 
             template<typename Collection>
-            static string ipsToStr(Collection &ips) {
+            static string ipsToStr(const Collection &ips) {
                 string ipStr;
                 for (uint32_t ip : ips) {
                     ipStr += ipToStr(ip);

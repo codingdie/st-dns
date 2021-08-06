@@ -3,7 +3,7 @@
 //
 
 #include "DNSClient.h"
-#include "asio/STUtils.h"
+#include "utils/STUtils.h"
 #include <sys/socket.h>
 
 DNSClient DNSClient::INSTANCE;
@@ -13,95 +13,50 @@ DNSClient::forwardUdpDNS(UdpDnsRequest &udpDnsRequest, const std::string &dnsSer
 }
 
 
-UdpDNSResponse *DNSClient::udpDns(const string &domain, const string &dnsServer, uint32_t port, uint64_t timeout) {
+void DNSClient::udpDns(const string domain, const std::string &dnsServer, uint32_t port, uint64_t timeout, std::function<void(UdpDNSResponse *)> completeHandler) {
     vector<string> domains;
     domains.emplace_back(domain);
-    return udpDns(domains, dnsServer, port, timeout);
-}
-
-UdpDNSResponse *
-DNSClient::udpDns(const vector<string> &domains, const string &dnsServer, uint32_t port, uint64_t timeout) {
-    return INSTANCE.queryUdp(domains, dnsServer, port, timeout);
-}
-
-TcpDNSResponse *DNSClient::tcpTlsDns(const string &domain, const string &dnsServer, uint16_t port, uint64_t timeout) {
-    vector<string> domains;
-    domains.emplace_back(domain);
-    return tcpTlsDns(domains, dnsServer, port, timeout);
-}
-
-TcpDNSResponse *
-DNSClient::tcpTlsDns(const vector<string> &domains, const string &dnsServer, uint16_t port, uint64_t timeout) {
-    return INSTANCE.queryTcpOverTls(domains, dnsServer, port, timeout);
-}
-
-
-TcpDNSResponse *DNSClient::tcpDns(const string &domain, const string &dnsServer, uint16_t port, uint64_t timeout) {
-    vector<string> domains;
-    domains.emplace_back(domain);
-    return tcpDns(domains, dnsServer, port, timeout);
-}
-
-TcpDNSResponse *
-DNSClient::tcpDns(const vector<string> &domains, const string &dnsServer, uint16_t port, uint64_t timeout) {
-    return INSTANCE.queryTcp(domains, dnsServer, port, timeout);
-}
-
-UdpDNSResponse *
-DNSClient::queryUdp(const std::vector<string> &domains, const std::string &dnsServer, uint32_t port, uint64_t timeout) {
     if (domains.empty()) {
-        return nullptr;
+        return completeHandler(nullptr);
     }
-    io_context &ctxThreadLocal = asio::TLIOContext::getIOContext();
-    ctxThreadLocal.stop();
-    ctxThreadLocal.reset();
     uint64_t beginTime = time::now();
-    uint64_t restTime = timeout;
-    udp::socket socket(ctxThreadLocal, udp::endpoint(udp::v4(), 0));
+    udp::socket *socket = new udp::socket(ioContext, udp::endpoint(udp::v4(), 0));
     UdpDnsRequest dnsRequest(domains);
-    udp::endpoint serverEndpoint;
     unsigned short qid = dnsRequest.dnsHeader->id;
-    UdpDNSResponse *dnsResponse = nullptr;
     uint16_t dnsId = dnsRequest.dnsHeader->id;
     string logTag = to_string(dnsId) + " " + dnsServer + " " + domains[0];
-    auto completeHandler = [&]() {
-        boost::system::error_code errorCode;
-        socket.shutdown(boost::asio::socket_base::shutdown_both, errorCode);
-        socket.cancel(errorCode);
-        socket.close(errorCode);
-        ctxThreadLocal.stop();
+    auto complete = [=](UdpDNSResponse *res) {
+        delete socket;
         Logger::DEBUG << logTag << "cost" << time::now() - beginTime << END;
+        completeHandler(res);
     };
-    auto sendFuture = socket.async_send_to(buffer(dnsRequest.data, dnsRequest.len),
-                                           udp::endpoint(make_address_v4(dnsServer), port),
-                                           boost::asio::use_future([&](boost::system::error_code error, size_t size) {
-                                               return error;
-                                           }));
-    bool error = true;
-    if (!isTimeoutOrError(completeHandler, sendFuture, beginTime, timeout, restTime, logTag, "send")) {
-        dnsResponse = new UdpDNSResponse(1024);
-        size_t len = 0;
-        auto receiveFuture = socket.async_receive_from(buffer(dnsResponse->data, sizeof(uint8_t) * 1024), serverEndpoint,
-                                                       boost::asio::use_future(
-                                                               [&](boost::system::error_code error, size_t size) {
-                                                                   len = size;
-                                                                   return error;
-                                                               }));
-        if (!isTimeoutOrError(completeHandler, receiveFuture, beginTime, timeout, restTime, logTag, "receive")) {
-            dnsResponse->parse(len);
-            if (dnsResponse->isValid() && dnsResponse->header->id == qid) {
-                error = false;
-            } else {
-                Logger::ERROR << logTag << "not valid dnsR\nesponse!" << END
-            }
-        }
-    }
-    if (error) {
-        delete dnsResponse;
-        dnsResponse = nullptr;
-    }
-    completeHandler();
-    return dnsResponse;
+    socket->async_send_to(buffer(dnsRequest.data, dnsRequest.len),
+                          udp::endpoint(make_address_v4(dnsServer), port), [=](boost::system::error_code error, size_t size) {
+                              if (!error) {
+                                  UdpDNSResponse *dnsResponse = new UdpDNSResponse(1024);
+                                  udp::endpoint serverEndpoint;
+                                  socket->async_receive_from(buffer(dnsResponse->data, sizeof(uint8_t) * 1024), serverEndpoint,
+                                                             [=](boost::system::error_code error, size_t size) {
+                                                                 if (!error) {
+                                                                     dnsResponse->parse(size);
+                                                                     if (dnsResponse->isValid() && dnsResponse->header->id == qid) {
+                                                                         complete(dnsResponse);
+                                                                         return;
+                                                                     }
+                                                                 }
+                                                                 delete dnsResponse;
+                                                                 complete(nullptr);
+                                                             });
+                              } else {
+                                  Logger::ERROR << logTag << "error!" << error.message() << END;
+                                  complete(nullptr);
+                              }
+                          });
+}
+
+
+UdpDNSResponse *
+DNSClient::udpDns(const std::vector<string> &domains, const std::string &dnsServer, uint32_t port, uint64_t timeout) {
 }
 
 void DNSClient::asyncForwardUdp(UdpDnsRequest &dnsRequest, const std::string &dnsServer, uint32_t port, uint64_t timeout, std::function<void(UdpDNSResponse *)> callback) {
@@ -127,8 +82,9 @@ void DNSClient::asyncForwardUdp(UdpDnsRequest &dnsRequest, const std::string &dn
         }
     });
     auto finish = [=](UdpDNSResponse *res) {
+        boost::system::error_code errorCode;
+        timer->cancel(errorCode);
         callback(res);
-        timer->cancel();
     };
     socket->async_send_to(buffer(dnsRequest.data, dnsRequest.len),
                           udp::endpoint(make_address_v4(dnsServer), port),
@@ -216,9 +172,14 @@ DNSClient::DNSClient() {
     });
 }
 
+void DNSClient::tcpDNS(const string domain, const std::string &dnsServer, uint16_t port, uint64_t timeout, std::function<void(TcpDNSResponse *)> completeHandler) {
+    vector<string> domains;
+    domains.emplace_back(domain);
+    completeHandler(this->tcpDNS(domains, dnsServer, port, timeout));
+}
 
 TcpDNSResponse *
-DNSClient::queryTcp(const vector<string> &domains, const string &dnsServer, uint16_t port, uint64_t timeout) {
+DNSClient::tcpDNS(const vector<string> &domains, const string &dnsServer, uint16_t port, uint64_t timeout) {
     uint64_t beginTime = time::now();
     uint64_t restTime = timeout;
     tcp::endpoint serverEndpoint(make_address_v4(dnsServer), port);
@@ -316,8 +277,14 @@ DNSClient::queryTcp(const vector<string> &domains, const string &dnsServer, uint
     return dnsResponse;
 }
 
-TcpDNSResponse *
-DNSClient::queryTcpOverTls(const vector<string> &domains, const string &dnsServer, uint16_t port, uint64_t timeout) {
+
+void DNSClient::tcpOverTls(const string domain, const std::string &dnsServer, uint16_t port, uint64_t timeout, std::function<void(TcpDNSResponse *)> completeHandler) {
+    vector<string> domains;
+    domains.emplace_back(domain);
+    completeHandler(this->tcpOverTls(domains, dnsServer, port, timeout));
+}
+
+TcpDNSResponse *DNSClient::tcpOverTls(const vector<string> &domains, const string &dnsServer, uint16_t port, uint64_t timeout) {
     uint64_t beginTime = time::now();
     uint64_t restTime = timeout;
     boost::asio::ssl::context sslCtx(boost::asio::ssl::context::sslv23_client);

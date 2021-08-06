@@ -5,8 +5,7 @@
 #ifndef ST_DNS_DNS_CACHE_H
 #define ST_DNS_DNS_CACHE_H
 
-#include "STUtils.h"
-
+#include "utils/STUtils.h"
 
 #include <iostream>
 #include <mutex>
@@ -17,7 +16,7 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
-#include "DNSReverseSHM.h"
+#include "utils/DNSReverseSHM.h"
 
 using namespace std;
 

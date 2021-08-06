@@ -12,8 +12,7 @@
 #include "AreaIpManager.h"
 #include "DNSCache.h"
 #include "DNSClient.h"
-#include "IPUtils.h"
-#include "STUtils.h"
+#include "utils/STUtils.h"
 
 static mutex rLock;
 
@@ -35,19 +34,11 @@ DNSServer::DNSServer(st::dns::Config &config) : rid(time::now()), config(config)
 
 void DNSServer::start() {
     ioWoker = new boost::asio::io_context::work(ioContext);
-    vector<thread> threads;
     DNSCache::INSTANCE.loadFromFile();
     Logger::INFO << "st-dns start, listen at" << config.ip << config.port << END;
-    for (int i = 0; i < config.parallel; i++) {
-        threads.emplace_back([this]() {
-            receive();
-            ioContext.run();
-        });
-    }
-    state = 1;
-    for (auto &th : threads) {
-        th.join();
-    }
+    receive();
+    state++;
+    ioContext.run();
     Logger::INFO << "st-dns end" << END;
 }
 
@@ -334,63 +325,74 @@ void DNSServer::syncDNSRecordFromServer(const string host, std::function<void(DN
     if (th != nullptr) {
         uint64_t traceId = Logger::traceId;
         auto task = [=]() {
-            Logger::traceId = traceId;
-            Logger::DEBUG << logTag << "begin" << END;
-            unordered_set<uint32_t> ips;
-            if (server->type.compare("TCP_SSL") == 0) {
-                auto tcpResponse = DNSClient::tcpTlsDns(host, server->ip, server->port, server->timeout);
-                if (tcpResponse != nullptr && tcpResponse->isValid()) {
-                    ips = move(tcpResponse->udpDnsResponse->ips);
-                }
-                if (tcpResponse != nullptr) {
-                    delete tcpResponse;
-                }
-            } else if (server->type.compare("TCP") == 0) {
-                auto tcpResponse = DNSClient::tcpDns(host, server->ip, server->port, server->timeout);
-                if (tcpResponse != nullptr && tcpResponse->isValid()) {
-                    ips = move(tcpResponse->udpDnsResponse->ips);
-                }
-                if (tcpResponse != nullptr) {
-                    delete tcpResponse;
-                }
-            } else if (server->type.compare("UDP") == 0) {
-                auto udpDnsResponse = DNSClient::udpDns(host, server->ip, server->port, server->timeout);
-                if (udpDnsResponse != nullptr && udpDnsResponse->isValid()) {
-                    ips = move(udpDnsResponse->ips);
-                }
-                if (udpDnsResponse != nullptr) {
-                    delete udpDnsResponse;
-                }
-            }
-            Logger::DEBUG << logTag << (ips.empty() ? "failed" : "success") << END;
-            unordered_set<uint32_t> oriIps = ips;
-            filterIPByArea(host, server, ips);
-            if (!ips.empty()) {
-                DNSCache::INSTANCE.addCache(host, ips, server->id(),
-                                            server->dnsCacheExpire, true);
-            } else {
-                if (!oriIps.empty()) {
-                    DNSCache::INSTANCE.addCache(host, oriIps, server->id(),
-                                                server->dnsCacheExpire, false);
-                }
-            }
-            DNSRecord record;
-            DNSCache::INSTANCE.query(host, record);
-            if (!record.ips.empty() && completedWithAnyRecord) {
-                complete(record);
-                Logger::DEBUG << logTag << "finished" << END;
-                updateDNSRecord(record);
-            } else {
-                if (ips.empty() && pos + 1 < servers.size()) {
-                    syncDNSRecordFromServer(host, complete, servers, pos + 1, completedWithAnyRecord);
+            auto dnsComplete = [=](unordered_set<uint32_t> ips) {
+                Logger::traceId = traceId;
+                Logger::DEBUG << logTag << "begin" << END;
+                Logger::DEBUG << logTag << (ips.empty() ? "failed" : "success") << END;
+                unordered_set<uint32_t> oriIps = ips;
+                filterIPByArea(host, server, ips);
+                if (!ips.empty()) {
+                    DNSCache::INSTANCE.addCache(host, ips, server->id(),
+                                                server->dnsCacheExpire, true);
                 } else {
-                    Logger::DEBUG << logTag << "finished" << END;
-                    complete(record);
+                    if (!oriIps.empty()) {
+                        DNSCache::INSTANCE.addCache(host, oriIps, server->id(),
+                                                    server->dnsCacheExpire, false);
+                    }
                 }
+                DNSRecord record;
+                DNSCache::INSTANCE.query(host, record);
+                if (!record.ips.empty() && completedWithAnyRecord) {
+                    complete(record);
+                    Logger::DEBUG << logTag << "finished" << END;
+                    updateDNSRecord(record);
+                } else {
+                    if (ips.empty() && pos + 1 < servers.size()) {
+                        syncDNSRecordFromServer(host, complete, servers, pos + 1, completedWithAnyRecord);
+                    } else {
+                        Logger::DEBUG << logTag << "finished" << END;
+                        complete(record);
+                    }
+                }
+            };
+
+            if (server->type.compare("TCP_SSL") == 0) {
+                DNSClient::INSTANCE.tcpOverTls(host, server->ip, server->port, server->timeout, [=](TcpDNSResponse *tcpResponse) {
+                    unordered_set<uint32_t> ips;
+                    if (tcpResponse != nullptr && tcpResponse->isValid()) {
+                        ips = move(tcpResponse->udpDnsResponse->ips);
+                    }
+                    if (tcpResponse != nullptr) {
+                        delete tcpResponse;
+                    }
+                    dnsComplete(ips);
+                });
+            } else if (server->type.compare("TCP") == 0) {
+                DNSClient::INSTANCE.tcpDNS(host, server->ip, server->port, server->timeout, [=](TcpDNSResponse *tcpResponse) {
+                    unordered_set<uint32_t> ips;
+                    if (tcpResponse != nullptr && tcpResponse->isValid()) {
+                        ips = move(tcpResponse->udpDnsResponse->ips);
+                    }
+                    if (tcpResponse != nullptr) {
+                        delete tcpResponse;
+                    }
+                    dnsComplete(ips);
+                });
+
+            } else if (server->type.compare("UDP") == 0) {
+                DNSClient::INSTANCE.udpDns(host, server->ip, server->port, server->timeout, [=](UdpDNSResponse *udpDnsResponse) {
+                    unordered_set<uint32_t> ips;
+                    if (udpDnsResponse != nullptr && udpDnsResponse->isValid()) {
+                        ips = move(udpDnsResponse->ips);
+                    }
+                    if (udpDnsResponse != nullptr) {
+                        delete udpDnsResponse;
+                    }
+                    dnsComplete(ips);
+                });
             }
         };
         boost::asio::post(*th, task);
-        Logger::DEBUG << logTag << "assigned" << END;
     }
 }
 

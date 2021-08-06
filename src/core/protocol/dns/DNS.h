@@ -8,6 +8,6 @@
 #include "DNSMessage.h"
 #include "DNSRequest.h"
 #include "DNSResponse.h"
-#include "STUtils.h"
+#include "utils/STUtils.h"
 
 #endif //ST_DNS_DNS_H

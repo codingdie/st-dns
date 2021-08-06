@@ -5,7 +5,7 @@
 #ifndef ST_DNS_LAUCHEDUTILS_H
 #define ST_DNS_LAUCHEDUTILS_H
 
-#include "STUtils.h"
+#include "utils/STUtils.h"
 
 namespace st {
     namespace dns {

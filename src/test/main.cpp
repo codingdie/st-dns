@@ -4,7 +4,7 @@
 
 #include "DNSClient.h"
 #include "DNSServer.h"
-#include "STUtils.h"
+#include "utils/STUtils.h"
 #include <iostream>
 
 #include "DNS.h"

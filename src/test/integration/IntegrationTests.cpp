@@ -19,6 +19,7 @@ protected:
         std::this_thread::sleep_for(std::chrono::seconds(5));
         dnsServer->shutdown();
         th->join();
+        APMLogger::disable();
         delete th;
         delete dnsServer;
     }
@@ -69,30 +70,38 @@ void testParallel(vector<FUNC> testMethods, uint32_t parral) {
 void testUdp(const string &domain, const string &server, const uint32_t port, const int count, const int parral) {
     testParallel(
             [=]() {
-                auto dnsResponse = DNSClient::udpDns(domain, server, port, 5000);
-                EXPECT_NE(dnsResponse, nullptr);
-                EXPECT_STRNE("", st::utils::ipv4::ipsToStr(dnsResponse->ips).c_str());
-                if (dnsResponse != nullptr) {
-                    cout << st::utils::ipv4::ipsToStr(dnsResponse->ips) << endl;
-                    delete dnsResponse;
-                }
+                DNSClient::INSTANCE.udpDns(domain, server, port, 5000, [](UdpDNSResponse *dnsResponse) {
+                    EXPECT_NE(dnsResponse, nullptr);
+                    EXPECT_STRNE("", st::utils::ipv4::ipsToStr(dnsResponse->ips).c_str());
+                    if (dnsResponse != nullptr) {
+                        cout << st::utils::ipv4::ipsToStr(dnsResponse->ips) << endl;
+                        delete dnsResponse;
+                    }
+                });
             },
             count, parral);
 }
 void testUdp(const string &domain, const string &server, const uint32_t port) {
-    auto dnsResponse = DNSClient::udpDns(domain, server, port, 5000);
-    if (dnsResponse != nullptr) {
-        string ips = st::utils::ipv4::ipsToStr(dnsResponse->ips);
-        Logger::INFO << "ips:" << ips << END;
-        delete dnsResponse;
-        ASSERT_STRNE("", ips.c_str());
+    mutex lock;
+    lock.lock();
+    UdpDNSResponse *result = nullptr;
+    DNSClient::INSTANCE.udpDns(domain, server, port, 5000, [&](UdpDNSResponse *dnsResponse) {
+        result = dnsResponse;
+        lock.unlock();
+    });
+    lock.lock();
+    ASSERT_TRUE(result != nullptr);
+
+    if (result != nullptr) {
+        string ips = st::utils::ipv4::ipsToStr(result->ips);
+        Logger::DEBUG << domain << "ips:" << ips << END;
+        delete result;
+        ASSERT_STRNE("", ips.c_str()) << "expect not empty";
     }
-    ASSERT_TRUE(dnsResponse != nullptr);
+    ASSERT_TRUE(result != nullptr);
+    lock.unlock();
 }
 
-void testUdp(const string &domain) {
-    testUdp(domain, "127.0.0.1", 5353);
-}
 
 void testUdp(unordered_set<string> &domains, const string &server, const uint32_t port, const int parral) {
     vector<std::function<void()>> tests;
@@ -103,28 +112,11 @@ void testUdp(unordered_set<string> &domains, const string &server, const uint32_
     }
     testParallel(tests, parral);
 }
-
-void testUdp(unordered_set<string> &domains, const int parral) {
-    testUdp(domains, "127.0.0.1", 5353, parral);
-}
-
-// TEST_F(IntegrationTests, testDNS) {
-//     // testUdp("qvbuy.com");
-
-//     unordered_set<string> cnDomains;
-//     unordered_set<string> overSeaDomains;
-//     file::read("../confs/test/domains/CN", cnDomains);
-//     file::read("../confs/test/domains/OVERSEA", overSeaDomains);
-//     EXPECT_FALSE(cnDomains.empty());
-//     EXPECT_FALSE(overSeaDomains.empty());
-//     testUdp(cnDomains, "192.168.31.1", 53, 10);
-//     // testUdp(cnDomains, 10);
-// }
 TEST_F(IntegrationTests, testDNS) {
-    testParallel(
-            [=]() {
-                string resultStr;
-                shell::exec("dig CNAME  baidu.com @127.0.0.1 -p 5353", resultStr);
-            },
-            30, 30);
+    for (int i = 0; i < 10; i++) {
+        testUdp("baidu.com", "127.0.0.1", 5353);
+    }
+    for (int i = 0; i < 10; i++) {
+        testUdp("google.com", "127.0.0.1", 5353);
+    }
 }

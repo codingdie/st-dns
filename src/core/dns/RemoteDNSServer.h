@@ -5,7 +5,7 @@
 #ifndef ST_DNS_REMOTEDNSSERVER_H
 #define ST_DNS_REMOTEDNSSERVER_H
 
-#include "STUtils.h"
+#include "utils/STUtils.h"
 #include <boost/algorithm/string/replace.hpp>
 #include <fstream>
 #include <iostream>

@@ -7,6 +7,7 @@
 
 #include "TimeUtils.h"
 #include "asio/STUtils.h"
+#include <atomic>
 #include <boost/property_tree/ptree.hpp>
 #include <chrono>
 #include <iostream>
@@ -14,7 +15,6 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
-#include <atomic>
 
 static const char *const SPLIT = " ";
 using namespace std;
@@ -97,9 +97,11 @@ namespace st {
 #define END st::utils::Logger::MASK::ENDL;
         class APMLogger {
         public:
-            static void enable(const string udpServerIP,const uint16_t udpServerPort);
+            static void enable(const string udpServerIP, const uint16_t udpServerPort);
             static void disable();
-            static void perf(string name, unordered_map<string, string> &&dimensions, long cost);
+            static void perf(const string &name, unordered_map<string, string> &&dimensions, uint64_t cost,
+                             uint64_t count);
+            static void perf(const string &name, unordered_map<string, string> &&dimensions, uint64_t cost);
             APMLogger(const string name);
             void start();
             void step(const string step);
@@ -108,12 +110,11 @@ namespace st {
             void addDimension(const string name, const V &value) {
                 this->dimensions.put<V>(name, value);
             }
-            void addMetric(const string name, const long &value) {
-                this->metrics.put<long>(name, value);
-            }
+            void addMetric(const string name, const long &value) { this->metrics.put<long>(name, value); }
 
         private:
-            static unordered_map<string, unordered_map<string, unordered_map<string, unordered_map<string, long>>>> STATISTICS;
+            static unordered_map<string, unordered_map<string, unordered_map<string, unordered_map<string, long>>>>
+                    STATISTICS;
             static std::mutex APM_STATISTICS_MUTEX;
             static UDPLogServer UDP_LOG_SERVER;
             static boost::asio::deadline_timer LOG_TIMMER;

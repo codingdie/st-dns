@@ -19,7 +19,6 @@ void st::dns::Config::load(const string &baseConfDir) {
         this->ip = tree.get("ip", string("127.0.0.1"));
         this->port = stoi(tree.get("port", string("1080")));
         this->dnsCacheExpire = stoi(tree.get("dns_cache_expire", to_string(this->dnsCacheExpire)));
-        this->parallel = stoi(tree.get("parallel", to_string(this->parallel)));
         this->dnsCacheFile = tree.get("dnsCacheFile", this->dnsCacheFile);
         if (!file::createIfNotExits(this->dnsCacheFile)) {
             Logger::ERROR << "create dnsCacheFile file error!" << this->dnsCacheFile << END;
@@ -47,7 +46,6 @@ void st::dns::Config::load(const string &baseConfDir) {
                 RemoteDNSServer *dnsServer = new RemoteDNSServer(serverIp, serverPort, type, whitelist,
                                                                  blacklist, area, onlyAreaIp);
                 dnsServer->dnsCacheExpire = stoi(tree.get("dns_cache_expire", to_string(this->dnsCacheExpire)));
-                dnsServer->parallel = stoi(tree.get("parallel", to_string(this->parallel)));
                 bool onlyAreaDomain = serverNode.get("only_area_domain", false);
                 dnsServer->onlyAreaDomain = onlyAreaDomain;
                 int timeout = serverNode.get("timeout", 100);

@@ -38,7 +38,7 @@ void testParallel(FUNC testMethod, uint32_t count, uint32_t parral) {
     boost::asio::thread_pool threadPool(parral);
     atomic<uint32_t> taskCount(0);
     for (int i = 0; i < count; i++) {
-        auto task = [&]() {
+        auto task = [=, &taskCount]() {
             Logger::traceId = 1000;
             testMethod();
             taskCount++;

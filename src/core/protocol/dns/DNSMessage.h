@@ -174,7 +174,6 @@ public:
             data[i * 2] = (ui >> 8U);
             data[i * 2 + 1] = tmpData[i] & maskB;
         }
-        dnsHeader->data = data;
         dnsHeader->len = 6 * 2;
         dnsHeader->id = tmpData[0];
         return dnsHeader;

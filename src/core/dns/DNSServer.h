@@ -35,7 +35,6 @@ private:
     udp::socket *socketS = nullptr;
     io_context ioContext;
     boost::asio::io_context::work *ioWoker;
-    unordered_map<string, thread_pool *> workThreads;
     unordered_map<string, unordered_set<DNSSession *>> watingSessions;
     std::atomic<uint8_t> state;
     atomic_int64_t counter;
@@ -65,8 +64,6 @@ private:
     bool beginQueryRemote(const string host, DNSSession *session);
 
     unordered_set<DNSSession *> endQueryRemote(const string host);
-
-    thread_pool *getThreadPool(RemoteDNSServer *server);
 };
 
 

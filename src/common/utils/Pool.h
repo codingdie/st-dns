@@ -2,12 +2,12 @@
 #ifndef ST_POOL_H
 #define ST_POOL_H
 #include <boost/pool/singleton_pool.hpp>
-#include "Logger.h"
 #include <utility>
+#include <unordered_map>
 namespace st {
     namespace mem {
 
-#define POOL_CONFIG boost::default_user_allocator_new_delete, boost::details::pool::default_mutex, 32, 0
+#define POOL_CONFIG boost::default_user_allocator_new_delete, boost::details::pool::default_mutex, 8, 0
         struct CHUNCK_64 {};
         typedef boost::singleton_pool<CHUNCK_64, sizeof(uint8_t) * 64, POOL_CONFIG> CHUNCK_64_POOl;
         struct CHUNCK_512 {};
@@ -17,20 +17,18 @@ namespace st {
         struct CHUNCK_2048 {};
         typedef boost::singleton_pool<CHUNCK_2048, sizeof(uint8_t) * 2048, POOL_CONFIG> CHUNCK_2048_POOL;
 #undef POOL_CONFIG
-        static pair<uint8_t *, uint32_t> pmalloc(uint32_t size) {
-            // st::utils::Logger::INFO << "malloc" << size << END;
+        static std::pair<uint8_t *, uint32_t> pmalloc(uint32_t size) {
             if (size <= 64) {
-                return make_pair((uint8_t *) CHUNCK_64_POOl::malloc(), 64);
+                return std::make_pair((uint8_t *) CHUNCK_64_POOl::malloc(), 64);
             } else if (size <= 512) {
-                return make_pair((uint8_t *) CHUNCK_512_POOl::malloc(), 512);
+                return std::make_pair((uint8_t *) CHUNCK_512_POOl::malloc(), 512);
             } else if (size <= 1024) {
-                return make_pair((uint8_t *) CHUNCK_1024_POOl::malloc(), 1024);
+                return std::make_pair((uint8_t *) CHUNCK_1024_POOl::malloc(), 1024);
             } else {
-                return make_pair((uint8_t *) CHUNCK_2048_POOL::malloc(), 2048);
+                return std::make_pair((uint8_t *) CHUNCK_2048_POOL::malloc(), 2048);
             }
         }
         static void pfree(void *ptr, uint32_t size) {
-            // st::utils::Logger::INFO << "free" << size << END;
             if (size <= 64) {
                 CHUNCK_64_POOl::free(ptr);
             } else if (size <= 512) {
@@ -40,6 +38,9 @@ namespace st {
             } else {
                 CHUNCK_2048_POOL::free(ptr);
             }
+        }
+        static void pfree(std::pair<uint8_t *, uint32_t> data) {
+            pfree(data.first, data.second);
         }
         static void pgc() {
             CHUNCK_64_POOl::release_memory();

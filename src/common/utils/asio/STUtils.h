@@ -6,7 +6,6 @@
 #define ST_PROXY_ASIO_UTILS_H
 
 #include <boost/asio.hpp>
-#include "TLIOContext.h"
 using namespace boost::asio::ip;
 using namespace std;
 using namespace boost::asio;

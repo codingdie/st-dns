@@ -22,10 +22,6 @@ using namespace std;
 DNSServer::DNSServer(st::dns::Config &config) : rid(time::now()), config(config), counter(0) {
     try {
         socketS = new udp::socket(ioContext, udp::endpoint(boost::asio::ip::make_address_v4(config.ip), config.port));
-        for (auto it = config.servers.begin(); it != config.servers.end(); it++) {
-            auto server = *it;
-            workThreads.emplace(make_pair(server->id(), new thread_pool(server->parallel)));
-        }
     } catch (const boost::system::system_error &e) {
         Logger::ERROR << "bind address error" << config.ip << config.port << e.what() << END;
         exit(1);
@@ -226,7 +222,7 @@ void DNSServer::forwardUdpDNSRequest(DNSSession *session, std::function<void(Udp
         return;
     }
     RemoteDNSServer *server = servers[pos];
-    DNSClient::INSTANCE.asyncForwardUdp(session->udpDnsRequest, server->ip, server->port, server->timeout, [=](UdpDNSResponse *response) {
+    DNSClient::INSTANCE.forwardUdp(session->udpDnsRequest, server->ip, server->port, server->timeout, [=](UdpDNSResponse *response) {
         if (response == nullptr && pos + 1 < servers.size()) {
             forwardUdpDNSRequest(session, complete, servers, pos + 1);
         } else {
@@ -321,78 +317,72 @@ void DNSServer::syncDNSRecordFromServer(const string host, std::function<void(DN
     }
     RemoteDNSServer *server = servers[pos];
     string logTag = host + " syncDNSRecordFromServer " + server->id();
-    thread_pool *th = this->getThreadPool(server);
-    if (th != nullptr) {
-        uint64_t traceId = Logger::traceId;
-        auto task = [=]() {
-            auto dnsComplete = [=](unordered_set<uint32_t> ips) {
-                Logger::traceId = traceId;
-                Logger::DEBUG << logTag << "begin" << END;
-                Logger::DEBUG << logTag << (ips.empty() ? "failed" : "success") << END;
-                unordered_set<uint32_t> oriIps = ips;
-                filterIPByArea(host, server, ips);
-                if (!ips.empty()) {
-                    DNSCache::INSTANCE.addCache(host, ips, server->id(),
-                                                server->dnsCacheExpire, true);
-                } else {
-                    if (!oriIps.empty()) {
-                        DNSCache::INSTANCE.addCache(host, oriIps, server->id(),
-                                                    server->dnsCacheExpire, false);
-                    }
-                }
-                DNSRecord record;
-                DNSCache::INSTANCE.query(host, record);
-                if (!record.ips.empty() && completedWithAnyRecord) {
-                    complete(record);
-                    Logger::DEBUG << logTag << "finished" << END;
-                    updateDNSRecord(record);
-                } else {
-                    if (ips.empty() && pos + 1 < servers.size()) {
-                        syncDNSRecordFromServer(host, complete, servers, pos + 1, completedWithAnyRecord);
-                    } else {
-                        Logger::DEBUG << logTag << "finished" << END;
-                        complete(record);
-                    }
-                }
-            };
-
-            if (server->type.compare("TCP_SSL") == 0) {
-                DNSClient::INSTANCE.tcpOverTls(host, server->ip, server->port, server->timeout, [=](TcpDNSResponse *tcpResponse) {
-                    unordered_set<uint32_t> ips;
-                    if (tcpResponse != nullptr && tcpResponse->isValid()) {
-                        ips = move(tcpResponse->udpDnsResponse->ips);
-                    }
-                    if (tcpResponse != nullptr) {
-                        delete tcpResponse;
-                    }
-                    dnsComplete(ips);
-                });
-            } else if (server->type.compare("TCP") == 0) {
-                DNSClient::INSTANCE.tcpDNS(host, server->ip, server->port, server->timeout, [=](TcpDNSResponse *tcpResponse) {
-                    unordered_set<uint32_t> ips;
-                    if (tcpResponse != nullptr && tcpResponse->isValid()) {
-                        ips = move(tcpResponse->udpDnsResponse->ips);
-                    }
-                    if (tcpResponse != nullptr) {
-                        delete tcpResponse;
-                    }
-                    dnsComplete(ips);
-                });
-
-            } else if (server->type.compare("UDP") == 0) {
-                DNSClient::INSTANCE.udpDns(host, server->ip, server->port, server->timeout, [=](UdpDNSResponse *udpDnsResponse) {
-                    unordered_set<uint32_t> ips;
-                    if (udpDnsResponse != nullptr && udpDnsResponse->isValid()) {
-                        ips = move(udpDnsResponse->ips);
-                    }
-                    if (udpDnsResponse != nullptr) {
-                        delete udpDnsResponse;
-                    }
-                    dnsComplete(ips);
-                });
+    uint64_t traceId = Logger::traceId;
+    auto dnsComplete = [=](unordered_set<uint32_t> ips) {
+        Logger::traceId = traceId;
+        Logger::DEBUG << logTag << "begin" << END;
+        Logger::DEBUG << logTag << (ips.empty() ? "failed" : "success") << END;
+        unordered_set<uint32_t> oriIps = ips;
+        filterIPByArea(host, server, ips);
+        if (!ips.empty()) {
+            DNSCache::INSTANCE.addCache(host, ips, server->id(),
+                                        server->dnsCacheExpire, true);
+        } else {
+            if (!oriIps.empty()) {
+                DNSCache::INSTANCE.addCache(host, oriIps, server->id(),
+                                            server->dnsCacheExpire, false);
             }
-        };
-        boost::asio::post(*th, task);
+        }
+        DNSRecord record;
+        DNSCache::INSTANCE.query(host, record);
+        if (!record.ips.empty() && completedWithAnyRecord) {
+            complete(record);
+            Logger::DEBUG << logTag << "finished" << END;
+            updateDNSRecord(record);
+        } else {
+            if (ips.empty() && pos + 1 < servers.size()) {
+                syncDNSRecordFromServer(host, complete, servers, pos + 1, completedWithAnyRecord);
+            } else {
+                Logger::DEBUG << logTag << "finished" << END;
+                complete(record);
+            }
+        }
+    };
+
+    if (server->type.compare("TCP_SSL") == 0) {
+        DNSClient::INSTANCE.tcpTlsDNS(host, server->ip, server->port, server->timeout, [=](TcpDNSResponse *tcpResponse) {
+            unordered_set<uint32_t> ips;
+            if (tcpResponse != nullptr && tcpResponse->isValid()) {
+                ips = move(tcpResponse->udpDnsResponse->ips);
+            }
+            if (tcpResponse != nullptr) {
+                delete tcpResponse;
+            }
+            dnsComplete(ips);
+        });
+    } else if (server->type.compare("TCP") == 0) {
+        DNSClient::INSTANCE.tcpDNS(host, server->ip, server->port, server->timeout, [=](TcpDNSResponse *tcpResponse) {
+            unordered_set<uint32_t> ips;
+            if (tcpResponse != nullptr && tcpResponse->isValid()) {
+                ips = move(tcpResponse->udpDnsResponse->ips);
+            }
+            if (tcpResponse != nullptr) {
+                delete tcpResponse;
+            }
+            dnsComplete(ips);
+        });
+
+    } else if (server->type.compare("UDP") == 0) {
+        DNSClient::INSTANCE.udpDns(host, server->ip, server->port, server->timeout, [=](UdpDNSResponse *udpDnsResponse) {
+            unordered_set<uint32_t> ips;
+            if (udpDnsResponse != nullptr && udpDnsResponse->isValid()) {
+                ips = move(udpDnsResponse->ips);
+            }
+            if (udpDnsResponse != nullptr) {
+                delete udpDnsResponse;
+            }
+            dnsComplete(ips);
+        });
     }
 }
 
@@ -410,14 +400,4 @@ void DNSServer::filterIPByArea(const string host, RemoteDNSServer *server, unord
             }
         }
     }
-}
-
-thread_pool *DNSServer::getThreadPool(RemoteDNSServer *server) {
-    auto thPool = workThreads.find(server->id());
-    auto traceId = Logger::traceId;
-    if (thPool != workThreads.end()) {
-        return thPool->second;
-    }
-    Logger::ERROR << server->id() << "find thread pool empty" << END;
-    return nullptr;
 }

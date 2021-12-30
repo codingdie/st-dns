@@ -18,6 +18,7 @@ namespace st {
         typedef boost::singleton_pool<CHUNCK_2048, sizeof(uint8_t) * 2048, POOL_CONFIG> CHUNCK_2048_POOL;
 #undef POOL_CONFIG
         static std::pair<uint8_t *, uint32_t> pmalloc(uint32_t size) {
+            // return std::make_pair(new uint8_t[size], size);
             if (size <= 64) {
                 return std::make_pair((uint8_t *) CHUNCK_64_POOl::malloc(), 64);
             } else if (size <= 512) {
@@ -28,7 +29,8 @@ namespace st {
                 return std::make_pair((uint8_t *) CHUNCK_2048_POOL::malloc(), 2048);
             }
         }
-        static void pfree(void *ptr, uint32_t size) {
+        static void pfree(uint8_t *ptr, uint32_t size) {
+            // delete ptr;
             if (size <= 64) {
                 CHUNCK_64_POOl::free(ptr);
             } else if (size <= 512) {

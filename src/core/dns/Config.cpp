@@ -38,16 +38,18 @@ void st::dns::Config::load(const string &baseConfDir) {
                 int serverPort = serverNode.get("port", 53);
                 string type = serverNode.get("type", "UDP");
                 string filename = RemoteDNSServer::generateServerId(serverIp, serverPort);
-                string whitelist = serverNode.get("whitelist", baseConfDir + "/whitelist/" + filename);
-                string blacklist = serverNode.get("blacklist", baseConfDir + "/blacklist/" + filename);
                 string area = serverNode.get("area", "");
                 bool onlyAreaIp = serverNode.get("only_area_ip", false);
 
-                RemoteDNSServer *dnsServer = new RemoteDNSServer(serverIp, serverPort, type, whitelist,
-                                                                 blacklist, area, onlyAreaIp);
+                RemoteDNSServer *dnsServer = new RemoteDNSServer(serverIp, serverPort, type, area, onlyAreaIp);
+                auto whitelistNode = serverNode.get_child_optional("whitelist");
+                if (whitelistNode.is_initialized()) {
+                    auto whitelistArr = whitelistNode.get();
+                    for (boost::property_tree::ptree::value_type &v : whitelistArr) {
+                        dnsServer->whitelist.emplace(v.second.get_value<string>());
+                    }
+                }
                 dnsServer->dnsCacheExpire = stoi(tree.get("dns_cache_expire", to_string(this->dnsCacheExpire)));
-                bool onlyAreaDomain = serverNode.get("only_area_domain", false);
-                dnsServer->onlyAreaDomain = onlyAreaDomain;
                 int timeout = serverNode.get("timeout", 100);
                 dnsServer->timeout = timeout;
                 servers.emplace_back(dnsServer);
@@ -57,15 +59,6 @@ void st::dns::Config::load(const string &baseConfDir) {
             Logger::ERROR << "st-dns config no servers" << END;
             exit(1);
         }
-        for (auto it = servers.begin(); it != servers.end(); it++) {
-            RemoteDNSServer *remoteDnsServer = *(it.base());
-            if (!remoteDnsServer->init()) {
-                Logger::ERROR << "st-dns config  remote dns server init failed!" << remoteDnsServer->ip
-                              << END;
-                exit(1);
-            }
-        }
-
     } else {
         Logger::ERROR << "st-dns config file not exit！" << configPath << END;
         exit(1);

@@ -185,7 +185,7 @@ void DNSServer::queryDNSRecordFromServer(DNSSession *session, std::function<void
     }
     if (beginQueryRemote(host, session)) {
         syncDNSRecordFromServer(
-                host, [=](DNSRecord &record) {
+                host, [=](DNSRecord record) {
                     auto sessions = endQueryRemote(host);
                     for (auto it = sessions.begin(); it != sessions.end(); it++) {
                         DNSSession *se = *it;
@@ -291,7 +291,7 @@ void DNSServer::updateDNSRecord(DNSRecord record) {
     if (beginQueryRemote(host, nullptr)) {
         if (!servers.empty()) {
             syncDNSRecordFromServer(
-                    host, [=](DNSRecord &record) {
+                    host, [=](DNSRecord record) {
                         endQueryRemote(host);
                         Logger::DEBUG << "updateDNSRecord finished!" << END;
                     },
@@ -305,7 +305,7 @@ void DNSServer::updateDNSRecord(DNSRecord record) {
     }
 }
 
-void DNSServer::syncDNSRecordFromServer(const string host, std::function<void(DNSRecord &record)> complete,
+void DNSServer::syncDNSRecordFromServer(const string host, std::function<void(DNSRecord record)> complete,
                                         vector<RemoteDNSServer *> servers,
                                         int pos, bool completedWithAnyRecord) {
     if (pos >= servers.size()) {
@@ -318,7 +318,7 @@ void DNSServer::syncDNSRecordFromServer(const string host, std::function<void(DN
     RemoteDNSServer *server = servers[pos];
     string logTag = host + " syncDNSRecordFromServer " + server->id();
     uint64_t traceId = Logger::traceId;
-    auto dnsComplete = [=](unordered_set<uint32_t> ips) {
+    std::function<void(unordered_set<uint32_t> ips)> dnsComplete = [=](unordered_set<uint32_t> ips) {
         Logger::traceId = traceId;
         Logger::DEBUG << logTag << "begin" << END;
         Logger::DEBUG << logTag << (ips.empty() ? "failed" : "success") << END;

@@ -114,12 +114,14 @@ void DNSClient::tcpTlsDNS(const string domain, const std::string &dnsServer, uin
 
     std::function<void(TcpDNSResponse *)> complete =
             [=](TcpDNSResponse *res) {
-                delete socket;
-                delete dnsRequest;
                 st::mem::pfree(dataBytes);
                 st::mem::pfree(lengthBytes);
-                Logger::DEBUG << logTag << "cost" << time::now() - beginTime << END;
+                Logger::DEBUG << logTag << "cost" << time::now() - beginTime << dataBytes.second << END;
+                delete dnsRequest;
                 completeHandler(res);
+                socket->async_shutdown([=](boost::system::error_code ec) {
+                    delete socket;
+                });
             };
     socket->lowest_layer().async_connect(
             serverEndpoint,
@@ -142,14 +144,18 @@ void DNSClient::tcpTlsDNS(const string domain, const std::string &dnsServer, uin
                                                                 if (!isTimeoutOrError(ec, beginTime, timeout, complete)) {
                                                                     uint16_t dataLen = 0;
                                                                     st::utils::read(lengthBytes.first, dataLen);
-                                                                    boost::asio::async_read(
-                                                                            *socket,
-                                                                            buffer(dataBytes.first, dataLen),
-                                                                            [=](boost::system::error_code ec, std::size_t length) {
-                                                                                if (!isTimeoutOrError(ec, beginTime, timeout, complete)) {
-                                                                                    complete(parse(length, lengthBytes, dataBytes, dnsId));
-                                                                                }
-                                                                            });
+                                                                    if (dataLen > 1024) {
+                                                                        complete(nullptr);
+                                                                    } else {
+                                                                        boost::asio::async_read(
+                                                                                *socket,
+                                                                                buffer(dataBytes.first, dataLen),
+                                                                                [=](boost::system::error_code ec, std::size_t length) {
+                                                                                    if (!isTimeoutOrError(ec, beginTime, timeout, complete)) {
+                                                                                        complete(parse(length, lengthBytes, dataBytes, dnsId));
+                                                                                    }
+                                                                                });
+                                                                    }
                                                                 }
                                                             });
                                                 }
@@ -173,33 +179,37 @@ void DNSClient::tcpDNS(const string domain, const std::string &dnsServer, uint16
     tcp::socket *socket = new tcp::socket(ioContext);
     pair<uint8_t *, uint32_t> dataBytes = st::mem::pmalloc(1024);
     pair<uint8_t *, uint32_t> lengthBytes = st::mem::pmalloc(2);
-    std::function<void(TcpDNSResponse *)> complete =
-            [=](TcpDNSResponse *res) {
-                delete socket;
-                delete dnsRequest;
-                st::mem::pfree(dataBytes);
-                st::mem::pfree(lengthBytes);
-                Logger::DEBUG << logTag << "cost" << time::now() - beginTime << END;
-                completeHandler(res);
-            };
+    std::function<void(TcpDNSResponse *)> complete = [=](TcpDNSResponse *res) {
+        Logger::DEBUG << logTag << "cost" << time::now() - beginTime << dataBytes.second << END;
+        st::mem::pfree(dataBytes);
+        st::mem::pfree(lengthBytes);
+        socket->shutdown(boost::asio::socket_base::shutdown_both);
+        socket->cancel();
+        socket->close();
+        delete socket;
+        delete dnsRequest;
+        completeHandler(res);
+    };
     socket->async_connect(
             serverEndpoint,
             [=](boost::system::error_code ec) {
                 if (!isTimeoutOrError(ec, beginTime, timeout, complete)) {
-                    if (!isTimeoutOrError(ec, beginTime, timeout, complete)) {
-                        st::utils::copy(dnsRequest->data, dataBytes.first, 0, 0, dnsRequest->len);
-                        boost::asio::async_write(
-                                *socket,
-                                buffer(dataBytes.first, dnsRequest->len),
-                                [=](boost::system::error_code ec, std::size_t length) {
-                                    if (!isTimeoutOrError(ec, beginTime, timeout, complete)) {
-                                        boost::asio::async_read(
-                                                *socket,
-                                                buffer(lengthBytes.first, 2),
-                                                [=](boost::system::error_code ec, std::size_t length) {
-                                                    if (!isTimeoutOrError(ec, beginTime, timeout, complete)) {
-                                                        uint16_t dataLen = 0;
-                                                        st::utils::read(lengthBytes.first, dataLen);
+                    st::utils::copy(dnsRequest->data, dataBytes.first, 0, 0, dnsRequest->len);
+                    boost::asio::async_write(
+                            *socket,
+                            buffer(dataBytes.first, dnsRequest->len),
+                            [=](boost::system::error_code ec, std::size_t length) {
+                                if (!isTimeoutOrError(ec, beginTime, timeout, complete)) {
+                                    boost::asio::async_read(
+                                            *socket,
+                                            buffer(lengthBytes.first, 2),
+                                            [=](boost::system::error_code ec, std::size_t length) {
+                                                if (!isTimeoutOrError(ec, beginTime, timeout, complete)) {
+                                                    uint16_t dataLen = 0;
+                                                    st::utils::read(lengthBytes.first, dataLen);
+                                                    if (dataLen > 1024) {
+                                                        complete(nullptr);
+                                                    } else {
                                                         boost::asio::async_read(
                                                                 *socket,
                                                                 buffer(dataBytes.first, dataLen),
@@ -209,10 +219,10 @@ void DNSClient::tcpDNS(const string domain, const std::string &dnsServer, uint16
                                                                     }
                                                                 });
                                                     }
-                                                });
-                                    }
-                                });
-                    }
+                                                }
+                                            });
+                                }
+                            });
                 }
             });
 }

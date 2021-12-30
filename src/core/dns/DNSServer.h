@@ -45,7 +45,7 @@ private:
 
     void queryDNSRecord(DNSSession *session, std::function<void(DNSSession *)> completeHandler);
 
-    void syncDNSRecordFromServer(const string host, std::function<void(DNSRecord &record)> complete, vector<RemoteDNSServer *> servers, int pos, bool completed);
+    void syncDNSRecordFromServer(const string host, std::function<void(DNSRecord record)> complete, vector<RemoteDNSServer *> servers, int pos, bool completed);
 
     void filterIPByArea(const string host, RemoteDNSServer *server, unordered_set<uint32_t> &ips);
 

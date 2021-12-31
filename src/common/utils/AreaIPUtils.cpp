@@ -50,6 +50,15 @@ namespace st {
             if (caches.find(areaCode) != caches.end()) {
                 return true;
             }
+            if (areaCode.compare("LAN") == 0) {
+                vector<pair<uint32_t, uint32_t>> *ips = new vector<pair<uint32_t, uint32_t>>();
+                ips->emplace_back(ipRange("192.168.0.0/16"));
+                ips->emplace_back(ipRange("10.0.0.0/8"));
+                ips->emplace_back(ipRange("172.16.0.0/16"));
+                ips->emplace_back(ipRange("0.0.0.0/8"));
+                caches.emplace(areaCode, ips);
+                return true;
+            }
             std::lock_guard<std::mutex> lg(rLock);
             if (caches.find(areaCode) == caches.end()) {
                 string dataPath = downloadAreaIPs(areaCode);

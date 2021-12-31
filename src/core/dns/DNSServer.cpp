@@ -9,7 +9,6 @@
 #include <unordered_set>
 #include <vector>
 
-#include "AreaIpManager.h"
 #include "DNSCache.h"
 #include "DNSClient.h"
 #include "utils/STUtils.h"
@@ -238,7 +237,7 @@ void DNSServer::calRemoteDNSServers(const DNSRecord &record, vector<RemoteDNSSer
         unordered_set<string> notMatchServers = DNSCache::INSTANCE.queryNotMatchAreaServers(host);
         for (auto it = config.servers.begin(); it != config.servers.end(); it++) {
             RemoteDNSServer *server = *it.base();
-            if (notMatchServers.find(server->id()) == notMatchServers.end()) {
+            if (notMatchServers.find(server->id()) != notMatchServers.end()) {
                 servers.emplace_back(server);
             }
         }
@@ -391,7 +390,7 @@ void DNSServer::filterIPByArea(const string host, RemoteDNSServer *server, unord
         server->onlyAreaIp) {
         for (auto it = ips.begin(); it != ips.end();) {
             auto ip = *it;
-            if (!AreaIpManager::isAreaIP(server->area, ip)) {
+            if (!st::areaip::isAreaIP(server->area, ip)) {
                 it = ips.erase(it);
                 Logger::DEBUG << host << "remove not area ip" << st::utils::ipv4::ipToStr(ip) << "from" << server->ip
                               << server->area << END;

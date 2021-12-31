@@ -37,9 +37,9 @@ namespace st {
                 fileStream.close();
                 return exits;
             }
-             static bool del(const string &path) {
-                 boost::filesystem::path bpath(path);
-                 boost::filesystem::remove(bpath);
+            static bool del(const string &path) {
+                boost::filesystem::path bpath(path);
+                boost::filesystem::remove(bpath);
             }
 
             static bool createIfNotExits(const string &path) {

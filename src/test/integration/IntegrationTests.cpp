@@ -10,7 +10,7 @@ protected:
     thread *th;
     void SetUp() override {
         st::dns::Config::INSTANCE.load("../confs/test");
-        file::del("../confs/test/cache.txt");
+        file::del(st::dns::Config::INSTANCE.dnsCacheFile);
         dnsServer = new DNSServer(st::dns::Config::INSTANCE);
         th = new thread([=]() { dnsServer->start(); });
         dnsServer->waitStart();
@@ -85,7 +85,7 @@ void testUdp(const string &domain, const string &server, const uint32_t port) {
     mutex lock;
     lock.lock();
     UdpDNSResponse *result = nullptr;
-    DNSClient::INSTANCE.udpDns(domain, server, port, 5000, [&](UdpDNSResponse *dnsResponse) {
+    DNSClient::INSTANCE.udpDns(domain, server, port, 10000, [&](UdpDNSResponse *dnsResponse) {
         result = dnsResponse;
         lock.unlock();
     });

@@ -3,7 +3,6 @@
 //
 #include "Config.h"
 
-
 st::dns::Config st::dns::Config::INSTANCE;
 void st::dns::Config::load(const string &baseConfDir) {
     this->baseConfDir = baseConfDir;
@@ -24,7 +23,6 @@ void st::dns::Config::load(const string &baseConfDir) {
             Logger::ERROR << "create dnsCacheFile file error!" << this->dnsCacheFile << END;
             exit(1);
         }
-        Logger::init(tree);
 
         auto serversNodes = tree.get_child("servers");
         if (!serversNodes.empty()) {
@@ -39,6 +37,11 @@ void st::dns::Config::load(const string &baseConfDir) {
                 string type = serverNode.get("type", "UDP");
                 string filename = RemoteDNSServer::generateServerId(serverIp, serverPort);
                 string area = serverNode.get("area", "");
+                if (area.compare("") != 0) {
+                    if (!st::areaip::loadAreaIPs(area)){
+                        exit(1);
+                    }
+                }
                 bool onlyAreaIp = serverNode.get("only_area_ip", false);
 
                 RemoteDNSServer *dnsServer = new RemoteDNSServer(serverIp, serverPort, type, area, onlyAreaIp);
@@ -59,6 +62,8 @@ void st::dns::Config::load(const string &baseConfDir) {
             Logger::ERROR << "st-dns config no servers" << END;
             exit(1);
         }
+        Logger::init(tree);
+
     } else {
         Logger::ERROR << "st-dns config file not exit！" << configPath << END;
         exit(1);

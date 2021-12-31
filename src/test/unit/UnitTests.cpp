@@ -15,12 +15,16 @@ void testDNS(const string &domain, const string &server, const uint32_t port, co
     UdpDNSResponse *result = nullptr;
     if (type.compare("TCP") == 0) {
         DNSClient::INSTANCE.tcpDNS(domain, server, port, 1000, [&](TcpDNSResponse *dnsResponse) {
-            result = dnsResponse->udpDnsResponse;
+            if (dnsResponse != nullptr) {
+                result = dnsResponse->udpDnsResponse;
+            }
             lock.unlock();
         });
     } else if (type.compare("TCP_SSL") == 0) {
-        DNSClient::INSTANCE.tcpTlsDNS(domain, server, port, 1000, [&](TcpDNSResponse *dnsResponse) {
-            result = dnsResponse->udpDnsResponse;
+        DNSClient::INSTANCE.tcpTlsDNS(domain, server, port, 5000, [&](TcpDNSResponse *dnsResponse) {
+            if (dnsResponse != nullptr) {
+                result = dnsResponse->udpDnsResponse;
+            }
             lock.unlock();
         });
     } else {
@@ -58,15 +62,6 @@ void testParallel(FUNC testMethod, uint32_t count, uint32_t parral) {
     while (taskCount != count) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
-}
-TEST(UnitTests, testPool) {
-    vector<pair<uint8_t *, uint32_t>> datas;
-    testParallel([]() {
-        auto pair = st::mem::pmalloc(1024);
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-        st::mem::pfree(pair);
-    },
-                 1000, 100);
 }
 
 TEST(UnitTests, testTcpDNS) {
@@ -110,4 +105,15 @@ TEST(UnitTests, testSHM) {
     auto testIp = count + 1;
     auto host2 = dnsSHMRead.query(testIp);
     ASSERT_STREQ(st::utils::ipv4::ipToStr(testIp).c_str(), host2.c_str());
+}
+
+TEST(UnitTests, testAreaIP) {
+    ASSERT_TRUE(st::areaip::isAreaIP("cn", "220.181.38.148"));
+    ASSERT_TRUE(st::areaip::isAreaIP("cn", "123.117.76.165"));
+    ASSERT_TRUE(!st::areaip::isAreaIP("cn", "172.217.5.110"));
+    ASSERT_TRUE(st::areaip::isAreaIP("us", "172.217.5.110"));
+    ASSERT_TRUE(st::areaip::isAreaIP("jp", "114.48.198.220"));
+    ASSERT_TRUE(!st::areaip::isAreaIP("us", "114.48.198.220"));
+    ASSERT_TRUE(!st::areaip::isAreaIP("cn", "218.146.11.198"));
+    ASSERT_TRUE(st::areaip::isAreaIP("kr", "218.146.11.198"));
 }

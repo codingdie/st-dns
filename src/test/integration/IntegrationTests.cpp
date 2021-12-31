@@ -113,10 +113,13 @@ void testUdp(unordered_set<string> &domains, const string &server, const uint32_
     testParallel(tests, parral);
 }
 TEST_F(IntegrationTests, testDNS) {
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 3; i++) {
+        testUdp("amd-ubuntu-01", "127.0.0.1", 5353);
+    }
+    for (int i = 0; i < 3; i++) {
         testUdp("baidu.com", "127.0.0.1", 5353);
     }
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 3; i++) {
         testUdp("google.com", "127.0.0.1", 5353);
     }
 }

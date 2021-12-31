@@ -3,27 +3,21 @@
 //
 
 #include "AreaIpManager.h"
-#include "Config.h"
+#include "Logger.h"
+#include "IPUtils.h"
 #include <iostream>
-
+#include "FileUtils.h"
+using namespace st::utils;
 AreaIpManager AreaIpManager::INSTANCE;
 
 static mutex rLock;
 
-bool AreaIpManager::isAreaIP(const string &areaReg, const uint32_t &ip) {
-    string areaCode = areaReg;
-    bool matchNot = false;
-    if (areaReg[0] == '!') {
-        areaCode = areaReg.substr(1, areaReg.size() - 1);
-        matchNot = true;
-    }
+void AreaIpManager::loadAreaIPs(const string &areaCode) {
     rLock.lock();
+    // https://raw.fastgit.org/herrbischoff/country-ip-blocks/master/ipv4/ae.cidr
     if (INSTANCE.caches.find(areaCode) == INSTANCE.caches.end()) {
-        string dataPath = st::dns::Config::INSTANCE.baseConfDir + "/../area-ips/" + areaCode;
-        if (!file::exit(dataPath)) {
-            dataPath = st::dns::Config::INSTANCE.baseConfDir + "/../../area-ips/" + areaCode;
-        }
-        if (file::exit(dataPath)) {
+        string dataPath = "/var/lib/st/area-ips/" + areaCode;
+        if (st::utils::file::exit(dataPath)) {
             ifstream in(dataPath);
             string line;
             vector<pair<uint32_t, uint32_t>> *ips = new vector<pair<uint32_t, uint32_t>>();
@@ -44,6 +38,16 @@ bool AreaIpManager::isAreaIP(const string &areaReg, const uint32_t &ip) {
         }
     }
     rLock.unlock();
+}
+
+bool AreaIpManager::isAreaIP(const string &areaReg, const uint32_t &ip) {
+    string areaCode = areaReg;
+    bool matchNot = false;
+    if (areaReg[0] == '!') {
+        areaCode = areaReg.substr(1, areaReg.size() - 1);
+        matchNot = true;
+    }
+    INSTANCE.loadAreaIPs(areaReg);
     //todo find fast
     auto iterator = INSTANCE.caches.find(areaCode);
     if (iterator != INSTANCE.caches.end()) {

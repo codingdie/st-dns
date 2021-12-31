@@ -50,6 +50,7 @@ namespace st {
                         boost::system::error_code errorCode;
                         boost::filesystem::create_directories(bpath.parent_path(), errorCode);
                         if (errorCode) {
+                            std::cerr << errorCode << std::endl;
                             return false;
                         }
                     }

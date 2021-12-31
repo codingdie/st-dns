@@ -23,9 +23,9 @@ namespace st {
         string downloadAreaIPs(const string &areaCode) {
             string areaCodeLow = areaCode;
             transform(areaCodeLow.begin(), areaCodeLow.end(), areaCodeLow.begin(), ::tolower);
-            //https://raw.fastgit.org/herrbischoff/country-ip-blocks/master/ipv4/ae.cidr
-            string filePath = "/tmp/" + areaCode + ".ips";
+            string filePath = "/etc/area-ips/" + areaCode;
             if (!file::exit(filePath)) {
+                file::createIfNotExits(filePath);
                 string url = "https://raw.githubusercontent.com/herrbischoff/country-ip-blocks/master/ipv4/" + areaCodeLow + ".cidr";
                 if (shell::exec("wget -q " + url + " -O " + filePath)) {
                     return filePath;

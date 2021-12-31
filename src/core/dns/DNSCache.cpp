@@ -32,7 +32,7 @@ void DNSCache::addCache(const string &domain, const unordered_set<uint32_t> &ips
         record.matchArea = matchArea;
         record.expireTime = time::now() + expire * 1000;
         Logger::INFO << "addDNSCache" << domain << ipv4::ipsToStr(ips) << "from" << dnsServer << "expire" << expire
-                     << record.expireTime << END;
+                     << "matchArea" << matchArea << END;
         ofstream fs(st::dns::Config::INSTANCE.dnsCacheFile, std::ios_base::out | std::ios_base::app);
         if (fs.is_open()) {
             fs << record.serialize() << "\n";

@@ -19,6 +19,7 @@
 #include "ShellUtils.h"
 #include "StringUtils.h"
 #include "TimeUtils.h"
+#include "AreaIPUtils.h"
 #include "asio/STUtils.h"
 using namespace st::utils;
 using namespace st;

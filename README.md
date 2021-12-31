@@ -30,9 +30,7 @@ st-dns is a smart local dns server which support to config multi UDP/TCP/DOT DNS
       "ip": "192.168.31.1", #dns server IP
       "port": 53,           #dns server port
       "area": "LAN",        #dns server area
-      "only_area_ip": true  #force the server only resolve the eare ip, 
-                            #the area defined in configFolder/../area-ips, 
-                            #the filename is area name, you can custom it;
+      "only_area_ip": true  #force the server only resolve the area ip 
     },
     {
       "type": "TCP_SSL",

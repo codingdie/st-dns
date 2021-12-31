@@ -30,7 +30,6 @@ target_link_libraries(st-dns ${Boost_LIBRARIES} ${OPENSSL_LIBRARIES} ${OTHER_LIB
 option(OPENWRT "Build for Openwrt support" OFF)
 include(GNUInstallDirs)
 install(TARGETS st-dns DESTINATION bin)
-install(DIRECTORY area-ips DESTINATION etc/st)
 
 if (OPENWRT)
     install(DIRECTORY confs/openwrt/ DESTINATION etc/st/dns)

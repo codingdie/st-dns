@@ -117,7 +117,7 @@ void DNSServer::endDNSSession(DNSSession *session) {
     }
     session->apmLogger.addMetric("trustedDomainCount", DNSCache::INSTANCE.getTrustedCount());
     session->apmLogger.addMetric("inQueryingDomainCount", watingSessions.size());
-    session->apmLogger.addDimension("success", success);
+    session->apmLogger.addDimension("success", to_string(success));
     session->apmLogger.end();
 
     Logger::INFO << "dns from" << session->clientEndpoint.address().to_string() << session->clientEndpoint.port() << session->processType << (success ? "success!" : "failed!");

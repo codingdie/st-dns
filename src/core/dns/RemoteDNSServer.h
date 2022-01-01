@@ -21,8 +21,7 @@ public:
     string type;
     unordered_set<string> whitelist;
     unordered_set<string> blacklist;
-    string area;
-    bool onlyAreaIp;
+    unordered_set<string> areas;
     int timeout = 100;
     int dnsCacheExpire = 60 * 60;
 
@@ -30,7 +29,7 @@ public:
         return boost::algorithm::ireplace_all_copy(serverIp, ".", "_") + "_" + to_string(serverPort);
     }
 
-    RemoteDNSServer(const string &ip, int port, const string &type, const string &area, bool onlyAreaIp);
+    RemoteDNSServer(const string &ip, int port, const string &type);
 
     string id() const {
         return generateServerId(ip, port);

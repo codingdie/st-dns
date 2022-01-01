@@ -10,7 +10,6 @@
 #include "Pool.h"
 #include "Base64Utils.h"
 #include "ByteUtils.h"
-#include "DNSReverseSHM.h"
 #include "DNSUtils.h"
 #include "FileUtils.h"
 #include "IPUtils.h"
@@ -20,6 +19,7 @@
 #include "StringUtils.h"
 #include "TimeUtils.h"
 #include "AreaIPUtils.h"
+#include "SHM.h"
 #include "asio/STUtils.h"
 using namespace st::utils;
 using namespace st;

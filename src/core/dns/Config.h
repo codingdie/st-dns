@@ -30,6 +30,8 @@ namespace st {
             string dnsCacheFile = "/var/lib/st/dns/cache.txt";
             string baseConfDir = "/usr/local/etc/st/dns";
             vector<RemoteDNSServer *> servers;
+            bool areaResolveOptimize= false;
+
             Config() = default;
             void load(const string &baseConfDir);
             RemoteDNSServer *getDNSServerById(string serverId);

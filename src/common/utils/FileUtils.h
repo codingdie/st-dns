@@ -81,6 +81,20 @@ namespace st {
                     fileStream.close();
                 }
             }
+            static string read(const string &path) {
+                fstream fileStream;
+                string result;
+                fileStream.open(path, ios::in);
+                if (fileStream) {
+                    string line;
+                    while (getline(fileStream, line)) {
+                        result += line;
+                        result += "\n";
+                    }
+                    fileStream.close();
+                }
+                return result;
+            }
         }// namespace file
     }    // namespace utils
 }// namespace st

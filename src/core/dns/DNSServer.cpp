@@ -319,8 +319,7 @@ void DNSServer::syncDNSRecordFromServer(const string host, std::function<void(DN
     uint64_t traceId = Logger::traceId;
     std::function<void(unordered_set<uint32_t> ips)> dnsComplete = [=](unordered_set<uint32_t> ips) {
         Logger::traceId = traceId;
-        Logger::DEBUG << logTag << "begin" << END;
-        Logger::DEBUG << logTag << (ips.empty() ? "failed" : "success") << END;
+        Logger::INFO << logTag << "before filter" << ipv4::ipsToStr(ips) << END;
         unordered_set<uint32_t> oriIps = ips;
         filterIPByArea(host, server, ips);
         if (!ips.empty()) {
@@ -347,53 +346,31 @@ void DNSServer::syncDNSRecordFromServer(const string host, std::function<void(DN
             }
         }
     };
-
+    unordered_set<string> areas;
+    if (config.areaResolveOptimize) {
+        for (auto area : server->areas) {
+            if (area[0] != '!') {
+                areas.emplace(area);
+            }
+        }
+    }
     if (server->type.compare("TCP_SSL") == 0) {
-        DNSClient::INSTANCE.tcpTlsDNS(host, server->ip, server->port, server->timeout, [=](TcpDNSResponse *tcpResponse) {
-            unordered_set<uint32_t> ips;
-            if (tcpResponse != nullptr && tcpResponse->isValid()) {
-                ips = move(tcpResponse->udpDnsResponse->ips);
-            }
-            if (tcpResponse != nullptr) {
-                delete tcpResponse;
-            }
-            dnsComplete(ips);
-        });
+        DNSClient::INSTANCE.tcpTlsDNS(host, server->ip, server->port, server->timeout, areas, dnsComplete);
     } else if (server->type.compare("TCP") == 0) {
-        DNSClient::INSTANCE.tcpDNS(host, server->ip, server->port, server->timeout, [=](TcpDNSResponse *tcpResponse) {
-            unordered_set<uint32_t> ips;
-            if (tcpResponse != nullptr && tcpResponse->isValid()) {
-                ips = move(tcpResponse->udpDnsResponse->ips);
-            }
-            if (tcpResponse != nullptr) {
-                delete tcpResponse;
-            }
-            dnsComplete(ips);
-        });
-
+        DNSClient::INSTANCE.tcpDNS(host, server->ip, server->port, server->timeout, areas, dnsComplete);
     } else if (server->type.compare("UDP") == 0) {
-        DNSClient::INSTANCE.udpDns(host, server->ip, server->port, server->timeout, [=](UdpDNSResponse *udpDnsResponse) {
-            unordered_set<uint32_t> ips;
-            if (udpDnsResponse != nullptr && udpDnsResponse->isValid()) {
-                ips = move(udpDnsResponse->ips);
-            }
-            if (udpDnsResponse != nullptr) {
-                delete udpDnsResponse;
-            }
-            dnsComplete(ips);
-        });
+        DNSClient::INSTANCE.udpDns(host, server->ip, server->port, server->timeout, dnsComplete);
     }
 }
 
 void DNSServer::filterIPByArea(const string host, RemoteDNSServer *server, unordered_set<uint32_t> &ips) {
-    if (!ips.empty() && server->whitelist.find(host) == server->whitelist.end() && !server->area.empty() &&
-        server->onlyAreaIp) {
+    if (!ips.empty() && server->whitelist.find(host) == server->whitelist.end() && !server->areas.empty()) {
         for (auto it = ips.begin(); it != ips.end();) {
             auto ip = *it;
-            if (!st::areaip::isAreaIP(server->area, ip)) {
+            if (!st::areaip::isAreaIP(server->areas, ip)) {
                 it = ips.erase(it);
                 Logger::DEBUG << host << "remove not area ip" << st::utils::ipv4::ipToStr(ip) << "from" << server->ip
-                              << server->area << END;
+                              << st::utils::join(server->areas, "/") << END;
             } else {
                 it++;
             }

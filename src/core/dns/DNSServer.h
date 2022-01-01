@@ -64,6 +64,7 @@ private:
     bool beginQueryRemote(const string host, DNSSession *session);
 
     unordered_set<DNSSession *> endQueryRemote(const string host);
+
 };
 
 

@@ -13,7 +13,7 @@ RemoteDNSServer::calculateQueryServer(const string &domain, const vector<RemoteD
     for (auto it = servers.begin(); it != servers.end(); it++) {
         RemoteDNSServer *server = *it.base();
 
-        if ((fiDomain == "LAN" || fiDomain == "ARPA") && server->area != "LAN") {
+        if ((fiDomain == "LAN" || fiDomain == "ARPA") && server->areas.find("LAN") == server->areas.end()) {
             continue;
         }
 
@@ -33,5 +33,5 @@ RemoteDNSServer::calculateQueryServer(const string &domain, const vector<RemoteD
     return result;
 }
 
-RemoteDNSServer::RemoteDNSServer(const string &ip, int port, const string &type, const string &area, bool onlyAreaIp) : ip(ip), port(port), type(type), area(area), onlyAreaIp(onlyAreaIp) {
+RemoteDNSServer::RemoteDNSServer(const string &ip, int port, const string &type) : ip(ip), port(port), type(type) {
 }

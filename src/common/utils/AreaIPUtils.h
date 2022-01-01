@@ -18,8 +18,12 @@ namespace st {
     namespace areaip {
         bool loadAreaIPs(const string &areaCode);
         std::pair<uint32_t, uint32_t> ipRange(const string &rangeStr);
-        bool isAreaIP(const string &areaCode, const uint32_t &ip);
-        bool isAreaIP(const string &areaCode, const string &ip);
+        bool isAreaIP(const string &areaReg, const uint32_t &ip);
+        bool isAreaIP(const unordered_set<string> &areas, const uint32_t &ip);
+
+        bool isAreaIP(const string &areaReg, const string &ip);
+        uint16_t area2Code(const string &areaCode);
+        string code2Area(uint16_t mark);
 
     }// namespace areaip
 }// namespace st

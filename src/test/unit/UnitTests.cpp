@@ -9,43 +9,32 @@
 #include <thread>
 #include <vector>
 
-void testDNS(const string &domain, const string &server, const uint32_t port, const string &type) {
+
+void testDNS(const string &domain, const string &server, const uint32_t port, const string &type, const unordered_set<string> areas) {
     mutex lock;
     lock.lock();
-    UdpDNSResponse *result = nullptr;
+    std::unordered_set<uint32_t> result;
+    auto complete = [&](std::unordered_set<uint32_t> ips) {
+        result = ips;
+        lock.unlock();
+    };
     if (type.compare("TCP") == 0) {
-        DNSClient::INSTANCE.tcpDNS(domain, server, port, 1000, [&](TcpDNSResponse *dnsResponse) {
-            if (dnsResponse != nullptr) {
-                result = dnsResponse->udpDnsResponse;
-            }
-            lock.unlock();
-        });
+        DNSClient::INSTANCE.tcpDNS(domain, server, port, 1000, areas, complete);
     } else if (type.compare("TCP_SSL") == 0) {
-        DNSClient::INSTANCE.tcpTlsDNS(domain, server, port, 5000, [&](TcpDNSResponse *dnsResponse) {
-            if (dnsResponse != nullptr) {
-                result = dnsResponse->udpDnsResponse;
-            }
-            lock.unlock();
-        });
+        DNSClient::INSTANCE.tcpTlsDNS(domain, server, port, 5000, areas, complete);
     } else {
-        DNSClient::INSTANCE.udpDns(domain, server, port, 5000, [&](UdpDNSResponse *dnsResponse) {
-            result = dnsResponse;
-            lock.unlock();
-        });
+        DNSClient::INSTANCE.udpDns(domain, server, port, 5000, complete);
     }
     lock.lock();
-    ASSERT_TRUE(result != nullptr);
+    ASSERT_TRUE(result.size() > 0);
 
-    if (result != nullptr) {
-        string ips = st::utils::ipv4::ipsToStr(result->ips);
-        Logger::INFO << domain << "ips:" << ips << END;
-        delete result;
-        ASSERT_STRNE("", ips.c_str()) << "expect not empty";
-    }
-    ASSERT_TRUE(result != nullptr);
+    Logger::INFO << domain << "ips:" << st::utils::ipv4::ipsToStr(result) << st::utils::join(areas, "/") << END;
     lock.unlock();
 }
 
+void testDNS(const string &domain, const string &server, const uint32_t port, const string &type) {
+    testDNS(domain, server, port, type, {});
+}
 
 template<typename FUNC>
 void testParallel(FUNC testMethod, uint32_t count, uint32_t parral) {
@@ -65,20 +54,20 @@ void testParallel(FUNC testMethod, uint32_t count, uint32_t parral) {
 }
 
 TEST(UnitTests, testTcpDNS) {
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 3; i++) {
         testDNS("baidu.com", "114.114.114.114", 53, "UDP");
     }
 }
 
 TEST(UnitTests, testTcpTlsDNS) {
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 3; i++) {
         testDNS("baidu.com", "223.5.5.5", 853, "TCP_SSL");
     }
 }
 
 TEST(UnitTests, testUdpDNS) {
-    for (int i = 0; i < 10; i++) {
-        testDNS("baidu.com", "114.114.114.114", 53, "TCP");
+    for (int i = 0; i < 3; i++) {
+        testDNS("baidu.com", "223.5.5.5", 53, "TCP");
     }
 }
 
@@ -92,28 +81,35 @@ TEST(UnitTests, testBase64) {
 
 TEST(UnitTests, testSHM) {
     int count = 100;
-    st::utils::dns::DNSReverseSHM dnsSHM(false);
-    st::utils::dns::DNSReverseSHM dnsSHMRead;
     for (int i = 0; i < count; i++) {
-        dnsSHM.addOrUpdate(i, to_string(i) + "baidu.com");
+        st::dns::SHM::write().addOrUpdate(i, to_string(i) + "baidu.com");
     }
     for (int i = 0; i < count; i++) {
-        auto host = dnsSHMRead.query(i);
-        ASSERT_STREQ((to_string(i) + "baidu.com").c_str(), host.c_str());
+        for (int j = 0; j < 10000; j++) {
+            auto host = st::dns::SHM::read().query(i);
+            ASSERT_STREQ((to_string(i) + "baidu.com").c_str(), host.c_str());
+        }
     }
 
     auto testIp = count + 1;
-    auto host2 = dnsSHMRead.query(testIp);
+    auto host2 = st::dns::SHM::read().query(testIp);
     ASSERT_STREQ(st::utils::ipv4::ipToStr(testIp).c_str(), host2.c_str());
 }
 
 TEST(UnitTests, testAreaIP) {
+    ASSERT_TRUE(st::areaip::isAreaIP("cn", "223.5.5.5"));
     ASSERT_TRUE(st::areaip::isAreaIP("cn", "220.181.38.148"));
-    ASSERT_TRUE(st::areaip::isAreaIP("cn", "123.117.76.165"));
+    ASSERT_TRUE(st::areaip::isAreaIP("cn", "123.117.76.165"));t 
     ASSERT_TRUE(!st::areaip::isAreaIP("cn", "172.217.5.110"));
     ASSERT_TRUE(st::areaip::isAreaIP("us", "172.217.5.110"));
     ASSERT_TRUE(st::areaip::isAreaIP("jp", "114.48.198.220"));
     ASSERT_TRUE(!st::areaip::isAreaIP("us", "114.48.198.220"));
     ASSERT_TRUE(!st::areaip::isAreaIP("cn", "218.146.11.198"));
     ASSERT_TRUE(st::areaip::isAreaIP("kr", "218.146.11.198"));
+}
+
+
+TEST(UnitTests, demo) {
+    testDNS("google.com", "8.8.8.8", 853, "TCP_SSL", {"US", "JP", "CN", "HK"});
+    testDNS("baidu.com", "223.5.5.5", 853, "TCP_SSL", {"CN"});
 }

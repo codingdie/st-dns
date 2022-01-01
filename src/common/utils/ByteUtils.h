@@ -30,7 +30,7 @@ namespace st {
 
         template<typename ItemType, typename ItemTypeB, typename NumA, typename NumB, typename NumC>
         static void copy(ItemType *from, ItemTypeB *to, NumA indexFrom, NumB distFrom,
-                                NumC len) {
+                         NumC len) {
             for (auto i = 0; i < len; i++) { *(to + distFrom + i) = *(from + indexFrom + i); }
         };
 
@@ -55,7 +55,9 @@ namespace st {
             }
         }
 
-        static string join(vector<string> &lists, const char *delimit) {
+
+        template<typename Collection>
+        static string join(const Collection &lists, const char *delimit) {
             string result;
             for (auto value : lists) {
                 if (!result.empty()) { result += delimit; }

@@ -3,10 +3,10 @@
 //
 
 #include "AreaIPUtils.h"
-#include "Logger.h"
-#include "IPUtils.h"
-#include <iostream>
 #include "FileUtils.h"
+#include "IPUtils.h"
+#include "Logger.h"
+#include <iostream>
 namespace st {
     namespace areaip {
         using namespace st::utils;
@@ -26,7 +26,8 @@ namespace st {
             string filePath = "/etc/area-ips/" + areaCode;
             if (!file::exit(filePath)) {
                 file::createIfNotExits(filePath);
-                string url = "https://raw.githubusercontent.com/herrbischoff/country-ip-blocks/master/ipv4/" + areaCodeLow + ".cidr";
+                string url = "https://raw.githubusercontent.com/herrbischoff/country-ip-blocks/master/ipv4/" +
+                             areaCodeLow + ".cidr";
                 if (shell::exec("wget -q " + url + " -O " + filePath)) {
                     return filePath;
                 } else {
@@ -103,6 +104,34 @@ namespace st {
         bool isAreaIP(const string &areaCode, const string &ip) {
             return isAreaIP(areaCode, st::utils::ipv4::strToIp(ip));
         }
-
+        bool isAreaIP(const unordered_set<string> &areas, const uint32_t &ip) {
+            if (areas.empty()) {
+                return true;
+            }
+            bool result = false;
+            for (auto it = areas.begin(); it != areas.end(); it++) {
+                string area = *it;
+                result |= isAreaIP(area, ip);
+            }
+            return result;
+        }
+        uint16_t area2Code(const string &areaCode) {
+            if (areaCode.length() == 2 && areaCode[0] >= 'A' && areaCode[1] >= 'A' && areaCode[1] <= 'Z' &&
+                areaCode[0] <= 'Z') {
+                uint8_t firstCode = areaCode[0] - 'A';
+                uint8_t secondCode = areaCode[1] - 'A';
+                return firstCode * 26 + secondCode;
+            }
+            return 0;
+        }
+        string code2Area(uint16_t mark) {
+            if (mark >= 0 && mark <= 26 * 26 - 1) {
+                string area = "##";
+                area[0] = (char) ('A' + mark / 26);
+                area[1] = (char) ('A' + mark % 26);
+                return area;
+            }
+            return "";
+        }
     }// namespace areaip
 }// namespace st

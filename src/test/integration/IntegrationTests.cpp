@@ -32,94 +32,27 @@ protected:
     void TearDown() override { BaseTest::TearDown(); }
 };
 
-
-template<typename FUNC>
-void testParallel(FUNC testMethod, uint32_t count, uint32_t parral) {
-    boost::asio::thread_pool threadPool(parral);
-    atomic<uint32_t> taskCount(0);
-    for (int i = 0; i < count; i++) {
-        auto task = [=, &taskCount]() {
-            Logger::traceId = 1000;
-            testMethod();
-            taskCount++;
-        };
-        boost::asio::post(threadPool, task);
-    }
-    while (taskCount != count) {
-        std::this_thread::sleep_for(std::chrono::seconds(3));
-    }
-}
-
-
-template<typename FUNC>
-void testParallel(vector<FUNC> testMethods, uint32_t parral) {
-    boost::asio::thread_pool threadPool(parral);
-    atomic<uint32_t> taskCount(0);
-    for (auto testMethod : testMethods) {
-        auto task = [=, &taskCount]() {
-            Logger::traceId = 1000;
-            testMethod();
-            taskCount++;
-        };
-        boost::asio::post(threadPool, task);
-    }
-    while (taskCount != (int32_t) testMethods.size()) {
-        std::this_thread::sleep_for(std::chrono::seconds(3));
-    }
-}
-void testUdp(const string &domain, const string &server, const uint32_t port, const int count, const int parral) {
-    testParallel(
-            [=]() {
-                DNSClient::INSTANCE.udpDns(domain, server, port, 5000, [](UdpDNSResponse *dnsResponse) {
-                    EXPECT_NE(dnsResponse, nullptr);
-                    EXPECT_STRNE("", st::utils::ipv4::ipsToStr(dnsResponse->ips).c_str());
-                    if (dnsResponse != nullptr) {
-                        cout << st::utils::ipv4::ipsToStr(dnsResponse->ips) << endl;
-                        delete dnsResponse;
-                    }
-                });
-            },
-            count, parral);
-}
-void testUdp(const string &domain, const string &server, const uint32_t port) {
+void testDNS(const string &domain) {
+    const string server = "127.0.0.1";
+    const uint32_t port = 5353;
     mutex lock;
     lock.lock();
-    UdpDNSResponse *result = nullptr;
-    DNSClient::INSTANCE.udpDns(domain, server, port, 10000, [&](UdpDNSResponse *dnsResponse) {
-        result = dnsResponse;
+    unordered_set<uint32_t> ips;
+    DNSClient::INSTANCE.udpDns(domain, server, port, 20000, [&](std::unordered_set<uint32_t> result) {
+        ips = result;
         lock.unlock();
     });
     lock.lock();
-    ASSERT_TRUE(result != nullptr);
-
-    if (result != nullptr) {
-        string ips = st::utils::ipv4::ipsToStr(result->ips);
-        Logger::DEBUG << domain << "ips:" << ips << END;
-        delete result;
-        ASSERT_STRNE("", ips.c_str()) << "expect not empty";
+    if (ips.size() > 0) {
+        Logger::INFO << domain << "ips:" << st::utils::ipv4::ipsToStr(ips) << END;
     }
-    ASSERT_TRUE(result != nullptr);
+    ASSERT_TRUE(ips.size() > 0);
     lock.unlock();
 }
 
 
-void testUdp(unordered_set<string> &domains, const string &server, const uint32_t port, const int parral) {
-    vector<std::function<void()>> tests;
-    for (string domain : domains) {
-        tests.emplace_back([=]() {
-            testUdp(domain, server, port);
-        });
-    }
-    testParallel(tests, parral);
-}
 TEST_F(IntegrationTests, testDNS) {
-    for (int i = 0; i < 3; i++) {
-        testUdp("amd-ubuntu-01", "127.0.0.1", 5353);
-    }
-    for (int i = 0; i < 3; i++) {
-        testUdp("baidu.com", "127.0.0.1", 5353);
-    }
-    for (int i = 0; i < 3; i++) {
-        testUdp("google.com", "127.0.0.1", 5353);
-    }
+    testDNS("google.com");
+    testDNS("youtube.com");
+    testDNS("facebook.com");
 }

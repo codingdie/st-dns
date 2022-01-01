@@ -21,9 +21,9 @@ void DNSCache::addCache(const string &domain, const unordered_set<uint32_t> &ips
         }
         for (auto ip : ips) {
             if (matchArea) {
-                dnsReverseSHM.addOrUpdate(ip, domain);
+                st::dns::SHM::write().addOrUpdate(ip, domain);
             } else {
-                dnsReverseSHM.add(ip, domain);
+                st::dns::SHM::write().add(ip, domain);
             }
         }
         record.ips = ips;
@@ -83,7 +83,7 @@ unordered_set<string> DNSCache::queryNotMatchAreaServers(const string &host) {
     return result;
 }
 
-DNSCache::DNSCache() : dnsReverseSHM(false) {
+DNSCache::DNSCache() {
 }
 
 void DNSCache::loadFromFile() {
@@ -106,9 +106,9 @@ void DNSCache::loadFromFile() {
                 }
                 for (auto ip : record.ips) {
                     if (record.matchArea) {
-                        dnsReverseSHM.addOrUpdate(ip, record.host);
+                        st::dns::SHM::write().addOrUpdate(ip, record.host);
                     } else {
-                        dnsReverseSHM.add(ip, record.host);
+                        st::dns::SHM::write().add(ip, record.host);
                     }
                 }
             }

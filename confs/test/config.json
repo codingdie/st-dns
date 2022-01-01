@@ -6,17 +6,9 @@
       "type": "UDP",
       "ip": "192.168.31.1",
       "port": 53,
-      "area": "LAN",
-      "only_area_ip": true,
-      "timeout": "500",
-      "dns_cache_expire": 60
-    },
-    {
-      "type": "UDP",
-      "ip": "114.114.114.114",
-      "port": 53,
-      "area": "CN",
-      "only_area_ip": true,
+      "areas": [
+        "LAN"
+      ],
       "timeout": "500",
       "dns_cache_expire": 60
     },
@@ -24,22 +16,27 @@
       "type": "TCP_SSL",
       "ip": "223.5.5.5",
       "port": 853,
-      "area": "CN",
-      "only_area_ip": true,
-      "timeout": "1000",
-      "dns_cache_expire": 3600
+      "areas": [
+        "CN"
+      ],
+      "timeout": "3000",
+      "dns_cache_expire": 600
     },
     {
       "type": "TCP_SSL",
       "ip": "8.8.8.8",
       "port": 853,
-      "area": "!CN",
-      "only_area_ip": true,
-      "timeout": "10000",
-      "dns_cache_expire": 36000
+      "areas": [
+        "JP",
+        "US",
+        "!CN"
+      ],
+      "timeout": "20000",
+      "dns_cache_expire": 600
     }
   ],
-  "dns_cache_expire": 3600,
+  "dns_cache_expire": 600,
+  "area_resolve_optimize": true,
   "log": {
     "level": 1,
     "raw_log_server": {

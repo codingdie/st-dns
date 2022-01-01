@@ -18,7 +18,8 @@ void st::dns::Config::load(const string &baseConfDir) {
         this->ip = tree.get("ip", string("127.0.0.1"));
         this->port = stoi(tree.get("port", string("1080")));
         this->dnsCacheExpire = stoi(tree.get("dns_cache_expire", to_string(this->dnsCacheExpire)));
-        this->dnsCacheFile = tree.get("dnsCacheFile", this->dnsCacheFile);
+        this->dnsCacheFile = tree.get("dns_cache_file", this->dnsCacheFile);
+        this->areaResolveOptimize = tree.get("area_resolve_optimize", false);
         if (!file::createIfNotExits(this->dnsCacheFile)) {
             Logger::ERROR << "create dnsCacheFile file error!" << this->dnsCacheFile << END;
             exit(1);
@@ -36,15 +37,9 @@ void st::dns::Config::load(const string &baseConfDir) {
                 int serverPort = serverNode.get("port", 53);
                 string type = serverNode.get("type", "UDP");
                 string filename = RemoteDNSServer::generateServerId(serverIp, serverPort);
-                string area = serverNode.get("area", "");
-                if (area.compare("") != 0) {
-                    if (!st::areaip::loadAreaIPs(area)){
-                        exit(1);
-                    }
-                }
-                bool onlyAreaIp = serverNode.get("only_area_ip", false);
 
-                RemoteDNSServer *dnsServer = new RemoteDNSServer(serverIp, serverPort, type, area, onlyAreaIp);
+
+                RemoteDNSServer *dnsServer = new RemoteDNSServer(serverIp, serverPort, type);
                 auto whitelistNode = serverNode.get_child_optional("whitelist");
                 if (whitelistNode.is_initialized()) {
                     auto whitelistArr = whitelistNode.get();
@@ -53,8 +48,25 @@ void st::dns::Config::load(const string &baseConfDir) {
                     }
                 }
                 dnsServer->dnsCacheExpire = stoi(tree.get("dns_cache_expire", to_string(this->dnsCacheExpire)));
-                int timeout = serverNode.get("timeout", 100);
-                dnsServer->timeout = timeout;
+                dnsServer->timeout = serverNode.get("timeout", 100);
+                auto areasNode = serverNode.get_child_optional("areas");
+                if (areasNode.is_initialized()) {
+                    auto areasArr = areasNode.get();
+                    for (boost::property_tree::ptree::value_type &v : areasArr) {
+                        string area = v.second.get_value<string>();
+                        if (!area.empty()) {
+                            if (!st::areaip::loadAreaIPs(area)) {
+                                exit(1);
+                            }
+                            dnsServer->areas.emplace(area);
+                        }
+                    }
+                }
+                if (dnsServer->areas.size() > 1) {
+                    for (auto it = dnsServer->areas.begin(); it != dnsServer->areas.end(); it++) {
+                        st::dns::SHM::write().initVirtualPort(st::utils::ipv4::strToIp(dnsServer->ip), dnsServer->port, *it);
+                    }
+                }
                 servers.emplace_back(dnsServer);
             }
         }
@@ -63,7 +75,6 @@ void st::dns::Config::load(const string &baseConfDir) {
             exit(1);
         }
         Logger::init(tree);
-
     } else {
         Logger::ERROR << "st-dns config file not exit！" << configPath << END;
         exit(1);

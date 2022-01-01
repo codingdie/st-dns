@@ -16,7 +16,6 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
-#include "utils/DNSReverseSHM.h"
 
 using namespace std;
 
@@ -39,7 +38,6 @@ public:
 
 class DNSCache {
 private:
-    st::utils::dns::DNSReverseSHM dnsReverseSHM;
     long trustedRecordCount = 0;
     unordered_map<string, unordered_map<string, DNSRecord>> caches;
 

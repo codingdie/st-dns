@@ -19,11 +19,11 @@ void testDNS(const string &domain, const string &server, const uint32_t port, co
         lock.unlock();
     };
     if (type.compare("TCP") == 0) {
-        DNSClient::INSTANCE.tcpDNS(domain, server, port, 1000, areas, complete);
+        DNSClient::INSTANCE.tcpDNS(domain, server, port, 100000, areas, complete);
     } else if (type.compare("TCP_SSL") == 0) {
-        DNSClient::INSTANCE.tcpTlsDNS(domain, server, port, 5000, areas, complete);
+        DNSClient::INSTANCE.tcpTlsDNS(domain, server, port, 500000, areas, complete);
     } else {
-        DNSClient::INSTANCE.udpDns(domain, server, port, 5000, complete);
+        DNSClient::INSTANCE.udpDns(domain, server, port, 500000, complete);
     }
     lock.lock();
     ASSERT_TRUE(result.size() > 0);
@@ -99,7 +99,7 @@ TEST(UnitTests, testSHM) {
 TEST(UnitTests, testAreaIP) {
     ASSERT_TRUE(st::areaip::isAreaIP("cn", "223.5.5.5"));
     ASSERT_TRUE(st::areaip::isAreaIP("cn", "220.181.38.148"));
-    ASSERT_TRUE(st::areaip::isAreaIP("cn", "123.117.76.165"));t 
+    ASSERT_TRUE(st::areaip::isAreaIP("cn", "123.117.76.165"));
     ASSERT_TRUE(!st::areaip::isAreaIP("cn", "172.217.5.110"));
     ASSERT_TRUE(st::areaip::isAreaIP("us", "172.217.5.110"));
     ASSERT_TRUE(st::areaip::isAreaIP("jp", "114.48.198.220"));

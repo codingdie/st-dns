@@ -57,7 +57,7 @@ private:
     std::unordered_set<uint32_t> parse(uint16_t length, pair<uint8_t *, uint32_t> lengthBytes, pair<uint8_t *, uint32_t> dataBytes, uint16_t dnsId);
 
     template<typename Result>
-    bool isTimeoutOrError(boost::system::error_code ec, uint64_t beginTime, uint64_t timeout, std::function<void(Result)> completeHandler);
+    bool isTimeoutOrError(const string& logTag, boost::system::error_code ec, uint64_t beginTime, uint64_t timeout, std::function<void(Result)> completeHandler);
 };
 
 #endif//ST_DNS_DNSCLIENT_H

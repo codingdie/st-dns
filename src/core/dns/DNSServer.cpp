@@ -231,16 +231,8 @@ void DNSServer::forwardUdpDNSRequest(DNSSession *session, std::function<void(Udp
 }
 void DNSServer::calRemoteDNSServers(const DNSRecord &record, vector<RemoteDNSServer *> &servers) {
     auto host = record.host;
-    if (record.ips.empty()) {
+    if (record.ips.empty() || !record.matchArea) {
         servers = RemoteDNSServer::calculateQueryServer(host, config.servers);
-    } else if (!record.matchArea) {
-        unordered_set<string> notMatchServers = DNSCache::INSTANCE.queryNotMatchAreaServers(host);
-        for (auto it = config.servers.begin(); it != config.servers.end(); it++) {
-            RemoteDNSServer *server = *it.base();
-            if (notMatchServers.find(server->id()) != notMatchServers.end()) {
-                servers.emplace_back(server);
-            }
-        }
     } else {
         RemoteDNSServer *server = this->config.getDNSServerById(record.dnsServer);
         if (server != nullptr) {

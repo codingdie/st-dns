@@ -43,7 +43,7 @@ void DNSClient::udpDns(const string domain, const std::string &dnsServer, uint32
     UdpDnsRequest dnsRequest(domains);
     unsigned short qid = dnsRequest.dnsHeader->id;
     uint16_t dnsId = dnsRequest.dnsHeader->id;
-    string logTag = to_string(dnsId) + " " + dnsServer + " " + domains[0];
+    string logTag = to_string(dnsId) + " udpDns " + dnsServer + " " + domains[0];
     std::function<void(std::unordered_set<uint32_t> ips)> complete = [=](std::unordered_set<uint32_t> ips) {
         delete socket;
         Logger::DEBUG << logTag << "cost" << time::now() - beginTime << END;
@@ -79,7 +79,7 @@ void DNSClient::tcpTlsDNS(const string domain, const std::string &dnsServer, uin
     tcp::endpoint serverEndpoint(make_address_v4(dnsServer), port);
     TcpDnsRequest *dnsRequest = new TcpDnsRequest(domains);
     uint16_t dnsId = dnsRequest->dnsHeader->id;
-    string logTag = to_string(dnsId) + " " + dnsServer + " " + domains[0];
+    string logTag = to_string(dnsId) + " " + dnsServer + " tcpTlsDNS " + domains[0];
     boost::asio::ssl::stream<tcp::socket> *socket = new boost::asio::ssl::stream<tcp::socket>(ioContext, sslCtx);
     socket->set_verify_mode(ssl::verify_none);
     pair<uint8_t *, uint32_t> dataBytes = st::mem::pmalloc(1024);
@@ -150,7 +150,7 @@ void DNSClient::tcpDNS(const string domain, const std::string &dnsServer, uint16
     tcp::endpoint serverEndpoint(make_address_v4(dnsServer), port);
     TcpDnsRequest *dnsRequest = new TcpDnsRequest(domains);
     uint16_t dnsId = dnsRequest->dnsHeader->id;
-    string logTag = to_string(dnsId) + " " + dnsServer + " " + domains[0];
+    string logTag = to_string(dnsId) + " tcpDNS " + dnsServer + " " + domains[0];
     tcp::socket *socket = new tcp::socket(ioContext);
     pair<uint8_t *, uint32_t> dataBytes = st::mem::pmalloc(1024);
     pair<uint8_t *, uint32_t> lengthBytes = st::mem::pmalloc(2);

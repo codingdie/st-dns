@@ -62,10 +62,8 @@ void st::dns::Config::load(const string &baseConfDir) {
                         }
                     }
                 }
-                if (dnsServer->areas.size() > 1) {
-                    for (auto it = dnsServer->areas.begin(); it != dnsServer->areas.end(); it++) {
-                        st::dns::SHM::write().initVirtualPort(st::utils::ipv4::strToIp(dnsServer->ip), dnsServer->port, *it);
-                    }
+                for (auto it = dnsServer->areas.begin(); it != dnsServer->areas.end(); it++) {
+                    st::dns::SHM::write().initVirtualPort(st::utils::ipv4::strToIp(dnsServer->ip), dnsServer->port, *it);
                 }
                 servers.emplace_back(dnsServer);
             }

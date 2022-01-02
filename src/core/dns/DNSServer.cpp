@@ -120,19 +120,15 @@ void DNSServer::endDNSSession(DNSSession *session) {
     session->apmLogger.addDimension("success", to_string(success));
     session->apmLogger.end();
 
-    Logger::INFO << "dns from" << session->clientEndpoint.address().to_string() << session->clientEndpoint.port() << session->processType << (success ? "success!" : "failed!");
-    Logger::INFO << "type:" << session->getQueryType();
-    Logger::INFO << "rlen:" << session->udpDnsRequest.len;
-    if (session->udpDNSResponse != nullptr) {
-        Logger::INFO << "relen:" << session->udpDNSResponse->len;
-    }
+    Logger::INFO << "dns request prcocess" << session->processType << (success ? "success!" : "failed!");
+    Logger::INFO << "type" << session->getQueryType();
     if (!session->udpDnsRequest.getHost().empty()) {
-        Logger::INFO << session->udpDnsRequest.getHost();
+        Logger::INFO << "domain" << session->udpDnsRequest.getHost();
     }
     if (!session->record.ips.empty()) {
         Logger::INFO << st::utils::ipv4::ipsToStr(session->record.ips) << session->record.dnsServer;
     }
-    Logger::INFO << "cost:" << time::now() - session->getTime() << END;
+    Logger::INFO << "cost" << time::now() - session->getTime() << END;
     delete session;
 }
 
@@ -311,7 +307,6 @@ void DNSServer::syncDNSRecordFromServer(const string host, std::function<void(DN
     uint64_t traceId = Logger::traceId;
     std::function<void(unordered_set<uint32_t> ips)> dnsComplete = [=](unordered_set<uint32_t> ips) {
         Logger::traceId = traceId;
-        Logger::INFO << logTag << "before filter" << ipv4::ipsToStr(ips) << END;
         unordered_set<uint32_t> oriIps = ips;
         filterIPByArea(host, server, ips);
         if (!ips.empty()) {
@@ -325,15 +320,14 @@ void DNSServer::syncDNSRecordFromServer(const string host, std::function<void(DN
         }
         DNSRecord record;
         DNSCache::INSTANCE.query(host, record);
+        Logger::DEBUG << logTag << "finished! original" << ipv4::ipsToStr(ips) << " final" << ipv4::ipsToStr(ips) << END;
         if (!record.ips.empty() && completedWithAnyRecord) {
             complete(record);
-            Logger::DEBUG << logTag << "finished" << END;
             updateDNSRecord(record);
         } else {
             if (ips.empty() && pos + 1 < servers.size()) {
                 syncDNSRecordFromServer(host, complete, servers, pos + 1, completedWithAnyRecord);
             } else {
-                Logger::DEBUG << logTag << "finished" << END;
                 complete(record);
             }
         }
@@ -346,6 +340,7 @@ void DNSServer::syncDNSRecordFromServer(const string host, std::function<void(DN
             }
         }
     }
+    Logger::DEBUG << logTag << "start!" << END;
     if (server->type.compare("TCP_SSL") == 0) {
         DNSClient::INSTANCE.tcpTlsDNS(host, server->ip, server->port, server->timeout, areas, dnsComplete);
     } else if (server->type.compare("TCP") == 0) {

@@ -17,15 +17,15 @@ void setMark(int fd, uint32_t mark) {
 }
 
 template<typename Result>
-bool DNSClient::isTimeoutOrError(boost::system::error_code ec, uint64_t beginTime, uint64_t timeout, std::function<void(Result)> completeHandler) {
+bool DNSClient::isTimeoutOrError(const string &logTag, boost::system::error_code ec, uint64_t beginTime, uint64_t timeout, std::function<void(Result)> completeHandler) {
     uint64_t cost = time::now() - beginTime;
     if (!ec && cost <= timeout) {
         return false;
     }
     if (ec) {
-        Logger::ERROR << "error!" << ec.message() << END
+        Logger::ERROR << logTag << "error!" << ec.message() << END
     } else {
-        Logger::ERROR << "timout! cost" << cost << END;
+        Logger::ERROR << logTag << "timout! cost" << cost << END;
     }
     completeHandler({});
     return true;
@@ -51,12 +51,12 @@ void DNSClient::udpDns(const string domain, const std::string &dnsServer, uint32
     };
     socket->async_send_to(buffer(dnsRequest.data, dnsRequest.len),
                           udp::endpoint(make_address_v4(dnsServer), port), [=](boost::system::error_code error, size_t size) {
-                              if (!isTimeoutOrError(error, beginTime, timeout, complete)) {
+                              if (!isTimeoutOrError(logTag, error, beginTime, timeout, complete)) {
                                   UdpDNSResponse *dnsResponse = new UdpDNSResponse(1024);
                                   udp::endpoint serverEndpoint;
                                   socket->async_receive_from(buffer(dnsResponse->data, sizeof(uint8_t) * 1024), serverEndpoint,
                                                              [=](boost::system::error_code error, size_t size) {
-                                                                 if (!isTimeoutOrError(error, beginTime, timeout, complete)) {
+                                                                 if (!isTimeoutOrError(logTag, error, beginTime, timeout, complete)) {
                                                                      dnsResponse->parse(size);
                                                                      if (dnsResponse->isValid() && dnsResponse->header->id == qid) {
                                                                          complete(dnsResponse->ips);
@@ -98,22 +98,22 @@ void DNSClient::tcpTlsDNS(const string domain, const std::string &dnsServer, uin
     socket->lowest_layer().async_connect(
             serverEndpoint,
             [=](boost::system::error_code ec) {
-                if (!isTimeoutOrError(ec, beginTime, timeout, complete)) {
+                if (!isTimeoutOrError(logTag, ec, beginTime, timeout, complete)) {
                     socket->async_handshake(
                             boost::asio::ssl::stream_base::client,
                             [=](boost::system::error_code ec) {
-                                if (!isTimeoutOrError(ec, beginTime, timeout, complete)) {
+                                if (!isTimeoutOrError(logTag, ec, beginTime, timeout, complete)) {
                                     st::utils::copy(dnsRequest->data, dataBytes.first, 0, 0, dnsRequest->len);
                                     boost::asio::async_write(
                                             *socket,
                                             buffer(dataBytes.first, dnsRequest->len),
                                             [=](boost::system::error_code ec, std::size_t length) {
-                                                if (!isTimeoutOrError(ec, beginTime, timeout, complete)) {
+                                                if (!isTimeoutOrError(logTag, ec, beginTime, timeout, complete)) {
                                                     boost::asio::async_read(
                                                             *socket,
                                                             buffer(lengthBytes.first, 2),
                                                             [=](boost::system::error_code ec, std::size_t length) {
-                                                                if (!isTimeoutOrError(ec, beginTime, timeout, complete)) {
+                                                                if (!isTimeoutOrError(logTag, ec, beginTime, timeout, complete)) {
                                                                     uint16_t dataLen = 0;
                                                                     st::utils::read(lengthBytes.first, dataLen);
                                                                     if (dataLen > 1024) {
@@ -123,7 +123,7 @@ void DNSClient::tcpTlsDNS(const string domain, const std::string &dnsServer, uin
                                                                                 *socket,
                                                                                 buffer(dataBytes.first, dataLen),
                                                                                 [=](boost::system::error_code ec, std::size_t length) {
-                                                                                    if (!isTimeoutOrError(ec, beginTime, timeout, complete)) {
+                                                                                    if (!isTimeoutOrError(logTag, ec, beginTime, timeout, complete)) {
                                                                                         complete(parse(length, lengthBytes, dataBytes, dnsId));
                                                                                     }
                                                                                 });
@@ -168,18 +168,18 @@ void DNSClient::tcpDNS(const string domain, const std::string &dnsServer, uint16
     socket->async_connect(
             serverEndpoint,
             [=](boost::system::error_code ec) {
-                if (!isTimeoutOrError(ec, beginTime, timeout, complete)) {
+                if (!isTimeoutOrError(logTag, ec, beginTime, timeout, complete)) {
                     st::utils::copy(dnsRequest->data, dataBytes.first, 0, 0, dnsRequest->len);
                     boost::asio::async_write(
                             *socket,
                             buffer(dataBytes.first, dnsRequest->len),
                             [=](boost::system::error_code ec, std::size_t length) {
-                                if (!isTimeoutOrError(ec, beginTime, timeout, complete)) {
+                                if (!isTimeoutOrError(logTag, ec, beginTime, timeout, complete)) {
                                     boost::asio::async_read(
                                             *socket,
                                             buffer(lengthBytes.first, 2),
                                             [=](boost::system::error_code ec, std::size_t length) {
-                                                if (!isTimeoutOrError(ec, beginTime, timeout, complete)) {
+                                                if (!isTimeoutOrError(logTag, ec, beginTime, timeout, complete)) {
                                                     uint16_t dataLen = 0;
                                                     st::utils::read(lengthBytes.first, dataLen);
                                                     if (dataLen > 1024) {
@@ -189,7 +189,7 @@ void DNSClient::tcpDNS(const string domain, const std::string &dnsServer, uint16
                                                                 *socket,
                                                                 buffer(dataBytes.first, dataLen),
                                                                 [=](boost::system::error_code ec, std::size_t length) {
-                                                                    if (!isTimeoutOrError(ec, beginTime, timeout, complete)) {
+                                                                    if (!isTimeoutOrError(logTag, ec, beginTime, timeout, complete)) {
                                                                         complete(parse(length, lengthBytes, dataBytes, dnsId));
                                                                     }
                                                                 });
@@ -276,14 +276,14 @@ void DNSClient::forwardUdp(UdpDnsRequest &dnsRequest, const std::string &dnsServ
     socket->async_send_to(buffer(dnsRequest.data, dnsRequest.len),
                           udp::endpoint(make_address_v4(dnsServer), port),
                           [=](boost::system::error_code error, size_t size) {
-                              if (!isTimeoutOrError(error, beginTime, timeout, complete)) {
+                              if (!isTimeoutOrError(logTag, error, beginTime, timeout, complete)) {
                                   UdpDNSResponse *dnsResponse = new UdpDNSResponse(1024);
                                   udp::endpoint serverEndpoint;
                                   socket->async_receive_from(
                                           buffer(dnsResponse->data, sizeof(uint8_t) * 1024),
                                           serverEndpoint,
                                           [=](boost::system::error_code error, size_t size) {
-                                              if (!isTimeoutOrError(error, beginTime, timeout, complete) && size > 0) {
+                                              if (!isTimeoutOrError(logTag, error, beginTime, timeout, complete) && size > 0) {
                                                   dnsResponse->len = size;
                                                   complete(dnsResponse);
                                               } else {

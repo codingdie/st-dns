@@ -32,19 +32,18 @@ UdpDNSResponse::UdpDNSResponse(uint64_t len) : BasicData(len) {
 
 void UdpDNSResponse::parse(uint64_t maxReadable) {
     this->markValid();
+    int answerZonesSize = 0;
     if (maxReadable > DNSHeader::DEFAULT_LEN) {
         uint64_t restUnParseSize = maxReadable;
         uint8_t *dataZone = this->data;
         bool successParsedAll = false;
         while (this->isValid() && successParsedAll == false) {
             if (this->header == nullptr) {
-                DNSHeader *parseHeader = new DNSHeader(dataZone, restUnParseSize);
-                if (!parseHeader->isValid()) {
-                    delete parseHeader;
+                DNSHeader *parseHeader = DNSHeader::parse(dataZone, restUnParseSize);
+                if (parseHeader == nullptr) {
                     this->markInValid();
                 } else {
                     this->header = parseHeader;
-                    ;
                     dataZone += this->header->len;
                     restUnParseSize -= this->header->len;
                 }
@@ -62,12 +61,12 @@ void UdpDNSResponse::parse(uint64_t maxReadable) {
                         }
                     } else {
                         if (this->answerZones.size() < this->header->answerCount) {
-                            dataZone += this->answerZonesSize;
-                            restUnParseSize -= this->answerZonesSize;
+                            dataZone += answerZonesSize;
+                            restUnParseSize -= answerZonesSize;
                             for (auto i = this->answerZones.size(); i < this->header->answerCount && this->isValid(); i++) {
                                 auto *answer = new DNSResourceZone(data, maxReadable, maxReadable - restUnParseSize);
                                 if (answer->isValid()) {
-                                    this->answerZonesSize += answer->len;
+                                    answerZonesSize += answer->len;
                                     dataZone += answer->len;
                                     restUnParseSize -= answer->len;
                                     answerZones.emplace_back(answer);
@@ -100,10 +99,23 @@ void UdpDNSResponse::parse(uint64_t maxReadable) {
 UdpDNSResponse::UdpDNSResponse(uint8_t *data, uint64_t len) : BasicData(data, len) {
 }
 
-UdpDNSResponse::UdpDNSResponse(UdpDnsRequest &request, DNSRecord &record) {
+UdpDNSResponse::UdpDNSResponse(UdpDnsRequest &request, DNSRecord &record) : BasicData(1024) {
+    int finalLen = 0;
     unordered_set<uint32_t> &ips = record.ips;
+    auto curData = this->data;
     bool hasRecord = !ips.empty();
-    this->header = DNSHeader::generateAnswer(request.dnsHeader->id, request.dnsQueryZone != nullptr ? request.dnsQueryZone->querys.size() : 0, ips.size());
+
+    //header
+    this->header = DNSHeader::generateAnswer(curData, request.dnsHeader->id, request.dnsQueryZone != nullptr ? request.dnsQueryZone->querys.size() : 0, ips.size());
+    curData += this->header->len;
+    finalLen += this->header->len;
+    //query
+    if (request.dnsQueryZone != nullptr) {
+        this->queryZone = request.dnsQueryZone->copy(curData);
+        finalLen += this->queryZone->len;
+        curData += this->queryZone->len;
+    }
+    //answer
     if (hasRecord) {
         uint32_t expire = (record.expireTime - time::now()) / 1000L;
         if (expire <= 0) {
@@ -115,34 +127,15 @@ UdpDNSResponse::UdpDNSResponse(UdpDnsRequest &request, DNSRecord &record) {
         expire = max(expire, (uint32_t) 1 * 10);
         expire = min(expire, (uint32_t) 10 * 60);
         for (auto it = ips.begin(); it != ips.end(); it++) {
-            DNSResourceZone *pResourceZone = DNSResourceZone::generate(*it, expire);
+            DNSResourceZone *pResourceZone = DNSResourceZone::generate(curData, *it, expire);
             this->answerZones.emplace_back(pResourceZone);
-            this->answerZonesSize += pResourceZone->len;
+            curData += pResourceZone->len;
+            finalLen += pResourceZone->len;
             this->ips.emplace(*it);
         }
     }
 
-    this->len = this->header->len + this->answerZonesSize;
-    if (request.dnsQueryZone != nullptr) {
-        this->queryZone = request.dnsQueryZone->copy();
-        this->len += this->queryZone->len;
-    }
-
-    this->alloc(len);
-    auto ptr = this->data;
-    st::utils::copy(this->header->data, ptr, this->header->len);
-    ptr += this->header->len;
-    if (request.dnsQueryZone != nullptr) {
-        st::utils::copy(this->queryZone->data, ptr, this->queryZone->len);
-        ptr += this->queryZone->len;
-    }
-    if (hasRecord) {
-        for (auto it = this->answerZones.begin(); it < this->answerZones.end(); it++) {
-            DNSResourceZone *pZone = *it.base();
-            st::utils::copy(pZone->data, ptr, pZone->len);
-            ptr += pZone->len;
-        }
-    }
+    this->len = finalLen;
 }
 
 void TcpDNSResponse::parse(uint64_t maxReadable) {

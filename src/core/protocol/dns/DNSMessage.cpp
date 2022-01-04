@@ -49,7 +49,7 @@ uint16_t DnsIdGenerator::id16() {
     return INSTANCE.generateId16();
 };
 
-DNSDomain *DNSDomain::generateDomain(const string &host) {
+DNSDomain *DNSDomain::generate(uint8_t *data, const string &host) {
     const char *hostChar = host.data();
     vector<pair<unsigned char, unsigned char>> subLens;
     int total = 0;
@@ -71,7 +71,7 @@ DNSDomain *DNSDomain::generateDomain(const string &host) {
     }
     uint64_t finalDataLen = subLens.size() + total + 1;
 
-    auto *dnsDomain = new DNSDomain(finalDataLen);
+    auto *dnsDomain = new DNSDomain(data, finalDataLen);
     auto hostCharData = dnsDomain->data;
     int i = 0;
     for (auto &pair : subLens) {
@@ -87,7 +87,11 @@ DNSDomain *DNSDomain::generateDomain(const string &host) {
     dnsDomain->domain = host;
     return dnsDomain;
 }
-uint64_t DNSDomain::parseDomain(uint8_t *allData, uint64_t max, uint64_t begin, uint64_t maxParse, string &domain) {
+uint64_t parseRe(uint8_t *allData, uint64_t allDataSize, uint64_t begin, uint64_t maxParse, string &domain, int depth) {
+    if (depth > 20) {
+        Logger::ERROR << "DNSDomain parse to many depth!" << END;
+        return 0L;
+    }
     uint8_t *data = allData + begin;
     int actualLen = 0;
     while (actualLen < maxParse) {
@@ -99,7 +103,7 @@ uint64_t DNSDomain::parseDomain(uint8_t *allData, uint64_t max, uint64_t begin, 
             actualLen += 2;
             if (pos != begin) {
                 string domainRe = "";
-                uint64_t consume = parseDomain(allData, max, pos, max - pos, domainRe);
+                uint64_t consume = parseRe(allData, allDataSize, pos, allDataSize - pos, domainRe, depth + 1);
                 if (consume != 0) {
                     if (domain.size() != 0) {
                         domain += ".";
@@ -116,7 +120,7 @@ uint64_t DNSDomain::parseDomain(uint8_t *allData, uint64_t max, uint64_t begin, 
                 break;
             }
 
-        } else {
+        } else if ((frameLen & 0b11000000U) == 0b00000000U) {
             actualLen++;
             if (frameLen == 0) {
                 break;
@@ -133,11 +137,17 @@ uint64_t DNSDomain::parseDomain(uint8_t *allData, uint64_t max, uint64_t begin, 
                 }
                 domain += domainStr;
             }
+        } else {
+            break;
         }
     }
     return actualLen;
 }
 
+
+uint64_t DNSDomain::parse(uint8_t *allData, uint64_t allDataSize, uint64_t begin, uint64_t maxParse, string &domain) {
+    return parseRe(allData, allDataSize, begin, maxParse, domain, 0);
+}
 string DNSDomain::getFIDomain(const string &domain) {
     uint64_t pos = domain.find_last_of('.');
     if (pos == string::npos) {

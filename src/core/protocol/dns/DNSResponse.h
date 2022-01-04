@@ -18,7 +18,6 @@ public:
     DNSHeader *header = nullptr;
     DNSQueryZone *queryZone = nullptr;
     vector<DNSResourceZone *> answerZones;
-    uint32_t answerZonesSize = 0;
     unordered_set<uint32_t> ips;
 
     UdpDNSResponse(UdpDnsRequest &request, DNSRecord &record);

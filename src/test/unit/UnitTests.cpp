@@ -110,6 +110,6 @@ TEST(UnitTests, testAreaIP) {
 
 
 TEST(UnitTests, demo) {
-    testDNS("google.com", "8.8.8.8", 853, "TCP_SSL", {"US", "JP", "CN", "HK"});
-    testDNS("baidu.com", "223.5.5.5", 853, "TCP_SSL", {"CN"});
+    testDNS("www.nintendo.com", "8.8.8.8", 853, "TCP_SSL", {"US", "JP", "CN", "HK"});
+    // testDNS("baidu.com", "223.5.5.5", 853, "TCP_SSL", {"CN"});
 }

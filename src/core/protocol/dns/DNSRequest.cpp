@@ -6,27 +6,18 @@
 #include <chrono>
 #include <vector>
 
-UdpDnsRequest::UdpDnsRequest(const vector<std::string> &hosts) {
-    this->dnsHeader = DNSHeader::generateQuery(hosts.size());
-    this->dnsQueryZone = DNSQueryZone::generate(hosts);
+void UdpDnsRequest::init(uint8_t *data, const vector<std::string> &hosts) {
+    this->dnsHeader = DNSHeader::generateQuery(data, hosts.size());
+    this->dnsQueryZone = DNSQueryZone::generate(data + this->dnsHeader->len, hosts);
     this->hosts = hosts;
-    initDataZone();
+    this->len = this->dnsHeader->len + this->dnsQueryZone->len;
 }
-
-void UdpDnsRequest::initDataZone() {
-    uint16_t len = dnsHeader->len + dnsQueryZone->len;
-    this->alloc(len);
-    int j = 0;
-    for (int i = 0; i < dnsHeader->len; i++) {
-        data[j] = dnsHeader->data[i];
-        j++;
-    }
-    for (int i = 0; i < dnsQueryZone->len; i++) {
-        data[j] = dnsQueryZone->data[i];
-        j++;
-    }
+UdpDnsRequest::UdpDnsRequest(const vector<std::string> &hosts) : BasicData(1024) {
+    this->init(this->data, hosts);
 }
-
+UdpDnsRequest::UdpDnsRequest(uint8_t *data, const vector<std::string> &hosts) : BasicData(data) {
+    this->init(this->data, hosts);
+}
 UdpDnsRequest::~UdpDnsRequest() {
     if (dnsHeader != nullptr) {
         delete dnsHeader;
@@ -39,8 +30,8 @@ UdpDnsRequest::~UdpDnsRequest() {
 
 bool UdpDnsRequest::parse(int n) {
     if (n > DNSHeader::DEFAULT_LEN) {
-        DNSHeader *header = new DNSHeader(data, DNSHeader::DEFAULT_LEN);
-        if (header->isValid()) {
+        DNSHeader *header = DNSHeader::parse(data, DNSHeader::DEFAULT_LEN);
+        if (header != nullptr) {
             dnsHeader = header;
             DNSQueryZone *queryZone = new DNSQueryZone(data + DNSHeader::DEFAULT_LEN, n - DNSHeader::DEFAULT_LEN, header->questionCount);
             if (queryZone->isValid()) {
@@ -93,39 +84,14 @@ uint16_t UdpDnsRequest::getQueryTypeValue() const {
 UdpDnsRequest::UdpDnsRequest() {
 }
 
-TcpDnsRequest::TcpDnsRequest(const vector<std::string> &hosts) {
-    this->dnsHeader = DNSHeader::generateQuery(hosts.size());
-    this->dnsQueryZone = DNSQueryZone::generate(hosts);
-    initDataZone();
-}
+TcpDnsRequest::TcpDnsRequest(const vector<std::string> &hosts) : UdpDnsRequest(1024 + SIZE_HEADER) {
+    this->init(this->data + 2, hosts);
 
-
-TcpDnsRequest::TcpDnsRequest(const vector<std::string> &hosts, uint32_t ip) {
-    this->dnsHeader = DNSHeader::generate(hosts.size(), 1, 0, 0, false);
-    this->dnsQueryZone = DNSQueryZone::generate(hosts);
-    this->ENDSZone = EDNSAdditionalZone::generate(ip);
-    initDataZone();
-}
-
-void TcpDnsRequest::initDataZone() {
-    uint16_t len = dnsHeader->len + dnsQueryZone->len + 2;
-    if (ENDSZone != nullptr) {
-        len += ENDSZone->len;
-    }
     uint8_t lenArr[2];
-    uint16_t dataLen = len - 2;
+    uint16_t dataLen = this->len;
     st::utils::toBytes(lenArr, dataLen);
-    this->alloc(len);
-    uint32_t pos = 0;
-    st::utils::copy(lenArr, data, 0U, pos, 2U);
-    pos += 2;
-    st::utils::copy(dnsHeader->data, data, 0U, pos, dnsHeader->len);
-    pos += dnsHeader->len;
-    st::utils::copy(dnsQueryZone->data, data, 0U, pos, dnsQueryZone->len);
-    pos += dnsQueryZone->len;
-    if (ENDSZone != nullptr) {
-        st::utils::copy(ENDSZone->data, data, 0U, pos, ENDSZone->len);
-    }
+    st::utils::copy(lenArr, data, 0U, 0, SIZE_HEADER);
+    this->len = this->len + SIZE_HEADER;
 }
 
 TcpDnsRequest::~TcpDnsRequest() {

@@ -216,7 +216,7 @@ void DNSClient::tcpTlsDNS(const string domain, const std::string &dnsServer, uin
             for (auto ip : ips) {
                 result->emplace(ip);
             }
-            if (counter->load() == areas.size()) {
+            if (counter->load() >= areas.size()) {
                 completeHandler(*result);
                 delete result;
                 delete counter;

@@ -11,14 +11,24 @@
 
 using namespace std;
 
+class EDNSAdditionalZone : public BasicData {
+
+public:
+    EDNSAdditionalZone(uint32_t len);
+
+    static EDNSAdditionalZone *generate(uint32_t ip);
+};
+
 class UdpDnsRequest : public BasicData {
 public:
     DNSHeader *dnsHeader = nullptr;
     DNSQueryZone *dnsQueryZone = nullptr;
     std::vector<string> hosts;
 
+    EDNSAdditionalZone *ENDSZone = nullptr;
 
     UdpDnsRequest(const vector<std::string> &hosts);
+    UdpDnsRequest(uint8_t *data, const vector<std::string> &hosts);
 
 
     UdpDnsRequest(uint8_t *data, uint64_t len, bool dataOwner);
@@ -36,30 +46,15 @@ public:
     uint16_t getQueryTypeValue() const;
 
 protected:
-    virtual void initDataZone();
-};
-
-class EDNSAdditionalZone : public BasicData {
-
-public:
-    EDNSAdditionalZone(uint32_t len);
-
-    static EDNSAdditionalZone *generate(uint32_t ip);
+    void init(uint8_t *data, const vector<std::string> &hosts);
 };
 
 class TcpDnsRequest : public UdpDnsRequest {
 public:
+    const static uint8_t SIZE_HEADER = 2;
     explicit TcpDnsRequest(const vector<std::string> &hosts);
 
-    explicit TcpDnsRequest(const vector<std::string> &hosts, uint32_t ip);
-
     virtual ~TcpDnsRequest();
-
-protected:
-    void initDataZone() override;
-
-private:
-    EDNSAdditionalZone *ENDSZone = nullptr;
 };
 
 #endif//ST_DNS_DNSREQUEST_H

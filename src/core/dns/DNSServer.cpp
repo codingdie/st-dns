@@ -94,7 +94,7 @@ void DNSServer::processSession(DNSSession *session) {
                                    endDNSSession(se);
                                });
     };
-    session->record.host = session->getHost();
+    session->record.domain = session->getHost();
     session->apmLogger.addDimension("queryType", session->getQueryTypeValue());
     session->apmLogger.addDimension("domain", session->getHost());
     if (session->getQueryType() == DNSQuery::A) {
@@ -115,7 +115,7 @@ void DNSServer::endDNSSession(DNSSession *session) {
     if (session->processType == DNSSession::ProcessType::QUERY) {
         success &= !session->record.ips.empty();
     }
-    session->apmLogger.addMetric("trustedDomainCount", DNSCache::INSTANCE.getTrustedCount());
+    session->apmLogger.addMetric("trustedDomainCount", DNSCache::INSTANCE.getTrustedDomainCount());
     session->apmLogger.addMetric("inQueryingDomainCount", watingSessions.size());
     session->apmLogger.addDimension("success", to_string(success));
     session->apmLogger.end();
@@ -142,7 +142,7 @@ void DNSServer::queryDNSRecord(DNSSession *session, std::function<void(DNSSessio
     DNSRecord &record = session->record;
     if (host == "localhost") {
         record.dnsServer = "st-dns";
-        record.host = host;
+        record.domain = host;
         record.expireTime = std::numeric_limits<uint64_t>::max();
         session->apmLogger.addDimension("processType", "local");
         complete(session);
@@ -152,7 +152,7 @@ void DNSServer::queryDNSRecord(DNSSession *session, std::function<void(DNSSessio
             string fiDomain = DNSDomain::getFIDomain(host);
             if (fiDomain == "LAN") {
                 DNSCache::INSTANCE.query(DNSDomain::removeFIDomain(host), record);
-                record.host = host;
+                record.domain = host;
             }
         }
         if (record.ips.empty()) {
@@ -170,7 +170,7 @@ void DNSServer::queryDNSRecord(DNSSession *session, std::function<void(DNSSessio
 
 void DNSServer::queryDNSRecordFromServer(DNSSession *session, std::function<void(DNSSession *session)> completeHandler) {
     auto record = session->record;
-    auto host = record.host;
+    auto host = record.domain;
     vector<RemoteDNSServer *> &servers = session->servers;
     calRemoteDNSServers(record, servers);
     if (servers.empty()) {
@@ -226,7 +226,7 @@ void DNSServer::forwardUdpDNSRequest(DNSSession *session, std::function<void(Udp
     });
 }
 void DNSServer::calRemoteDNSServers(const DNSRecord &record, vector<RemoteDNSServer *> &servers) {
-    auto host = record.host;
+    auto host = record.domain;
     if (record.ips.empty() || !record.matchArea) {
         servers = RemoteDNSServer::calculateQueryServer(host, config.servers);
     } else {
@@ -266,9 +266,9 @@ unordered_set<DNSSession *> DNSServer::endQueryRemote(const string host) {
     return result;
 }
 void DNSServer::updateDNSRecord(DNSRecord record) {
-    Logger::DEBUG << "begin updateDNSRecord !" << record.host << END;
+    Logger::DEBUG << "begin updateDNSRecord !" << record.domain << END;
 
-    auto host = record.host;
+    auto host = record.domain;
     vector<RemoteDNSServer *> servers;
     calRemoteDNSServers(record, servers);
     if (servers.empty()) {

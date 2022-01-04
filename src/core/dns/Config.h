@@ -26,7 +26,7 @@ namespace st {
             static Config INSTANCE;
             string ip = "127.0.0.1";
             int port = 53;
-            int dnsCacheExpire = 60 * 60;
+            int dnsCacheExpire = 60 * 10;
             string dnsCacheFile = "/var/lib/st/dns/cache.txt";
             string baseConfDir = "/usr/local/etc/st/dns";
             vector<RemoteDNSServer *> servers;

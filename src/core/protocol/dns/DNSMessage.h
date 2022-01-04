@@ -37,6 +37,7 @@ private:
         std::cout << hexChars[((value & 0b11110000U) >> 4)] << hexChars[(value & 0b00001111U)];
     }
 
+
 public:
     uint32_t len = 0;
     uint32_t mlen = 0;
@@ -55,14 +56,16 @@ public:
     bool isValid() const {
         return valid;
     }
+    void alloc(uint32_t size);
 
     BasicData(uint32_t len);
 
-    void alloc(uint32_t size);
-    
-    BasicData(uint8_t *data, uint32_t len) : len(len), data(data) {
-    }
+
+    BasicData(uint8_t *data, uint32_t len) : len(len), data(data){};
+
+    BasicData(uint8_t *data) : data(data){};
     BasicData() = default;
+
     virtual void print() const {
         if (data != nullptr) {
             for (int i = 0; i < len; i++) {
@@ -117,7 +120,7 @@ private:
 class DNSHeader : public BasicData {
 public:
     uint16_t id = 0U;
-    const static uint64_t DEFAULT_LEN = 12;
+    const static uint32_t DEFAULT_LEN = 12;
     uint16_t answerCount = 0;
     uint16_t questionCount = 0;
     uint8_t responseCode = 0;
@@ -126,18 +129,20 @@ public:
 
     virtual ~DNSHeader() {}
 
-    DNSHeader(uint8_t *data, uint64_t len) : BasicData(data, len) {
+    static DNSHeader *parse(uint8_t *data, uint32_t len) {
         if (len >= DEFAULT_LEN) {
-            this->id |= ((uint32_t) * (data) << 8U);
-            this->id |= *(data + 1);
-            this->len = DEFAULT_LEN;
-            this->qr = (*(data + 2) & (0b10000000));
-            this->opcode = ((*(data + 2) & (0b01111000)) >> 3);
-            this->responseCode = (*(data + 3) & 0x01F);
-            st::utils::read(data + 4, questionCount);
-            st::utils::read(data + 6, answerCount);
+            DNSHeader *head = new DNSHeader(data, DEFAULT_LEN);
+            head->id |= ((uint32_t) * (data) << 8U);
+            head->id |= *(data + 1);
+            head->len = DEFAULT_LEN;
+            head->qr = (*(data + 2) & (0b10000000));
+            head->opcode = ((*(data + 2) & (0b01111000)) >> 3);
+            head->responseCode = (*(data + 3) & 0x01F);
+            st::utils::read(data + 4, head->questionCount);
+            st::utils::read(data + 6, head->answerCount);
+            return head;
         } else {
-            markInValid();
+            return nullptr;
         }
     }
 
@@ -145,12 +150,22 @@ public:
     explicit DNSHeader(uint64_t len) : BasicData(len) {
     }
 
-    static DNSHeader *generateAnswer(uint16_t id, int hostCount, int answerCount) {
-        return generate(id, hostCount, 0, answerCount, true);
+
+    explicit DNSHeader(uint8_t *data, uint32_t len) : BasicData(data, len) {
     }
 
-    static DNSHeader *generate(uint16_t id, int hostCount, int additionalCount, int answerCount, bool isAnswer) {
-        auto *dnsHeader = new DNSHeader(DEFAULT_LEN);
+    static DNSHeader *generateAnswer(uint8_t *data, uint16_t id, int hostCount, int answerCount) {
+        return generate(data, id, hostCount, 0, answerCount, true);
+    }
+    static DNSHeader *generate(uint8_t *data, uint16_t id, int hostCount, int additionalCount, int answerCount, bool isAnswer) {
+        auto *dnsHeader = new DNSHeader(data, DEFAULT_LEN);
+        init(dnsHeader, id, hostCount, additionalCount, answerCount, isAnswer);
+        return dnsHeader;
+    }
+
+
+    static void init(DNSHeader *dnsHeader, uint16_t id, int hostCount, int additionalCount, int answerCount, bool isAnswer) {
+        uint8_t *data = dnsHeader->data;
         uint16_t tmpData[DEFAULT_LEN / 2];
         tmpData[0] = id;
         tmpData[1] = 0x0100;
@@ -166,7 +181,6 @@ public:
         tmpData[4] = 0;
         tmpData[5] = additionalCount;
 
-        uint8_t *data = dnsHeader->data;
         uint16_t maskA = 0xFFU << 8U;
         uint16_t maskB = 0xFF;
         for (auto i = 0; i < DEFAULT_LEN / 2; i++) {
@@ -176,11 +190,10 @@ public:
         }
         dnsHeader->len = 6 * 2;
         dnsHeader->id = tmpData[0];
-        return dnsHeader;
     }
 
-    static DNSHeader *generateQuery(int hostCount) {
-        return generate(DnsIdGenerator::id16(), hostCount, 0, 0, false);
+    static DNSHeader *generateQuery(uint8_t *data, int hostCount) {
+        return generate(data, DnsIdGenerator::id16(), hostCount, 0, 0, false);
     }
 
     void updateId(uint16_t id) {
@@ -199,8 +212,9 @@ public:
     }
 
 
-    DNSDomain(uint8_t *data, uint64_t len) : BasicData(data, len) {
-        uint64_t actualLen = parseDomain(data, len, 0, len, domain);
+    DNSDomain(uint8_t *data, uint64_t len) : BasicData(data, len){};
+    void parse() {
+        uint64_t actualLen = parse(data, len, 0, len, domain);
         if (actualLen == 0) {
             this->markInValid();
         } else {
@@ -208,8 +222,8 @@ public:
         }
     }
 
-    DNSDomain(uint8_t *data, uint64_t maxTotal, uint64_t begin) : BasicData(data + begin, maxTotal - begin) {
-        uint64_t actualLen = parseDomain(data, maxTotal, begin, maxTotal - begin, domain);
+    DNSDomain(uint8_t *data, uint64_t dataSize, uint64_t begin) : BasicData(data + begin, dataSize - begin) {
+        uint64_t actualLen = parse(data, dataSize, begin, dataSize - begin, domain);
         if (actualLen == 0) {
             this->markInValid();
         } else {
@@ -217,16 +231,16 @@ public:
         }
     }
 
-    DNSDomain(uint8_t *data, uint64_t len, uint64_t begin, int maxParse) : BasicData(data + begin, len - begin) {
-        uint64_t actualLen = parseDomain(data, len, begin, maxParse, domain);
+    DNSDomain(uint8_t *data, uint64_t dataSize, uint64_t begin, int maxParse) : BasicData(data + begin, dataSize - begin) {
+        uint64_t actualLen = parse(data, dataSize, begin, maxParse, domain);
         if (actualLen == 0) {
             this->markInValid();
         } else {
             this->len = actualLen;
         }
     }
-    static DNSDomain *generateDomain(const string &host);
-    static uint64_t parseDomain(uint8_t *allData, uint64_t max, uint64_t begin, uint64_t maxParse, string &domain);
+    static DNSDomain *generate(uint8_t *data, const string &host);
+    static uint64_t parse(uint8_t *data, uint64_t dataSize, uint64_t begin, uint64_t maxParse, string &domain);
     static string getFIDomain(const string &domain);
     static string removeFIDomain(const string &domain);
 };
@@ -264,11 +278,9 @@ public:
 
     virtual ~DNSQuery();
 
-    explicit DNSQuery(uint64_t len) : BasicData(len) {
-    }
-
-    DNSQuery(uint8_t *data, uint64_t len) : BasicData(data, len) {
+    void parse() {
         auto *dnsDomain = new DNSDomain(data, len);
+        dnsDomain->parse();
         if (!dnsDomain->isValid()) {
             markInValid();
         } else {
@@ -281,13 +293,15 @@ public:
         }
     }
 
-    static DNSQuery *generateDomain(string &host) {
-        DNSDomain *domain = DNSDomain::generateDomain(host);
+
+    DNSQuery(uint8_t *data, uint64_t len) : BasicData(data, len) {
+    }
+
+    static DNSQuery *generateDomain(uint8_t *data, string &host) {
+        DNSDomain *domain = DNSDomain::generate(data, host);
         uint64_t finalDataLen = domain->len + DEFAULT_FLAGS_SIZE;
-        DNSQuery *dnsQuery = new DNSQuery(finalDataLen);
-        auto hostCharData = dnsQuery->data;
-        st::utils::copy(domain->data, hostCharData, 0U, 0U, dnsQuery->len);
-        st::utils::copy(DEFAULT_FLAGS, hostCharData, 0U, domain->len, DEFAULT_FLAGS_SIZE);
+        DNSQuery *dnsQuery = new DNSQuery(data, finalDataLen);
+        st::utils::copy(DEFAULT_FLAGS, dnsQuery->data, 0U, domain->len, DEFAULT_FLAGS_SIZE);
         dnsQuery->domain = domain;
         return dnsQuery;
     }
@@ -307,11 +321,16 @@ public:
     explicit DNSQueryZone(uint64_t len) : BasicData(len) {
     }
 
+
+    DNSQueryZone(uint8_t *data, uint64_t len) : BasicData(data, len) {
+    }
+
     DNSQueryZone(uint8_t *data, uint64_t len, uint64_t size) : BasicData(data, len) {
         uint32_t resetSize = len;
         uint32_t realSize = 0;
         while (resetSize > 0 && this->querys.size() < size) {
             auto query = new DNSQuery(data, len);
+            query->parse();
             if (query->isValid()) {
                 this->querys.push_back(query);
             } else {
@@ -325,16 +344,17 @@ public:
         this->len = realSize;
     }
 
-    static DNSQueryZone *generate(const vector<string> &hosts) {
+    static DNSQueryZone *generate(uint8_t *data, const vector<string> &hosts) {
         vector<DNSQuery *> domains;
         uint32_t size = 0;
         for (auto it = hosts.begin(); it < hosts.end(); it++) {
             string host = *it;
-            DNSQuery *domain = DNSQuery::generateDomain(host);
+            DNSQuery *domain = DNSQuery::generateDomain(data, host);
             domains.emplace_back(domain);
             size += domain->len;
+            data += domain->len;
         }
-        auto *dnsQueryZone = new DNSQueryZone(size);
+        auto *dnsQueryZone = new DNSQueryZone(data, size);
         dnsQueryZone->querys = domains;
         uint32_t curLen = 0;
         for (auto it = domains.begin(); it < domains.end(); it++) {
@@ -347,17 +367,11 @@ public:
         }
         return dnsQueryZone;
     }
-
-    static DNSQueryZone *generate(const string &host) {
-        vector<string> hosts;
-        hosts.emplace_back(host);
-        return generate(hosts);
+    DNSQueryZone *copy(uint8_t *data) {
+        DNSQueryZone *zone = new DNSQueryZone(data, this->len);
+        st::utils::copy(this->data, zone->data, this->len);
+        return zone;
     }
-   DNSQueryZone * copy(){
-       DNSQueryZone*zone=new DNSQueryZone(this->len);
-       st::utils::copy(this->data, zone->data, this->len);
-       return zone;
-   }
 };
 
 
@@ -378,6 +392,9 @@ public:
         if (cname != nullptr) {
             delete cname;
         }
+    }
+
+    DNSResourceZone(uint8_t *data, uint32_t len) : BasicData(data, len) {
     }
 
     explicit DNSResourceZone(uint32_t len) : BasicData(len) {
@@ -407,7 +424,7 @@ public:
             size += length;
 
             if (DNSQuery::Type(type) == DNSQuery::CNAME) {
-                cname = new DNSDomain(original, originalMax, (curBegin - original), length);
+                cname = new DNSDomain(data, originalMax, (curBegin - data), length);
                 if (cname->isValid()) {
                     this->len = size;
                 } else {
@@ -428,9 +445,9 @@ public:
         }
     }
 
-    static DNSResourceZone *generate(uint32_t ip, uint32_t expire) {
+    static DNSResourceZone *generate(uint8_t *data, uint32_t ip, uint32_t expire) {
         uint32_t size = 2 + 2 + 2 + 4 + 2 + 4;
-        DNSResourceZone *resourceZone = new DNSResourceZone(size);
+        DNSResourceZone *resourceZone = new DNSResourceZone(data, size);
         resourceZone->len = size;
         uint8_t *data1 = resourceZone->data;
         //domain

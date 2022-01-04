@@ -25,7 +25,7 @@ public:
     unordered_set<uint32_t> ips;
     uint64_t expireTime = 0;
     string dnsServer;
-    string host = "";
+    string domain = "";
     bool expire = false;
     bool matchArea = false;
 
@@ -38,7 +38,7 @@ public:
 
 class DNSCache {
 private:
-    long trustedRecordCount = 0;
+    long trustedDomainCount = 0;
     unordered_map<string, unordered_map<string, DNSRecord>> caches;
 
     void saveToFile();
@@ -47,7 +47,7 @@ private:
 public:
     DNSCache();
 
-    uint32_t getTrustedCount();
+    uint32_t getTrustedDomainCount();
 
     static DNSCache INSTANCE;
 
@@ -56,11 +56,12 @@ public:
     void addCache(const string &domain, const unordered_set<uint32_t> &ips, const string &dnsServer, const int expire,
                   const bool matchArea);
 
-    void query(const string &host, DNSRecord &recode);
+    void query(const string &domain, DNSRecord &recode);
 
-    bool hasAnyRecord(const string &host);
+    bool hasAnyRecord(const string &domain);
+    bool hasTrustedRecord(const string &domain);
 
-    unordered_set<string> queryNotMatchAreaServers(const string &host);
+    unordered_set<string> queryNotMatchAreaServers(const string &domain);
 };
 
 

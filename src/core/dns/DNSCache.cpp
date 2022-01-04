@@ -13,12 +13,13 @@ static mutex rLock;
 void DNSCache::addCache(const string &domain, const unordered_set<uint32_t> &ips, const string &dnsServer, const int expire,
                         const bool matchArea) {
     {
+        if (!hasTrustedRecord(domain) && matchArea) {
+            trustedDomainCount++;
+        }
         lock_guard<mutex> lockGuard(rLock);
         unordered_map<string, DNSRecord> &records = caches[domain];
         DNSRecord &record = records[dnsServer];
-        if (!record.matchArea && matchArea) {
-            trustedRecordCount++;
-        }
+       
         for (auto ip : ips) {
             if (matchArea) {
                 st::dns::SHM::write().addOrUpdate(ip, domain);
@@ -28,7 +29,7 @@ void DNSCache::addCache(const string &domain, const unordered_set<uint32_t> &ips
         }
         record.ips = ips;
         record.dnsServer = dnsServer;
-        record.host = domain;
+        record.domain = domain;
         record.matchArea = matchArea;
         record.expireTime = time::now() + expire * 1000;
         Logger::INFO << "addDNSCache" << domain << ipv4::ipsToStr(ips) << "from" << dnsServer << "expire" << expire
@@ -40,15 +41,30 @@ void DNSCache::addCache(const string &domain, const unordered_set<uint32_t> &ips
         }
     }
 }
-bool DNSCache::hasAnyRecord(const string &host) {
-    return caches.find(host) != caches.end();
+bool DNSCache::hasTrustedRecord(const string &domain) {
+    if (!hasAnyRecord(domain)) {
+        return false;
+    }
+    lock_guard<mutex> lockGuard(rLock);
+    for (auto it = caches[domain].begin(); it != caches[domain].end(); it++) {
+        if (it->second.matchArea) {
+            return true;
+        }
+    }
+    return false;
 }
 
-void DNSCache::query(const string &host, DNSRecord &record) {
-    unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
-    record.host = host;
+bool DNSCache::hasAnyRecord(const string &domain) {
+    lock_guard<mutex> lockGuard(rLock);
+    return caches.find(domain) != caches.end();
+}
 
-    auto iterator = caches.find(host);
+void DNSCache::query(const string &domain, DNSRecord &record) {
+    lock_guard<mutex> lockGuard(rLock);
+    unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+    record.domain = domain;
+
+    auto iterator = caches.find(domain);
     if (iterator != caches.end()) {
         unordered_map<string, DNSRecord> &maps = iterator->second;
         for (auto it = maps.begin(); it != maps.end(); it++) {
@@ -68,9 +84,10 @@ void DNSCache::query(const string &host, DNSRecord &record) {
     }
 }
 
-unordered_set<string> DNSCache::queryNotMatchAreaServers(const string &host) {
+unordered_set<string> DNSCache::queryNotMatchAreaServers(const string &domain) {
+    lock_guard<mutex> lockGuard(rLock);
     unordered_set<string> result;
-    auto iterator = caches.find(host);
+    auto iterator = caches.find(domain);
     if (iterator != caches.end()) {
         unordered_map<string, DNSRecord> &maps = iterator->second;
         for (auto it = maps.begin(); it != maps.end(); it++) {
@@ -99,16 +116,13 @@ void DNSCache::loadFromFile() {
         while (getline(in, line)) {//获取文件的一行字符串到line中
             DNSRecord record;
             if (record.deserialize(line)) {
-                caches[record.host][record.dnsServer] = record;
+                caches[record.domain][record.dnsServer] = record;
                 count++;
-                if (record.matchArea) {
-                    trustedRecordCount++;
-                }
                 for (auto ip : record.ips) {
                     if (record.matchArea) {
-                        st::dns::SHM::write().addOrUpdate(ip, record.host);
+                        st::dns::SHM::write().addOrUpdate(ip, record.domain);
                     } else {
-                        st::dns::SHM::write().add(ip, record.host);
+                        st::dns::SHM::write().add(ip, record.domain);
                     }
                 }
             }
@@ -128,6 +142,9 @@ void DNSCache::saveToFile() {
             for (auto it2 = serverRecords.begin(); it2 != serverRecords.end(); it2++) {
                 fileStream << it2->second.serialize() << "\n";
                 count++;
+                if (it2->second.matchArea) {
+                    trustedDomainCount++;
+                }
             }
         }
         fileStream.flush();
@@ -136,12 +153,12 @@ void DNSCache::saveToFile() {
     }
 }
 
-uint32_t DNSCache::getTrustedCount() {
-    return trustedRecordCount;
+uint32_t DNSCache::getTrustedDomainCount() {
+    return trustedDomainCount;
 }
 
 string DNSRecord::serialize() {
-    return dnsServer + "\t" + host + "\t" + to_string(expireTime) + "\t" + to_string(matchArea) + "\t" +
+    return dnsServer + "\t" + domain + "\t" + to_string(expireTime) + "\t" + to_string(matchArea) + "\t" +
            st::utils::ipv4::ipsToStr(ips);
 }
 bool DNSRecord::deserialize(const string &str) {
@@ -150,7 +167,7 @@ bool DNSRecord::deserialize(const string &str) {
         return false;
     }
     dnsServer = vector[0];
-    host = vector[1];
+    domain = vector[1];
     expireTime = stoull(vector[2]);
     matchArea = stoi(vector[3]);
     ips = ipv4::strToIps(vector[4]);

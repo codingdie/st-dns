@@ -129,8 +129,7 @@ uint64_t parseRe(uint8_t *allData, uint64_t allDataSize, uint64_t begin, uint64_
                     return 0;
                 }
                 actualLen += frameLen;
-                char domainStr[frameLen + 1];
-                domainStr[frameLen] = '\0';
+                char domainStr[frameLen + 1] = "";
                 st::utils::copy(data, domainStr, actualLen - frameLen, 0U, frameLen);
                 if (domain.length() != 0) {
                     domain += ".";

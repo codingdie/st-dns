@@ -424,7 +424,7 @@ public:
             size += length;
 
             if (DNSQuery::Type(type) == DNSQuery::CNAME) {
-                cname = new DNSDomain(data, originalMax, (curBegin - data), length);
+                cname = new DNSDomain(original, originalMax, (curBegin - original), length);
                 if (cname->isValid()) {
                     this->len = size;
                 } else {

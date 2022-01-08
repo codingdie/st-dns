@@ -94,6 +94,10 @@ void UdpDNSResponse::parse(uint64_t maxReadable) {
         this->markInValid();
     }
     this->len = maxReadable;
+    if (!this->isValid()) {
+        string domain = this->queryZone != nullptr && this->queryZone->hosts.size() > 0 ? this->queryZone->hosts[0] : "";
+        APMLogger::perf("st-dns-parse-failed", {{"domain", domain}}, 0);
+    }
 }
 
 UdpDNSResponse::UdpDNSResponse(uint8_t *data, uint64_t len) : BasicData(data, len) {

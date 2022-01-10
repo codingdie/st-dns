@@ -10,7 +10,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
-#include <unordered_set>
+#include <vector>
 
 using namespace std;
 
@@ -21,7 +21,7 @@ public:
     string type;
     unordered_set<string> whitelist;
     unordered_set<string> blacklist;
-    unordered_set<string> areas;
+    vector<string> areas;
     int timeout = 100;
     int dnsCacheExpire = 60 * 60;
 

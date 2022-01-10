@@ -19,7 +19,7 @@ namespace st {
         bool loadAreaIPs(const string &areaCode);
         std::pair<uint32_t, uint32_t> ipRange(const string &rangeStr);
         bool isAreaIP(const string &areaReg, const uint32_t &ip);
-        bool isAreaIP(const unordered_set<string> &areas, const uint32_t &ip);
+        bool isAreaIP(const vector<string> &areas, const uint32_t &ip);
 
         bool isAreaIP(const string &areaReg, const string &ip);
         uint16_t area2Code(const string &areaCode);

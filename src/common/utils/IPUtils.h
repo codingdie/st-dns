@@ -27,10 +27,25 @@ namespace st {
                 std::size_t num = 0;
                 while (num < 4 && lastPos < ipStr.length()) {
                     auto pos = ipStr.find_first_of('.', lastPos);
-                    uint32_t ipNum = stoi(ipStr.substr(lastPos, pos));
+                    if ((num != 3 && pos == string::npos) || (num == 3 && pos != string::npos)) {
+                        return 0;
+                    }
+                    auto numStr = ipStr.substr(lastPos, pos);
+                    if(numStr.empty()){
+                        return 0;
+                    }
+                    for (auto i = 0; i < numStr.length(); i++) {
+                        if (numStr[0] < '0' || numStr[0] > '9') {
+                            return 0;
+                        }
+                    }
+                    uint32_t ipSeg = stoi(numStr);
+                    if (ipSeg > 255) {
+                        return 0;
+                    }
                     lastPos = pos + 1;
                     num++;
-                    ip = ip | (ipNum << (32 - 8 * num));
+                    ip = ip | (ipSeg << (32 - 8 * num));
                 }
                 return ip;
             }
@@ -56,6 +71,7 @@ namespace st {
                 }
                 return ipStr.substr(0, ipStr.length() - 1);
             }
+
         }// namespace ipv4
     }    // namespace utils
 }// namespace st

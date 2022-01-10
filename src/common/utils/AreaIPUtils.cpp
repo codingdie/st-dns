@@ -104,7 +104,7 @@ namespace st {
         bool isAreaIP(const string &areaCode, const string &ip) {
             return isAreaIP(areaCode, st::utils::ipv4::strToIp(ip));
         }
-        bool isAreaIP(const unordered_set<string> &areas, const uint32_t &ip) {
+        bool isAreaIP(const std::vector<string> &areas, const uint32_t &ip) {
             if (areas.empty()) {
                 return true;
             }

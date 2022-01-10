@@ -5,6 +5,7 @@
 #include "RemoteDNSServer.h"
 #include "Config.h"
 #include "DNS.h"
+#include <algorithm>
 
 vector<RemoteDNSServer *>
 RemoteDNSServer::calculateQueryServer(const string &domain, const vector<RemoteDNSServer *> &servers) {
@@ -13,7 +14,7 @@ RemoteDNSServer::calculateQueryServer(const string &domain, const vector<RemoteD
     for (auto it = servers.begin(); it != servers.end(); it++) {
         RemoteDNSServer *server = *it.base();
 
-        if ((fiDomain == "LAN" || fiDomain == "ARPA") && server->areas.find("LAN") == server->areas.end()) {
+        if ((fiDomain == "LAN" || fiDomain == "ARPA") && find(server->areas.begin(), server->areas.end(), "LAN") == server->areas.end()) {
             continue;
         }
 

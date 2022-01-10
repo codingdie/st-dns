@@ -58,7 +58,7 @@ void st::dns::Config::load(const string &baseConfDir) {
                             if (!st::areaip::loadAreaIPs(area)) {
                                 exit(1);
                             }
-                            dnsServer->areas.emplace(area);
+                            dnsServer->areas.emplace_back(area);
                         }
                     }
                 }

@@ -143,7 +143,7 @@ namespace st {
                     return area;
                 }
             }
-            return "";
+            return "default";
         }
     }// namespace areaip
 }// namespace st

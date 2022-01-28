@@ -65,6 +65,7 @@ private:
 
     unordered_set<DNSSession *> endQueryRemote(const string host);
 
+    uint32_t getExpire(DNSRecord &record);
 };
 
 

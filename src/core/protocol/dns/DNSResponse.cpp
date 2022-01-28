@@ -122,7 +122,7 @@ void UdpDNSResponse::parse(uint64_t maxReadable) {
 UdpDNSResponse::UdpDNSResponse(uint8_t *data, uint64_t len) : BasicData(data, len) {
 }
 
-UdpDNSResponse::UdpDNSResponse(UdpDnsRequest &request, DNSRecord &record) : BasicData(1024) {
+UdpDNSResponse::UdpDNSResponse(UdpDnsRequest &request, DNSRecord &record, uint32_t expire) : BasicData(1024) {
     int finalLen = 0;
     vector<uint32_t> &ips = record.ips;
     auto curData = this->data;
@@ -140,16 +140,6 @@ UdpDNSResponse::UdpDNSResponse(UdpDnsRequest &request, DNSRecord &record) : Basi
     }
     //answer
     if (hasRecord) {
-        uint32_t expire = (record.expireTime - time::now()) / 1000L;
-        if (expire <= 0) {
-            expire = 1;
-        }
-        if (!record.matchArea) {
-            expire = 1;
-        }
-        expire = max(expire, (uint32_t) 1 * 10);
-        expire = min(expire, (uint32_t) 10 * 60);
-
         for (auto it = ips.begin(); it != ips.end(); it++) {
             DNSResourceZone *pResourceZone = DNSResourceZone::generate(curData, *it, expire);
             this->answerZones.emplace_back(pResourceZone);

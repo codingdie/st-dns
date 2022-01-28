@@ -22,7 +22,7 @@ using namespace std;
 class DNSRecord {
 
 public:
-    unordered_set<uint32_t> ips;
+    vector<uint32_t> ips;
     uint64_t expireTime = 0;
     string dnsServer;
     string domain = "";
@@ -53,7 +53,7 @@ public:
 
     void loadFromFile();
 
-    void addCache(const string &domain, const unordered_set<uint32_t> &ips, const string &dnsServer, const int expire,
+    void addCache(const string &domain, const vector<uint32_t> &ips, const string &dnsServer, const int expire,
                   const bool matchArea);
 
     void query(const string &domain, DNSRecord &recode);

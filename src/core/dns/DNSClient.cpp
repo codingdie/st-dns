@@ -32,7 +32,7 @@ bool DNSClient::isTimeoutOrError(const string &logTag, boost::system::error_code
 }
 
 
-void DNSClient::udpDns(const string domain, const std::string &dnsServer, uint32_t port, uint64_t timeout, std::function<void(std::unordered_set<uint32_t> ips)> completeHandler) {
+void DNSClient::udpDns(const string domain, const std::string &dnsServer, uint32_t port, uint64_t timeout, std::function<void(std::vector<uint32_t> ips)> completeHandler) {
     vector<string> domains;
     domains.emplace_back(domain);
     if (domains.empty()) {
@@ -44,7 +44,7 @@ void DNSClient::udpDns(const string domain, const std::string &dnsServer, uint32
     unsigned short qid = dnsRequest.dnsHeader->id;
     uint16_t dnsId = dnsRequest.dnsHeader->id;
     string logTag = to_string(dnsId) + " udpDns " + dnsServer + " " + domains[0];
-    std::function<void(std::unordered_set<uint32_t> ips)> complete = [=](std::unordered_set<uint32_t> ips) {
+    std::function<void(std::vector<uint32_t> ips)> complete = [=](std::vector<uint32_t> ips) {
         delete socket;
         Logger::DEBUG << logTag << "cost" << time::now() - beginTime << END;
         completeHandler(ips);
@@ -68,7 +68,7 @@ void DNSClient::udpDns(const string domain, const std::string &dnsServer, uint32
                           });
 }
 
-void DNSClient::tcpTlsDNS(const string domain, const std::string &dnsServer, uint16_t port, uint64_t timeout, const string &area, std::function<void(std::unordered_set<uint32_t> ips)> completeHandler) {
+void DNSClient::tcpTlsDNS(const string domain, const std::string &dnsServer, uint16_t port, uint64_t timeout, const string &area, std::function<void(std::vector<uint32_t> ips)> completeHandler) {
     if (!area.empty()) {
         port = st::dns::SHM::write().initVirtualPort(st::utils::ipv4::strToIp(dnsServer), port, area);
     }
@@ -84,8 +84,8 @@ void DNSClient::tcpTlsDNS(const string domain, const std::string &dnsServer, uin
     socket->set_verify_mode(ssl::verify_none);
     pair<uint8_t *, uint32_t> dataBytes = st::mem::pmalloc(1024);
     pair<uint8_t *, uint32_t> lengthBytes = st::mem::pmalloc(2);
-    std::function<void(std::unordered_set<uint32_t> ips)> complete =
-            [=](std::unordered_set<uint32_t> ips) {
+    std::function<void(std::vector<uint32_t> ips)> complete =
+            [=](std::vector<uint32_t> ips) {
                 st::mem::pfree(dataBytes);
                 st::mem::pfree(lengthBytes);
                 Logger::DEBUG << logTag << "cost" << time::now() - beginTime << dataBytes.second << END;
@@ -139,7 +139,7 @@ void DNSClient::tcpTlsDNS(const string domain, const std::string &dnsServer, uin
 }
 
 
-void DNSClient::tcpDNS(const string domain, const std::string &dnsServer, uint16_t port, uint64_t timeout, const string &area, std::function<void(std::unordered_set<uint32_t> ips)> completeHandler) {
+void DNSClient::tcpDNS(const string domain, const std::string &dnsServer, uint16_t port, uint64_t timeout, const string &area, std::function<void(std::vector<uint32_t> ips)> completeHandler) {
     if (!area.empty()) {
         port = st::dns::SHM::write().initVirtualPort(st::utils::ipv4::strToIp(dnsServer), port, area);
     }
@@ -154,7 +154,7 @@ void DNSClient::tcpDNS(const string domain, const std::string &dnsServer, uint16
     tcp::socket *socket = new tcp::socket(ioContext);
     pair<uint8_t *, uint32_t> dataBytes = st::mem::pmalloc(1024);
     pair<uint8_t *, uint32_t> lengthBytes = st::mem::pmalloc(2);
-    std::function<void(std::unordered_set<uint32_t> ips)> complete = [=](std::unordered_set<uint32_t> ips) {
+    std::function<void(std::vector<uint32_t> ips)> complete = [=](std::vector<uint32_t> ips) {
         Logger::DEBUG << logTag << "cost" << time::now() - beginTime << dataBytes.second << END;
         st::mem::pfree(dataBytes);
         st::mem::pfree(lengthBytes);
@@ -203,18 +203,18 @@ void DNSClient::tcpDNS(const string domain, const std::string &dnsServer, uint16
 }
 
 
-void DNSClient::tcpTlsDNS(const string domain, const std::string &dnsServer, uint16_t port, uint64_t timeout, const unordered_set<string> &areas, std::function<void(std::unordered_set<uint32_t> ips)> completeHandler) {
+void DNSClient::tcpTlsDNS(const string domain, const std::string &dnsServer, uint16_t port, uint64_t timeout, const unordered_set<string> &areas, std::function<void(std::vector<uint32_t> ips)> completeHandler) {
     if (areas.empty()) {
         tcpTlsDNS(domain, dnsServer, port, timeout, completeHandler);
     } else if (areas.size() == 1) {
         tcpTlsDNS(domain, dnsServer, port, timeout, *areas.begin(), completeHandler);
     } else {
         atomic_uint16_t *counter = new atomic_uint16_t(0);
-        std::unordered_set<uint32_t> *result = new std::unordered_set<uint32_t>();
-        std::function<void(std::unordered_set<uint32_t> ips)> eachHandler = [=](std::unordered_set<uint32_t> ips) {
+        std::vector<uint32_t> *result = new std::vector<uint32_t>();
+        std::function<void(std::vector<uint32_t> ips)> eachHandler = [=](std::vector<uint32_t> ips) {
             counter->fetch_add(1);
             for (auto ip : ips) {
-                result->emplace(ip);
+                result->emplace_back(ip);
             }
             if (counter->load() >= areas.size()) {
                 completeHandler(*result);
@@ -228,7 +228,7 @@ void DNSClient::tcpTlsDNS(const string domain, const std::string &dnsServer, uin
     }
 }
 
-void DNSClient::tcpDNS(const string domain, const std::string &dnsServer, uint16_t port, uint64_t timeout, const unordered_set<string> &areas, std::function<void(std::unordered_set<uint32_t> ips)> completeHandler) {
+void DNSClient::tcpDNS(const string domain, const std::string &dnsServer, uint16_t port, uint64_t timeout, const unordered_set<string> &areas, std::function<void(std::vector<uint32_t> ips)> completeHandler) {
     if (areas.empty()) {
         tcpDNS(domain, dnsServer, port, timeout, completeHandler);
     } else if (areas.size() == 1) {
@@ -236,13 +236,13 @@ void DNSClient::tcpDNS(const string domain, const std::string &dnsServer, uint16
     } else {
         atomic_uint16_t *counter = new atomic_uint16_t(0);
         std::unordered_set<uint32_t> *result = new std::unordered_set<uint32_t>();
-        std::function<void(std::unordered_set<uint32_t> ips)> eachHandler = [=](std::unordered_set<uint32_t> ips) {
+        std::function<void(std::vector<uint32_t> ips)> eachHandler = [=](std::vector<uint32_t> ips) {
             counter->fetch_add(1);
             for (auto ip : ips) {
                 result->emplace(ip);
             }
             if (counter->load() == areas.size()) {
-                completeHandler(*result);
+                completeHandler(vector<uint32_t>(result->begin(), result->end()));
                 delete result;
                 delete counter;
             }
@@ -253,11 +253,11 @@ void DNSClient::tcpDNS(const string domain, const std::string &dnsServer, uint16
     }
 }
 
-void DNSClient::tcpTlsDNS(const string domain, const std::string &dnsServer, uint16_t port, uint64_t timeout, std::function<void(std::unordered_set<uint32_t> ips)> completeHandler) {
+void DNSClient::tcpTlsDNS(const string domain, const std::string &dnsServer, uint16_t port, uint64_t timeout, std::function<void(std::vector<uint32_t> ips)> completeHandler) {
     tcpTlsDNS(domain, dnsServer, port, timeout, "", completeHandler);
 }
 
-void DNSClient::tcpDNS(const string domain, const std::string &dnsServer, uint16_t port, uint64_t timeout, std::function<void(std::unordered_set<uint32_t> ips)> completeHandler) {
+void DNSClient::tcpDNS(const string domain, const std::string &dnsServer, uint16_t port, uint64_t timeout, std::function<void(std::vector<uint32_t> ips)> completeHandler) {
     tcpDNS(domain, dnsServer, port, timeout, "", completeHandler);
 }
 
@@ -295,7 +295,7 @@ void DNSClient::forwardUdp(UdpDnsRequest &dnsRequest, const std::string &dnsServ
 }
 
 
-std::unordered_set<uint32_t> DNSClient::parse(uint16_t length, pair<uint8_t *, uint32_t> lengthBytes, pair<uint8_t *, uint32_t> dataBytes, uint16_t dnsId) {
+std::vector<uint32_t> DNSClient::parse(uint16_t length, pair<uint8_t *, uint32_t> lengthBytes, pair<uint8_t *, uint32_t> dataBytes, uint16_t dnsId) {
     UdpDNSResponse *dnsResponse = nullptr;
     if (length > 0 && length < 1024) {
         dnsResponse = new UdpDNSResponse(dataBytes.first, length);
@@ -317,7 +317,7 @@ std::unordered_set<uint32_t> DNSClient::parse(uint16_t length, pair<uint8_t *, u
         Logger::ERROR << dnsId << "receive unmarketable data" << END;
     }
 
-    unordered_set<uint32_t> ips;
+    vector<uint32_t> ips;
     if (dnsResponse != nullptr && dnsResponse->isValid()) {
         ips = move(dnsResponse->ips);
     }

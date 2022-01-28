@@ -29,6 +29,7 @@
       "areas": [
         "JP",
         "US",
+        "HK",
         "!CN"
       ],
       "timeout": "20000",

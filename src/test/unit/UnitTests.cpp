@@ -13,8 +13,8 @@
 void testDNS(const string &domain, const string &server, const uint32_t port, const string &type, const unordered_set<string> areas) {
     mutex lock;
     lock.lock();
-    std::unordered_set<uint32_t> result;
-    auto complete = [&](std::unordered_set<uint32_t> ips) {
+    std::vector<uint32_t> result;
+    auto complete = [&](std::vector<uint32_t> ips) {
         result = ips;
         lock.unlock();
     };

@@ -118,6 +118,10 @@ void DNSServer::endDNSSession(DNSSession *session) {
     session->apmLogger.addMetric("trustedDomainCount", DNSCache::INSTANCE.getTrustedDomainCount());
     session->apmLogger.addMetric("inQueryingDomainCount", watingSessions.size());
     session->apmLogger.addDimension("success", to_string(success));
+
+    auto firstIPArea = session->udpDNSResponse != nullptr ? session->udpDNSResponse->fistIPArea() : "";
+    auto areas = session->udpDNSResponse != nullptr ? session->udpDNSResponse->IPAreas() : vector<string>({});
+    session->apmLogger.addDimension("firstIPArea", firstIPArea);
     session->apmLogger.end();
 
     Logger::INFO << "dns request prcocess" << session->processType << (success ? "success!" : "failed!");
@@ -305,9 +309,9 @@ void DNSServer::syncDNSRecordFromServer(const string host, std::function<void(DN
     RemoteDNSServer *server = servers[pos];
     string logTag = host + " syncDNSRecordFromServer " + server->id();
     uint64_t traceId = Logger::traceId;
-    std::function<void(unordered_set<uint32_t> ips)> dnsComplete = [=](unordered_set<uint32_t> ips) {
+    std::function<void(vector<uint32_t> ips)> dnsComplete = [=](vector<uint32_t> ips) {
         Logger::traceId = traceId;
-        unordered_set<uint32_t> oriIps = ips;
+        vector<uint32_t> oriIps = ips;
         filterIPByArea(host, server, ips);
         if (!ips.empty()) {
             DNSCache::INSTANCE.addCache(host, ips, server->id(),
@@ -350,7 +354,7 @@ void DNSServer::syncDNSRecordFromServer(const string host, std::function<void(DN
     }
 }
 
-void DNSServer::filterIPByArea(const string host, RemoteDNSServer *server, unordered_set<uint32_t> &ips) {
+void DNSServer::filterIPByArea(const string host, RemoteDNSServer *server, vector<uint32_t> &ips) {
     if (!ips.empty() && server->whitelist.find(host) == server->whitelist.end() && !server->areas.empty()) {
         for (auto it = ips.begin(); it != ips.end();) {
             auto ip = *it;

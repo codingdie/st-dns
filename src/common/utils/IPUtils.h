@@ -50,13 +50,13 @@ namespace st {
                 return ip;
             }
 
-            static unordered_set<uint32_t> strToIps(const string &ipStr) {
-                unordered_set<uint32_t> ips;
+            static vector<uint32_t> strToIps(const string &ipStr) {
+                vector<uint32_t> ips;
                 auto ipStrs = strutils::split(ipStr, ",");
                 for (string &str : ipStrs) {
                     uint32_t ip = strToIp(str);
                     if (ip > 0) {
-                        ips.emplace(ip);
+                        ips.emplace_back(ip);
                     }
                 }
                 return ips;

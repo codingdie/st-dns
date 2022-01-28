@@ -18,7 +18,7 @@ public:
     DNSHeader *header = nullptr;
     DNSQueryZone *queryZone = nullptr;
     vector<DNSResourceZone *> answerZones;
-    unordered_set<uint32_t> ips;
+    vector<uint32_t> ips;
 
     UdpDNSResponse(UdpDnsRequest &request, DNSRecord &record);
 
@@ -31,6 +31,10 @@ public:
     void parse(uint64_t maxReadable);
 
     void print() const override;
+    
+    uint32_t fistIP() const;
+    string fistIPArea() const;
+    vector<string> IPAreas() const;
 };
 
 

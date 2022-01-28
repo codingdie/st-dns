@@ -30,6 +30,25 @@ UdpDNSResponse::~UdpDNSResponse() {
 UdpDNSResponse::UdpDNSResponse(uint64_t len) : BasicData(len) {
 }
 
+uint32_t UdpDNSResponse::fistIP() const {
+    if (this->ips.size() > 0) {
+        return this->ips[0];
+    }
+    return 0;
+}
+string UdpDNSResponse::fistIPArea() const {
+    uint32_t ip = this->fistIP();
+    return st::areaip::getArea(ip);
+}
+vector<string> UdpDNSResponse::IPAreas() const {
+    vector<string> areas;
+    for (auto it = this->ips.begin(); it != this->ips.end(); it++) {
+        areas.emplace_back(st::areaip::getArea(*it));
+    }
+    return areas;
+}
+
+
 void UdpDNSResponse::parse(uint64_t maxReadable) {
     this->markValid();
     int answerZonesSize = 0;
@@ -72,7 +91,7 @@ void UdpDNSResponse::parse(uint64_t maxReadable) {
                                     answerZones.emplace_back(answer);
                                     if (answer->ipv4s.size() != 0) {
                                         for (auto ip : answer->ipv4s) {
-                                            this->ips.emplace(ip);
+                                            this->ips.emplace_back(ip);
                                         }
                                     }
                                 } else {
@@ -105,7 +124,7 @@ UdpDNSResponse::UdpDNSResponse(uint8_t *data, uint64_t len) : BasicData(data, le
 
 UdpDNSResponse::UdpDNSResponse(UdpDnsRequest &request, DNSRecord &record) : BasicData(1024) {
     int finalLen = 0;
-    unordered_set<uint32_t> &ips = record.ips;
+    vector<uint32_t> &ips = record.ips;
     auto curData = this->data;
     bool hasRecord = !ips.empty();
 
@@ -130,12 +149,13 @@ UdpDNSResponse::UdpDNSResponse(UdpDnsRequest &request, DNSRecord &record) : Basi
         }
         expire = max(expire, (uint32_t) 1 * 10);
         expire = min(expire, (uint32_t) 10 * 60);
+
         for (auto it = ips.begin(); it != ips.end(); it++) {
             DNSResourceZone *pResourceZone = DNSResourceZone::generate(curData, *it, expire);
             this->answerZones.emplace_back(pResourceZone);
             curData += pResourceZone->len;
             finalLen += pResourceZone->len;
-            this->ips.emplace(*it);
+            this->ips.emplace_back(*it);
         }
     }
 

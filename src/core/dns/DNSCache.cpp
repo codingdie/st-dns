@@ -10,7 +10,7 @@ DNSCache DNSCache::INSTANCE;
 
 static mutex rLock;
 
-void DNSCache::addCache(const string &domain, const unordered_set<uint32_t> &ips, const string &dnsServer, const int expire,
+void DNSCache::addCache(const string &domain, const vector<uint32_t> &ips, const string &dnsServer, const int expire,
                         const bool matchArea) {
     {
         if (!hasTrustedRecord(domain) && matchArea) {
@@ -76,7 +76,7 @@ void DNSCache::query(const string &domain, DNSRecord &record) {
             }
             vector<uint32_t> ips(record.ips.begin(), record.ips.end());
             std::shuffle(ips.begin(), ips.end(), std::default_random_engine(seed));
-            record.ips = std::unordered_set<uint32_t>(ips.begin(), ips.end());
+            record.ips = std::vector<uint32_t>(ips.begin(), ips.end());
             if (record.matchArea) {
                 break;
             }

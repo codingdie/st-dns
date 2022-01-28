@@ -383,7 +383,7 @@ public:
     uint16_t resource = 0;
     uint32_t liveTime = 0;
     uint16_t length = 0;
-    unordered_set<uint32_t> ipv4s;
+    vector<uint32_t> ipv4s;
 
     virtual ~DNSResourceZone() {
         if (domain != nullptr) {
@@ -435,7 +435,7 @@ public:
                     for (auto i = 0; i < length / 4; i++) {
                         uint32_t ipv4 = 0;
                         st::utils::read(curBegin + i * 4, ipv4);
-                        ipv4s.emplace(ipv4);
+                        ipv4s.emplace_back(ipv4);
                     }
                     this->len = size;
                 } else {
@@ -466,7 +466,7 @@ public:
         data1 = st::utils::write(data1, resourceZone->liveTime);
         //data szie
         //todo
-        // resourceZone->ipv4s = ips;
+        resourceZone->ipv4s.emplace_back(ip);
         uint16_t dataSize = 4;
         data1 = st::utils::write(data1, dataSize);
         data1 = st::utils::write(data1, ip);

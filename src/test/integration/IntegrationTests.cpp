@@ -37,8 +37,8 @@ void testDNS(const string &domain) {
     const uint32_t port = 5353;
     mutex lock;
     lock.lock();
-    unordered_set<uint32_t> ips;
-    DNSClient::INSTANCE.udpDns(domain, server, port, 20000, [&](std::unordered_set<uint32_t> result) {
+    vector<uint32_t> ips;
+    DNSClient::INSTANCE.udpDns(domain, server, port, 20000, [&](std::vector<uint32_t> result) {
         ips = result;
         lock.unlock();
     });

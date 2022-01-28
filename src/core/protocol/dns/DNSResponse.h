@@ -20,7 +20,7 @@ public:
     vector<DNSResourceZone *> answerZones;
     vector<uint32_t> ips;
 
-    UdpDNSResponse(UdpDnsRequest &request, DNSRecord &record);
+    UdpDNSResponse(UdpDnsRequest &request, DNSRecord &record, uint32_t expire);
 
     UdpDNSResponse(uint8_t *data, uint64_t len);
 

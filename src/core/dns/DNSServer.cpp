@@ -76,6 +76,15 @@ void DNSServer::receive() {
                                 });
 }
 
+uint32_t DNSServer::getExpire(DNSRecord &record) {
+    uint32_t expire = config.dnsCacheExpire;
+    if (!record.matchArea) {
+        expire = 1;
+    }
+    expire = max(expire, (uint32_t) 1 * 10);
+    expire = min(expire, (uint32_t) 10 * 60);
+    return expire;
+}
 
 void DNSServer::processSession(DNSSession *session) {
     auto complete = [=](DNSSession *se) {
@@ -83,10 +92,9 @@ void DNSServer::processSession(DNSSession *session) {
         udp::endpoint &clientEndpoint = se->clientEndpoint;
         UdpDNSResponse *udpResponse = se->udpDNSResponse;
         if (udpResponse == nullptr) {
-            udpResponse = new UdpDNSResponse(se->udpDnsRequest, se->record);
+            udpResponse = new UdpDNSResponse(se->udpDnsRequest, se->record, getExpire(se->record));
             se->udpDNSResponse = udpResponse;
         }
-
         socketS->async_send_to(buffer(udpResponse->data, udpResponse->len), clientEndpoint,
                                [=](boost::system::error_code writeError, size_t writeSize) {
                                    Logger::traceId = se->getId();
@@ -138,8 +146,7 @@ void DNSServer::endDNSSession(DNSSession *session) {
 
 void DNSServer::queryDNSRecord(DNSSession *session, std::function<void(DNSSession *)> finalComplete) {
     auto complete = [=](DNSSession *se) {
-        auto id = se->udpDnsRequest.dnsHeader->id;
-        se->udpDNSResponse = new UdpDNSResponse(se->udpDnsRequest, se->record);
+        se->udpDNSResponse = new UdpDNSResponse(se->udpDnsRequest, se->record, getExpire(se->record));
         finalComplete(se);
     };
     auto host = session->getHost();

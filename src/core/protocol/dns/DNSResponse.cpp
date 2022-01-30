@@ -43,7 +43,11 @@ string UdpDNSResponse::fistIPArea() const {
 vector<string> UdpDNSResponse::IPAreas() const {
     vector<string> areas;
     for (auto it = this->ips.begin(); it != this->ips.end(); it++) {
-        areas.emplace_back(st::areaip::getArea(*it));
+        auto area = st::areaip::getArea(*it);
+        if (area.empty()) {
+            Logger::WARN << "ip" << st::utils::ipv4::ipToStr(*it) << "area not recognized" << END;
+        }
+        areas.emplace_back(area);
     }
     return areas;
 }

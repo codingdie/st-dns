@@ -12,7 +12,6 @@
 #include "DNSCache.h"
 #include "DNSClient.h"
 #include "utils/STUtils.h"
-
 static mutex rLock;
 
 using namespace std::placeholders;
@@ -123,10 +122,11 @@ void DNSServer::endDNSSession(DNSSession *session) {
     if (session->processType == DNSSession::ProcessType::QUERY) {
         success &= !session->record.ips.empty();
     }
+
     session->apmLogger.addMetric("trustedDomainCount", DNSCache::INSTANCE.getTrustedDomainCount());
     session->apmLogger.addMetric("inQueryingDomainCount", watingSessions.size());
+    session->apmLogger.addMetric("memLeak", st::mem::leakSize());
     session->apmLogger.addDimension("success", to_string(success));
-
     auto firstIPArea = session->udpDNSResponse != nullptr ? session->udpDNSResponse->fistIPArea() : "";
     auto areas = session->udpDNSResponse != nullptr ? session->udpDNSResponse->IPAreas() : vector<string>({});
     session->apmLogger.addDimension("firstIPArea", firstIPArea);
@@ -238,9 +238,11 @@ void DNSServer::forwardUdpDNSRequest(DNSSession *session, std::function<void(Udp
 }
 void DNSServer::calRemoteDNSServers(const DNSRecord &record, vector<RemoteDNSServer *> &servers) {
     auto host = record.domain;
-    if (record.ips.empty() || !record.matchArea) {
-        servers = RemoteDNSServer::calculateQueryServer(host, config.servers);
-    } else {
+    //默认更新所有上游server记录
+    servers = RemoteDNSServer::calculateQueryServer(host, config.servers);
+    //如果当前记录不为空，且满足地区最优，且所有上游都至少成功同步过一次记录，则只更新此server记录
+    if (!record.ips.empty() && record.matchArea && DNSCache::INSTANCE.serverCount(host) == servers.size()) {
+        servers.clear();
         RemoteDNSServer *server = this->config.getDNSServerById(record.dnsServer);
         if (server != nullptr) {
             servers.emplace_back(server);

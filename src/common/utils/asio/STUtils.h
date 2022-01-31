@@ -14,7 +14,7 @@ using namespace boost::asio;
 namespace st {
     namespace utils {
         namespace asio {
-            static string inline addrStr(tcp::endpoint &endpoint) {
+            inline string addrStr(tcp::endpoint &endpoint) {
                 return endpoint.address().to_string() + ":" + to_string(endpoint.port());
             }
         }// namespace asio

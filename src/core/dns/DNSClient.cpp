@@ -60,6 +60,8 @@ void DNSClient::udpDns(const string domain, const std::string &dnsServer, uint32
                                                                      dnsResponse->parse(size);
                                                                      if (dnsResponse->isValid() && dnsResponse->header->id == qid) {
                                                                          complete(dnsResponse->ips);
+                                                                     } else {
+                                                                         complete({});
                                                                      }
                                                                  }
                                                                  delete dnsResponse;
@@ -297,7 +299,7 @@ void DNSClient::forwardUdp(UdpDnsRequest &dnsRequest, const std::string &dnsServ
 
 std::vector<uint32_t> DNSClient::parse(uint16_t length, pair<uint8_t *, uint32_t> lengthBytes, pair<uint8_t *, uint32_t> dataBytes, uint16_t dnsId) {
     UdpDNSResponse *dnsResponse = nullptr;
-    if (length > 0 && length < 1024) {
+    if (length > 0 && length <= 1024) {
         dnsResponse = new UdpDNSResponse(dataBytes.first, length);
         dnsResponse->parse(length);
         if (!dnsResponse->isValid()) {
@@ -319,7 +321,7 @@ std::vector<uint32_t> DNSClient::parse(uint16_t length, pair<uint8_t *, uint32_t
 
     vector<uint32_t> ips;
     if (dnsResponse != nullptr && dnsResponse->isValid()) {
-        ips = move(dnsResponse->ips);
+        ips = dnsResponse->ips;
     }
     if (dnsResponse != nullptr) {
         delete dnsResponse;

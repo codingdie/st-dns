@@ -68,7 +68,7 @@ public:
 
     virtual void print() const {
         if (data != nullptr) {
-            for (int i = 0; i < len; i++) {
+            for (auto i = 0L; i < len; i++) {
                 if (i != 0 && i % 4 == 0 && i != len) {
                     cout << endl;
                 }
@@ -81,7 +81,7 @@ public:
 
     virtual void printHex() const {
         if (data != nullptr) {
-            for (int i = 0; i < len; i++) {
+            for (auto i = 0L; i < len; i++) {
                 if (i != 0 && i % 8 == 0 && i != len) {
                     cout << endl;
                 }
@@ -183,7 +183,7 @@ public:
 
         uint16_t maskA = 0xFFU << 8U;
         uint16_t maskB = 0xFF;
-        for (auto i = 0; i < DEFAULT_LEN / 2; i++) {
+        for (auto i = 0L; i < DEFAULT_LEN / 2; i++) {
             uint16_t ui = tmpData[i] & maskA;
             data[i * 2] = (ui >> 8U);
             data[i * 2 + 1] = tmpData[i] & maskB;

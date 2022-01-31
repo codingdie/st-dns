@@ -13,7 +13,7 @@ SHM &SHM::write() {
 SHM::SHM(bool readOnly) : readOnly(readOnly), initSHMSuccess(false) {
     try {
         if (!readOnly) {
-            bool remove = boost::interprocess::shared_memory_object::remove(NAME.c_str());
+            boost::interprocess::shared_memory_object::remove(NAME.c_str());
             segment = new boost::interprocess::managed_shared_memory(boost::interprocess::create_only, NAME.c_str(),
                                                                      1024 * 1024 * 4);
             alloc_inst = new void_allocator(segment->get_segment_manager());

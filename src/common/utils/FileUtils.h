@@ -15,7 +15,7 @@ namespace st {
     namespace utils {
         namespace file {
 
-            static bool pid(const string &pidFile) {
+            inline bool pid(const string &pidFile) {
                 int pid = getpid();
                 ofstream fileStream(pidFile);
                 if (fileStream.is_open()) {
@@ -27,7 +27,7 @@ namespace st {
                 return false;
             }
 
-            static bool exit(const string &path) {
+            inline bool exit(const string &path) {
                 bool exits = false;
                 fstream fileStream;
                 fileStream.open(path, ios::in);
@@ -37,12 +37,12 @@ namespace st {
                 fileStream.close();
                 return exits;
             }
-            static bool del(const string &path) {
+            inline void del(const string &path) {
                 boost::filesystem::path bpath(path);
                 boost::filesystem::remove(bpath);
             }
 
-            static bool createIfNotExits(const string &path) {
+            inline bool createIfNotExits(const string &path) {
                 bool result = false;
                 try {
                     boost::filesystem::path bpath(path);
@@ -64,13 +64,13 @@ namespace st {
                     } else {
                         result = true;
                     }
-                } catch (exception ex) {
+                } catch (exception& ex) {
                     Logger::ERROR << "create file failed!" << ex.what() << path << END;
                 }
                 return result;
             }
 
-            static void read(const string &path, unordered_set<string> &data) {
+            inline void read(const string &path, unordered_set<string> &data) {
                 fstream fileStream;
                 fileStream.open(path, ios::in);
                 if (fileStream) {
@@ -81,7 +81,7 @@ namespace st {
                     fileStream.close();
                 }
             }
-            static string read(const string &path) {
+            inline string read(const string &path) {
                 fstream fileStream;
                 string result;
                 fileStream.open(path, ios::in);

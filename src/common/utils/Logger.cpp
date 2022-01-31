@@ -44,10 +44,10 @@ UDPLogServer Logger::UDP_LOG_SERVER;
 void Logger::doLog() {
     std::lock_guard<std::mutex> lg(logMutex);
     string time = time::nowStr();
-    int pos = 0;
+    string::size_type pos = 0L;
     int lastPos = 0;
     std::ostringstream st;
-    while ((pos = this->str.find("\n", pos)) != this->str.npos) {
+    while ((pos = this->str.find("\n", pos)) != std::string::npos) {
         auto line = this->str.substr(lastPos, (pos - lastPos));
         doLog(time, st, line);
         pos += 1;

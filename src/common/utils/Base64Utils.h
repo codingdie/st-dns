@@ -13,7 +13,7 @@
 namespace st {
     namespace utils {
         namespace base64 {
-            static std::string encode(const std::string str) {
+             inline std::string encode(const std::string str) {
                 typedef boost::archive::iterators::base64_from_binary<boost::archive::iterators::transform_width<std::string::const_iterator, 6, 8>> base64Encoder;
                 std::stringstream result;
                 copy(base64Encoder(str.begin()),
@@ -25,7 +25,7 @@ namespace st {
                 }
                 return result.str();
             }
-            static std::string decode(std::string str) {
+            inline std::string decode(std::string str) {
                 str = boost::replace_all_copy(str, "=", "");
                 typedef boost::archive::iterators::transform_width<boost::archive::iterators::binary_from_base64<std::string::const_iterator>, 8, 6> base64Decoder;
                 std::stringstream result;

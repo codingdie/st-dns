@@ -8,7 +8,7 @@ using namespace std;
 namespace st {
     namespace utils {
         namespace shell {
-            static bool exec(const string &command, string &resultStr, string &errorStr) {
+            inline bool exec(const string &command, string &resultStr, string &errorStr) {
                 resultStr = "";
                 std::error_code ec;
                 boost::process::ipstream is;
@@ -34,7 +34,7 @@ namespace st {
                 }
                 return success;
             }
-            static bool exec(const string &command, string &resultStr) {
+            inline bool exec(const string &command, string &resultStr) {
                 resultStr = "";
                 string error;
                 int result = exec(command, resultStr, error);
@@ -43,7 +43,7 @@ namespace st {
                 }
                 return result;
             }
-            static bool exec(const string &command) {
+            inline bool exec(const string &command) {
                 std::error_code ec;
                 int result = boost::process::system(command, ec);
                 bool success = false;

@@ -56,10 +56,11 @@ public:
     void addCache(const string &domain, const vector<uint32_t> &ips, const string &dnsServer, const int expire,
                   const bool matchArea);
 
-    void query(const string &domain, DNSRecord &recode);
+    void query(const string &domain, DNSRecord &record);
 
     bool hasAnyRecord(const string &domain);
     bool hasTrustedRecord(const string &domain);
+    uint32_t serverCount(const string &domain);
 
     unordered_set<string> queryNotMatchAreaServers(const string &domain);
 };

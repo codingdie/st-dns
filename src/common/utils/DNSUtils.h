@@ -15,12 +15,12 @@ using namespace std;
 namespace st {
     namespace utils {
         namespace dns {
-            static vector<uint32_t> query(const string &dnsServer, const string &host) {
+            inline vector<uint32_t> query(const string &dnsServer, const string &host) {
                 string error;
                 string result;
                 vector<uint32_t> resultIPs;
                 auto cm = "nslookup " + host + "  " + dnsServer;
-                auto success = st::utils::shell::exec(cm, result, error);
+                st::utils::shell::exec(cm, result, error);
                 if (!result.empty()) {
                     bool nameLine = false;
                     for (auto &str : st::utils::strutils::split(result, "\n")) {
@@ -44,7 +44,7 @@ namespace st {
                 }
                 return resultIPs;
             }
-            static vector<uint32_t> query(const string &host) {
+            inline vector<uint32_t> query(const string &host) {
                 vector<uint32_t> resultIPs;
 
                 boost::asio::io_context ctx;

@@ -9,7 +9,7 @@ using namespace std;
 namespace st {
     namespace utils {
         namespace ipv4 {
-            static string ipToStr(uint32_t ip) {
+            inline string ipToStr(uint32_t ip) {
                 string ipStr;
                 ipStr += to_string((ip & 0xFF000000U) >> 24U);
                 ipStr += ".";
@@ -21,7 +21,7 @@ namespace st {
                 return ipStr;
             }
 
-            static uint32_t strToIp(const string &ipStr) {
+            inline uint32_t strToIp(const string &ipStr) {
                 uint32_t ip = 0L;
                 std::size_t lastPos = 0;
                 std::size_t num = 0;
@@ -34,7 +34,7 @@ namespace st {
                     if(numStr.empty()){
                         return 0;
                     }
-                    for (auto i = 0; i < numStr.length(); i++) {
+                    for (string::size_type i = 0; i < numStr.length(); i++) {
                         if (numStr[0] < '0' || numStr[0] > '9') {
                             return 0;
                         }
@@ -50,7 +50,7 @@ namespace st {
                 return ip;
             }
 
-            static vector<uint32_t> strToIps(const string &ipStr) {
+            inline vector<uint32_t> strToIps(const string &ipStr) {
                 vector<uint32_t> ips;
                 auto ipStrs = strutils::split(ipStr, ",");
                 for (string &str : ipStrs) {
@@ -63,7 +63,7 @@ namespace st {
             }
 
             template<typename Collection>
-            static string ipsToStr(const Collection &ips) {
+            inline string ipsToStr(const Collection &ips) {
                 string ipStr;
                 for (uint32_t ip : ips) {
                     ipStr += ipToStr(ip);

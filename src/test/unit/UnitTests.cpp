@@ -97,6 +97,8 @@ TEST(UnitTests, testSHM) {
 }
 
 TEST(UnitTests, testAreaIP) {
+    
+    ASSERT_TRUE(st::areaip::isAreaIP("TW", "118.163.193.132"));
     ASSERT_TRUE(st::areaip::isAreaIP("cn", "223.5.5.5"));
     ASSERT_TRUE(st::areaip::isAreaIP("cn", "220.181.38.148"));
     ASSERT_TRUE(st::areaip::isAreaIP("cn", "123.117.76.165"));
@@ -110,5 +112,7 @@ TEST(UnitTests, testAreaIP) {
 
 
 TEST(UnitTests, demo) {
+    Logger::INFO << st::mem::mallocSize() << st::mem::freeSize() << st::mem::leakSize() << string::npos << END;
     testDNS("api.twitter.com", "8.8.8.8", 853, "TCP_SSL", {"US", "JP", "CN", "HK"});
+    Logger::INFO << st::mem::mallocSize() << st::mem::freeSize() << st::mem::leakSize() << END;
 }

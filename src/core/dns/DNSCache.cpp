@@ -19,7 +19,7 @@ void DNSCache::addCache(const string &domain, const vector<uint32_t> &ips, const
         lock_guard<mutex> lockGuard(rLock);
         unordered_map<string, DNSRecord> &records = caches[domain];
         DNSRecord &record = records[dnsServer];
-       
+
         for (auto ip : ips) {
             if (matchArea) {
                 st::dns::SHM::write().addOrUpdate(ip, domain);
@@ -58,6 +58,15 @@ bool DNSCache::hasAnyRecord(const string &domain) {
     lock_guard<mutex> lockGuard(rLock);
     return caches.find(domain) != caches.end();
 }
+uint32_t DNSCache::serverCount(const string &domain) {
+    lock_guard<mutex> lockGuard(rLock);
+    uint32_t count = 0;
+    for (auto it = caches.find(domain); it != caches.end(); it++) {
+        count++;
+    }
+    return count;
+}
+
 
 void DNSCache::query(const string &domain, DNSRecord &record) {
     lock_guard<mutex> lockGuard(rLock);

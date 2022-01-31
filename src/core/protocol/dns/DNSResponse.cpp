@@ -44,7 +44,7 @@ vector<string> UdpDNSResponse::IPAreas() const {
     vector<string> areas;
     for (auto it = this->ips.begin(); it != this->ips.end(); it++) {
         auto area = st::areaip::getArea(*it);
-        if (area.empty()) {
+        if (area.compare("default") == 0) {
             Logger::WARN << "ip" << st::utils::ipv4::ipToStr(*it) << "area not recognized" << END;
         }
         areas.emplace_back(area);

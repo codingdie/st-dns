@@ -318,13 +318,13 @@ void DNSServer::syncDNSRecordFromServer(const string host, std::function<void(DN
     RemoteDNSServer *server = servers[pos];
     string logTag = host + " syncDNSRecordFromServer " + server->id();
     uint64_t traceId = Logger::traceId;
-    std::function<void(vector<uint32_t> ips)> dnsComplete = [=](vector<uint32_t> ips) {
+    std::function<void(vector<uint32_t> ips, bool loadAll)> dnsComplete = [=](vector<uint32_t> ips, bool loadAll) {
         Logger::traceId = traceId;
         vector<uint32_t> oriIps = ips;
         filterIPByArea(host, server, ips);
         if (!ips.empty()) {
             DNSCache::INSTANCE.addCache(host, ips, server->id(),
-                                        server->dnsCacheExpire, true);
+                                        loadAll ? server->dnsCacheExpire : 60, true);
         } else {
             if (!oriIps.empty()) {
                 DNSCache::INSTANCE.addCache(host, oriIps, server->id(),
@@ -359,7 +359,9 @@ void DNSServer::syncDNSRecordFromServer(const string host, std::function<void(DN
     } else if (server->type.compare("TCP") == 0) {
         DNSClient::INSTANCE.tcpDNS(host, server->ip, server->port, server->timeout, areas, dnsComplete);
     } else if (server->type.compare("UDP") == 0) {
-        DNSClient::INSTANCE.udpDns(host, server->ip, server->port, server->timeout, dnsComplete);
+        DNSClient::INSTANCE.udpDns(host, server->ip, server->port, server->timeout, [=](std::vector<uint32_t> ips) {
+            dnsComplete(ips, true);
+        });
     }
 }
 

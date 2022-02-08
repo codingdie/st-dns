@@ -14,8 +14,10 @@ void testDNS(const string &domain, const string &server, const uint32_t port, co
     mutex lock;
     lock.lock();
     std::vector<uint32_t> result;
-    auto complete = [&](std::vector<uint32_t> ips) {
+    bool resultLoadAll = false;
+    auto complete = [&](std::vector<uint32_t> ips, bool loadAll) {
         result = ips;
+        resultLoadAll = loadAll;
         lock.unlock();
     };
     if (type.compare("TCP") == 0) {
@@ -23,10 +25,13 @@ void testDNS(const string &domain, const string &server, const uint32_t port, co
     } else if (type.compare("TCP_SSL") == 0) {
         DNSClient::INSTANCE.tcpTlsDNS(domain, server, port, 500000, areas, complete);
     } else {
-        DNSClient::INSTANCE.udpDns(domain, server, port, 500000, complete);
+        DNSClient::INSTANCE.udpDns(domain, server, port, 500000, [=](std::vector<uint32_t> ips) {
+            complete(ips, true);
+        });
     }
     lock.lock();
     ASSERT_TRUE(result.size() > 0);
+    ASSERT_TRUE(resultLoadAll);
 
     Logger::INFO << domain << "ips:" << st::utils::ipv4::ipsToStr(result) << st::utils::join(areas, "/") << END;
     lock.unlock();
@@ -97,7 +102,7 @@ TEST(UnitTests, testSHM) {
 }
 
 TEST(UnitTests, testAreaIP) {
-    
+
     ASSERT_TRUE(st::areaip::isAreaIP("TW", "118.163.193.132"));
     ASSERT_TRUE(st::areaip::isAreaIP("cn", "223.5.5.5"));
     ASSERT_TRUE(st::areaip::isAreaIP("cn", "220.181.38.148"));
@@ -112,7 +117,8 @@ TEST(UnitTests, testAreaIP) {
 
 
 TEST(UnitTests, demo) {
+    Logger::LEVEL = 0;
     Logger::INFO << st::mem::mallocSize() << st::mem::freeSize() << st::mem::leakSize() << string::npos << END;
-    testDNS("api.twitter.com", "8.8.8.8", 853, "TCP_SSL", {"US", "JP", "CN", "HK"});
+    testDNS("www.google.com", "8.8.8.8", 853, "TCP_SSL", {"US", "JP", "HK", "TW"});
     Logger::INFO << st::mem::mallocSize() << st::mem::freeSize() << st::mem::leakSize() << END;
 }

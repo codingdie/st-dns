@@ -81,7 +81,7 @@ void DNSClient::tcpTlsDNS(const string domain, const std::string &dnsServer, uin
     tcp::endpoint serverEndpoint(make_address_v4(dnsServer), port);
     TcpDnsRequest *dnsRequest = new TcpDnsRequest(domains);
     uint16_t dnsId = dnsRequest->dnsHeader->id;
-    string logTag = to_string(dnsId) + " " + dnsServer + " tcpTlsDNS " + domains[0];
+    string logTag = to_string(dnsId) + " " + dnsServer + " tcpTlsDNS " + domains[0] + (!area.empty() ? " " + area : "");
     boost::asio::ssl::stream<tcp::socket> *socket = new boost::asio::ssl::stream<tcp::socket>(ioContext, sslCtx);
     socket->set_verify_mode(ssl::verify_none);
     pair<uint8_t *, uint32_t> dataBytes = st::mem::pmalloc(1024);
@@ -90,7 +90,8 @@ void DNSClient::tcpTlsDNS(const string domain, const std::string &dnsServer, uin
             [=](std::vector<uint32_t> ips) {
                 st::mem::pfree(dataBytes);
                 st::mem::pfree(lengthBytes);
-                Logger::DEBUG << logTag << "cost" << time::now() - beginTime << dataBytes.second << END;
+
+                Logger::DEBUG << logTag << "cost" << time::now() - beginTime << "ips"<<st::utils::ipv4::ipsToStr(ips)<< END;
                 delete dnsRequest;
                 completeHandler(ips);
                 socket->async_shutdown([=](boost::system::error_code ec) {
@@ -205,23 +206,32 @@ void DNSClient::tcpDNS(const string domain, const std::string &dnsServer, uint16
 }
 
 
-void DNSClient::tcpTlsDNS(const string domain, const std::string &dnsServer, uint16_t port, uint64_t timeout, const unordered_set<string> &areas, std::function<void(std::vector<uint32_t> ips)> completeHandler) {
+void DNSClient::tcpTlsDNS(const string domain, const std::string &dnsServer, uint16_t port, uint64_t timeout, const unordered_set<string> &areas, std::function<void(std::vector<uint32_t> ips, bool loadAll)> completeHandler) {
     if (areas.empty()) {
-        tcpTlsDNS(domain, dnsServer, port, timeout, completeHandler);
+        tcpTlsDNS(domain, dnsServer, port, timeout, [=](std::vector<uint32_t> ips) {
+            completeHandler(ips, true);
+        });
     } else if (areas.size() == 1) {
-        tcpTlsDNS(domain, dnsServer, port, timeout, *areas.begin(), completeHandler);
+        tcpTlsDNS(domain, dnsServer, port, timeout, *areas.begin(), [=](std::vector<uint32_t> ips) {
+            completeHandler(ips, true);
+        });
     } else {
         atomic_uint16_t *counter = new atomic_uint16_t(0);
+        atomic_bool *loadAll = new atomic_bool(true);
         std::vector<uint32_t> *result = new std::vector<uint32_t>();
         std::function<void(std::vector<uint32_t> ips)> eachHandler = [=](std::vector<uint32_t> ips) {
             counter->fetch_add(1);
+            if(ips.size()==0){
+                *loadAll = false;
+            }
             for (auto ip : ips) {
                 result->emplace_back(ip);
             }
             if (counter->load() >= areas.size()) {
-                completeHandler(*result);
+                completeHandler(*result, loadAll->load());
                 delete result;
                 delete counter;
+                delete loadAll;
             }
         };
         for (const string area : areas) {
@@ -230,23 +240,32 @@ void DNSClient::tcpTlsDNS(const string domain, const std::string &dnsServer, uin
     }
 }
 
-void DNSClient::tcpDNS(const string domain, const std::string &dnsServer, uint16_t port, uint64_t timeout, const unordered_set<string> &areas, std::function<void(std::vector<uint32_t> ips)> completeHandler) {
+void DNSClient::tcpDNS(const string domain, const std::string &dnsServer, uint16_t port, uint64_t timeout, const unordered_set<string> &areas, std::function<void(std::vector<uint32_t> ips, bool loadAll)> completeHandler) {
     if (areas.empty()) {
-        tcpDNS(domain, dnsServer, port, timeout, completeHandler);
+        tcpDNS(domain, dnsServer, port, timeout, [=](std::vector<uint32_t> ips) {
+            completeHandler(ips, true);
+        });
     } else if (areas.size() == 1) {
-        tcpDNS(domain, dnsServer, port, timeout, *areas.begin(), completeHandler);
+        tcpDNS(domain, dnsServer, port, timeout, *areas.begin(), [=](std::vector<uint32_t> ips) {
+            completeHandler(ips, true);
+        });
     } else {
+        atomic_bool *loadAll = new atomic_bool(true);
         atomic_uint16_t *counter = new atomic_uint16_t(0);
-        std::unordered_set<uint32_t> *result = new std::unordered_set<uint32_t>();
+        std::vector<uint32_t> *result = new std::vector<uint32_t>();
         std::function<void(std::vector<uint32_t> ips)> eachHandler = [=](std::vector<uint32_t> ips) {
             counter->fetch_add(1);
             for (auto ip : ips) {
-                result->emplace(ip);
+                result->emplace_back(ip);
+            }
+            if (ips.size() == 0) {
+                *loadAll = false;
             }
             if (counter->load() == areas.size()) {
-                completeHandler(vector<uint32_t>(result->begin(), result->end()));
+                completeHandler(*result, loadAll->load());
                 delete result;
                 delete counter;
+                delete loadAll;
             }
         };
         for (const string area : areas) {

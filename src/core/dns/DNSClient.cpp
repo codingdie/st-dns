@@ -17,7 +17,7 @@ void setMark(int fd, uint32_t mark) {
 }
 
 template<typename Result>
-bool DNSClient::isTimeoutOrError(const string &logTag, boost::system::error_code ec, uint64_t beginTime, uint64_t timeout, std::function<void(Result)> completeHandler) {
+bool DNSClient::isTimeoutOrError(const string &logTag, boost::system::error_code ec, uint64_t beginTime, uint64_t timeout, std::function<void(Result)> completeHandler, Result defaultV) {
     uint64_t cost = time::now() - beginTime;
     if (!ec && cost <= timeout) {
         return false;
@@ -27,11 +27,17 @@ bool DNSClient::isTimeoutOrError(const string &logTag, boost::system::error_code
     } else {
         Logger::ERROR << logTag << "timout! cost" << cost << END;
     }
-    completeHandler({});
+    completeHandler(defaultV);
     return true;
 }
 
-
+bool DNSClient::isTimeoutOrError(const string &logTag, boost::system::error_code ec, uint64_t beginTime, uint64_t timeout, std::function<void(std::vector<uint32_t>)> completeHandler) {
+    return isTimeoutOrError(logTag, ec, beginTime, timeout, completeHandler, {});
+}
+bool DNSClient::isTimeoutOrError(const string &logTag, boost::system::error_code ec, uint64_t beginTime, uint64_t timeout, std::function<void(UdpDNSResponse *res)> completeHandler) {
+    UdpDNSResponse *res = nullptr;
+    return isTimeoutOrError(logTag, ec, beginTime, timeout, completeHandler, res);
+}
 void DNSClient::udpDns(const string domain, const std::string &dnsServer, uint32_t port, uint64_t timeout, std::function<void(std::vector<uint32_t> ips)> completeHandler) {
     vector<string> domains;
     domains.emplace_back(domain);
@@ -91,7 +97,7 @@ void DNSClient::tcpTlsDNS(const string domain, const std::string &dnsServer, uin
                 st::mem::pfree(dataBytes);
                 st::mem::pfree(lengthBytes);
 
-                Logger::DEBUG << logTag << "cost" << time::now() - beginTime << "ips"<<st::utils::ipv4::ipsToStr(ips)<< END;
+                Logger::DEBUG << logTag << "cost" << time::now() - beginTime << "ips" << st::utils::ipv4::ipsToStr(ips) << END;
                 delete dnsRequest;
                 completeHandler(ips);
                 socket->async_shutdown([=](boost::system::error_code ec) {
@@ -221,7 +227,7 @@ void DNSClient::tcpTlsDNS(const string domain, const std::string &dnsServer, uin
         std::vector<uint32_t> *result = new std::vector<uint32_t>();
         std::function<void(std::vector<uint32_t> ips)> eachHandler = [=](std::vector<uint32_t> ips) {
             counter->fetch_add(1);
-            if(ips.size()==0){
+            if (ips.size() == 0) {
                 *loadAll = false;
             }
             for (auto ip : ips) {
@@ -287,7 +293,6 @@ void DNSClient::forwardUdp(UdpDnsRequest &dnsRequest, const std::string &dnsServ
     uint64_t beginTime = time::now();
     udp::socket *socket = new udp::socket(ioContext, udp::endpoint(udp::v4(), 0));
     string logTag = "forwardUdp to " + dnsServer;
-    auto traceId = Logger::traceId;
     std::function<void(UdpDNSResponse *)> complete = [=](UdpDNSResponse *res) {
         delete socket;
         Logger::INFO << logTag << "finished!"

@@ -39,7 +39,7 @@ public:
 
     virtual ~UdpDnsRequest();
 
-    bool parse(int n);
+    bool parse(uint32_t n);
 
     string getHost() const;
     DNSQuery::Type getQueryType() const;

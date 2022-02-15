@@ -28,7 +28,7 @@ UdpDnsRequest::~UdpDnsRequest() {
 }
 
 
-bool UdpDnsRequest::parse(int n) {
+bool UdpDnsRequest::parse(uint32_t n) {
     if (n > DNSHeader::DEFAULT_LEN) {
         DNSHeader *header = DNSHeader::parse(data, DNSHeader::DEFAULT_LEN);
         if (header != nullptr) {

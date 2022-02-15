@@ -24,7 +24,7 @@ namespace st {
         uint16_t area2Code(const string &areaCode);
         string code2Area(uint16_t mark);
         string getArea(const uint32_t &ip);
-
+        string getAreaFromNet(const uint32_t &ip);
     }// namespace areaip
 }// namespace st
 

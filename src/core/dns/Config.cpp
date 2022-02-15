@@ -11,7 +11,7 @@ void st::dns::Config::load(const string &baseConfDir) {
         ptree tree;
         try {
             read_json(configPath, tree);
-        } catch (json_parser_error e) {
+        } catch (json_parser_error &e) {
             Logger::ERROR << " parse config file " + configPath + " error!" << e.message() << END;
             exit(1);
         }

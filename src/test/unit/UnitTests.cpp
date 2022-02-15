@@ -116,9 +116,16 @@ TEST(UnitTests, testAreaIP) {
 }
 
 
-TEST(UnitTests, demo) {
+TEST(UnitTests, testResolveMultiArea) {
     Logger::LEVEL = 0;
     Logger::INFO << st::mem::mallocSize() << st::mem::freeSize() << st::mem::leakSize() << string::npos << END;
     testDNS("www.google.com", "8.8.8.8", 853, "TCP_SSL", {"US", "JP", "HK", "TW"});
     Logger::INFO << st::mem::mallocSize() << st::mem::freeSize() << st::mem::leakSize() << END;
+}
+
+
+TEST(UnitTests, testIPAreaNetwork) {
+    string area = st::areaip::getAreaFromNet(st::utils::ipv4::strToIp("14.0.42.1"));
+    ASSERT_STREQ("JP", area.c_str());
+
 }

@@ -72,22 +72,25 @@ void DNSCache::query(const string &domain, DNSRecord &record) {
     lock_guard<mutex> lockGuard(rLock);
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
     record.domain = domain;
-
     auto iterator = caches.find(domain);
     if (iterator != caches.end()) {
         unordered_map<string, DNSRecord> &maps = iterator->second;
-        for (auto it = maps.begin(); it != maps.end(); it++) {
-            record = it->second;
-            if (record.expireTime > st::utils::time::now()) {
-                record.expire = false;
-            } else {
-                record.expire = true;
-            }
-            vector<uint32_t> ips(record.ips.begin(), record.ips.end());
-            std::shuffle(ips.begin(), ips.end(), std::default_random_engine(seed));
-            record.ips = std::vector<uint32_t>(ips.begin(), ips.end());
-            if (record.matchArea) {
-                break;
+
+        for (auto it = st::dns::Config::INSTANCE.servers.begin(); it != st::dns::Config::INSTANCE.servers.end(); it++) {
+            auto serverId = (*it)->id();
+            if (maps.find(serverId) != maps.end()) {
+                record = maps[serverId];
+                if (record.expireTime > st::utils::time::now()) {
+                    record.expire = false;
+                } else {
+                    record.expire = true;
+                }
+                vector<uint32_t> ips(record.ips.begin(), record.ips.end());
+                std::shuffle(ips.begin(), ips.end(), std::default_random_engine(seed));
+                record.ips = std::vector<uint32_t>(ips.begin(), ips.end());
+                if (record.matchArea) {
+                    return;
+                }
             }
         }
     }

@@ -16,7 +16,7 @@ void BasicData::alloc(uint32_t size) {
     this->data = mem.first;
     this->mlen = mem.second;
     this->len = size;
-    for (int i = 0; i < len; i++) {
+    for (uint32_t i = 0; i < len; i++) {
         *(this->data + i) = 0;
     }
     this->dataOwner = true;
@@ -93,7 +93,7 @@ uint64_t parseRe(uint8_t *allData, uint64_t allDataSize, uint64_t begin, uint64_
         return 0L;
     }
     uint8_t *data = allData + begin;
-    int actualLen = 0;
+    uint64_t actualLen = 0;
     while (actualLen < maxParse) {
         uint8_t frameLen = *(data + actualLen);
         if ((frameLen & 0b11000000U) == 0b11000000U) {

@@ -222,7 +222,7 @@ void DNSServer::forwardUdpDNSRequest(DNSSession *session, std::function<void(DNS
         completeHandler(session);
     }
 }
-void DNSServer::forwardUdpDNSRequest(DNSSession *session, std::function<void(UdpDNSResponse *)> complete, vector<RemoteDNSServer *> servers, int pos) {
+void DNSServer::forwardUdpDNSRequest(DNSSession *session, std::function<void(UdpDNSResponse *)> complete, vector<RemoteDNSServer *> servers, uint32_t pos) {
     if (pos >= servers.size()) {
         complete(nullptr);
         return;

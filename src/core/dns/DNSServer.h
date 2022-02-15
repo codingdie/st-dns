@@ -53,7 +53,7 @@ private:
 
     void forwardUdpDNSRequest(DNSSession *session, std::function<void(DNSSession *)> completeHandler);
 
-    void forwardUdpDNSRequest(DNSSession *session, std::function<void(UdpDNSResponse *)> complete, vector<RemoteDNSServer *> servers, int pos);
+    void forwardUdpDNSRequest(DNSSession *session, std::function<void(UdpDNSResponse *)> complete, vector<RemoteDNSServer *> servers, uint32_t pos);
 
     void endDNSSession(DNSSession *session);
 

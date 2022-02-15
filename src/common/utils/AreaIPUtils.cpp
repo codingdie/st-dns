@@ -7,11 +7,17 @@
 #include "IPUtils.h"
 #include "Logger.h"
 #include <iostream>
+#include <boost/locale.hpp>
+#include <boost/regex.hpp>
+#include <boost/property_tree/json_parser.hpp>
+using namespace boost::property_tree;
 namespace st {
     namespace areaip {
         using namespace st::utils;
         static unordered_map<string, vector<pair<uint32_t, uint32_t>> *> caches;
         static mutex rLock;
+        static unordered_map<string, string> CN_AREA_2_AREA({{"日本", "JP"}});
+
         string getAreaCode(const string &areaReg) {
             string areaCode = areaReg;
             if (areaReg[0] == '!') {
@@ -135,7 +141,7 @@ namespace st {
         }
         string getArea(const uint32_t &ip) {
             if (ip == 0) {
-                return "";
+                return "default";
             }
             for (auto it = caches.begin(); it != caches.end(); it++) {
                 string area = (*it).first;
@@ -145,5 +151,37 @@ namespace st {
             }
             return "default";
         }
+        string getAreaFromIP138(const uint32_t &ip) {
+            string result;
+            if (shell::exec("curl -H \"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.80 Safari/537.36\" --location --request GET \"https://www.ip138.com/iplookup.asp?ip=" + st::utils::ipv4::ipToStr(ip) + "&action=2\"", result)) {
+                result = boost::locale::conv::to_utf<char>(result.c_str(), std::string("gb2312"));
+                boost::regex expression("{\".*ip_c_list.*\\}");
+                boost::smatch what;
+                if (boost::regex_search(result, what, expression, boost::regex_constants::match_not_dot_newline)) {
+                    result = what[0].str();
+                    ptree tree;
+                    try {
+                        std::stringstream results(result);
+                        read_json(results, tree);
+                        auto node = tree.get_child("ip_c_list");
+                        if (!node.empty()) {
+                            auto first = node.ordered_begin();
+                            string areaCN = first->second.get("ct", "");
+                            if(CN_AREA_2_AREA.find(areaCN)!=CN_AREA_2_AREA.end()){
+                                return CN_AREA_2_AREA[areaCN];
+                            }
+                        }
+
+                    } catch (json_parser_error &e) {
+                        Logger::ERROR << " getAreaFromNet not valid json" << result << END;
+                    }
+                }
+            }
+            return "";
+        }
+        string getAreaFromNet(const uint32_t &ip) {
+            return getAreaFromIP138(ip);
+        }
+
     }// namespace areaip
 }// namespace st

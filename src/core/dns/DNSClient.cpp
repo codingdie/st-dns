@@ -22,7 +22,7 @@ bool DNSClient::isTimeoutOrError(const string &logTag, boost::system::error_code
     if (!ec && cost <= timeout) {
         return false;
     }
-    if (ec) {
+    if (ec && ec != boost::asio::error::operation_aborted) {
         Logger::ERROR << logTag << "error! cost:" << cost << ec.message() << END
     } else {
         Logger::ERROR << logTag << "timout! cost" << cost << END;
@@ -50,17 +50,29 @@ void DNSClient::udpDns(const string domain, const std::string &dnsServer, uint32
     unsigned short qid = dnsRequest.dnsHeader->id;
     uint16_t dnsId = dnsRequest.dnsHeader->id;
     string logTag = to_string(dnsId) + " udpDns " + dnsServer + " " + domains[0];
+    deadline_timer *timeoutTimer = new deadline_timer(ioContext);
     std::function<void(std::vector<uint32_t> ips)> complete = [=](std::vector<uint32_t> ips) {
-        delete socket;
-        Logger::DEBUG << logTag << "cost" << time::now() - beginTime << END;
+        delete timeoutTimer;
+        if (ips.size() > 0) {
+            Logger::INFO << logTag << "cost" << time::now() - beginTime << "resolve ips" << st::utils::ipv4::ipsToStr(ips) << END;
+        }
         completeHandler(ips);
     };
+    timeoutTimer->expires_from_now(boost::posix_time::milliseconds(timeout));
+    timeoutTimer->async_wait([=](boost::system::error_code ec) {
+        socket->shutdown(boost::asio::socket_base::shutdown_both, ec);
+        socket->cancel(ec);
+        socket->close(ec);
+        ioContext.post([=]() {
+            delete socket;
+        });
+    });
     socket->async_send_to(buffer(dnsRequest.data, dnsRequest.len),
                           udp::endpoint(make_address_v4(dnsServer), port), [=](boost::system::error_code error, size_t size) {
                               if (!isTimeoutOrError(logTag, error, beginTime, timeout, complete)) {
                                   UdpDNSResponse *dnsResponse = new UdpDNSResponse(1024);
-                                  udp::endpoint serverEndpoint;
-                                  socket->async_receive_from(buffer(dnsResponse->data, sizeof(uint8_t) * 1024), serverEndpoint,
+                                  udp::endpoint *serverEndpoint = new udp::endpoint();
+                                  socket->async_receive_from(buffer(dnsResponse->data, sizeof(uint8_t) * 1024), *serverEndpoint,
                                                              [=](boost::system::error_code error, size_t size) {
                                                                  if (!isTimeoutOrError(logTag, error, beginTime, timeout, complete)) {
                                                                      dnsResponse->parse(size);
@@ -71,6 +83,7 @@ void DNSClient::udpDns(const string domain, const std::string &dnsServer, uint32
                                                                      }
                                                                  }
                                                                  delete dnsResponse;
+                                                                 delete serverEndpoint;
                                                              });
                               }
                           });
@@ -92,17 +105,29 @@ void DNSClient::tcpTlsDNS(const string domain, const std::string &dnsServer, uin
     socket->set_verify_mode(ssl::verify_none);
     pair<uint8_t *, uint32_t> dataBytes = st::mem::pmalloc(2048);
     pair<uint8_t *, uint32_t> lengthBytes = st::mem::pmalloc(2);
+    deadline_timer *timeoutTimer = new deadline_timer(ioContext);
     std::function<void(std::vector<uint32_t> ips)> complete =
             [=](std::vector<uint32_t> ips) {
+                delete timeoutTimer;
+                if (ips.size() > 0) {
+                    Logger::INFO << logTag << "cost" << time::now() - beginTime << "resolve ips" << st::utils::ipv4::ipsToStr(ips) << END;
+                }
+                completeHandler(ips);
+            };
+    timeoutTimer->expires_from_now(boost::posix_time::milliseconds(timeout));
+    timeoutTimer->async_wait([=](boost::system::error_code ec) {
+        socket->async_shutdown([=](boost::system::error_code ec) {
+            socket->lowest_layer().shutdown(boost::asio::socket_base::shutdown_both, ec);
+            socket->lowest_layer().cancel(ec);
+            socket->lowest_layer().close(ec);
+            ioContext.post([=]() {
                 st::mem::pfree(dataBytes);
                 st::mem::pfree(lengthBytes);
-                Logger::INFO << logTag << "cost" << time::now() - beginTime << ", resolve ips" << st::utils::ipv4::ipsToStr(ips) << END;
                 delete dnsRequest;
-                completeHandler(ips);
-                socket->async_shutdown([=](boost::system::error_code ec) {
-                    delete socket;
-                });
-            };
+                delete socket;
+            });
+        });
+    });
     socket->lowest_layer().async_connect(
             serverEndpoint,
             [=](boost::system::error_code ec) {
@@ -162,17 +187,28 @@ void DNSClient::tcpDNS(const string domain, const std::string &dnsServer, uint16
     tcp::socket *socket = new tcp::socket(ioContext);
     pair<uint8_t *, uint32_t> dataBytes = st::mem::pmalloc(2048);
     pair<uint8_t *, uint32_t> lengthBytes = st::mem::pmalloc(2);
-    std::function<void(std::vector<uint32_t> ips)> complete = [=](std::vector<uint32_t> ips) {
-        Logger::DEBUG << logTag << "cost" << time::now() - beginTime << dataBytes.second << END;
-        st::mem::pfree(dataBytes);
-        st::mem::pfree(lengthBytes);
-        socket->shutdown(boost::asio::socket_base::shutdown_both);
-        socket->cancel();
-        socket->close();
-        delete socket;
-        delete dnsRequest;
-        completeHandler(ips);
-    };
+    deadline_timer *timeoutTimer = new deadline_timer(ioContext);
+    std::function<void(std::vector<uint32_t> ips)> complete =
+            [=](std::vector<uint32_t> ips) {
+                delete timeoutTimer;
+                if (ips.size() > 0) {
+                    Logger::INFO << logTag << "cost" << time::now() - beginTime << "resolve ips" << st::utils::ipv4::ipsToStr(ips) << END;
+                }
+                completeHandler(ips);
+            };
+    timeoutTimer->expires_from_now(boost::posix_time::milliseconds(timeout));
+    timeoutTimer->async_wait([=](boost::system::error_code ec) {
+        socket->lowest_layer().shutdown(boost::asio::socket_base::shutdown_both, ec);
+        socket->lowest_layer().cancel(ec);
+        socket->lowest_layer().close(ec);
+        ioContext.post([=]() {
+            st::mem::pfree(dataBytes);
+            st::mem::pfree(lengthBytes);
+            delete dnsRequest;
+            delete socket;
+        });
+    });
+
     socket->async_connect(
             serverEndpoint,
             [=](boost::system::error_code ec) {
@@ -292,22 +328,35 @@ void DNSClient::forwardUdp(UdpDnsRequest &dnsRequest, const std::string &dnsServ
     uint64_t beginTime = time::now();
     udp::socket *socket = new udp::socket(ioContext, udp::endpoint(udp::v4(), 0));
     string logTag = "forwardUdp to " + dnsServer;
+    deadline_timer *timeoutTimer = new deadline_timer(ioContext);
     std::function<void(UdpDNSResponse *)> complete = [=](UdpDNSResponse *res) {
-        delete socket;
-        Logger::INFO << logTag << "finished!"
-                     << "cost" << time::now() - beginTime << END;
+        delete timeoutTimer;
+        if (res != nullptr) {
+            Logger::INFO << logTag << "sucess!"
+                         << "cost" << time::now() - beginTime << END;
+        }
         callback(res);
     };
+    timeoutTimer->expires_from_now(boost::posix_time::milliseconds(timeout));
+    timeoutTimer->async_wait([=](boost::system::error_code ec) {
+        socket->shutdown(boost::asio::socket_base::shutdown_both, ec);
+        socket->cancel(ec);
+        socket->close(ec);
+        ioContext.post([=]() {
+            delete socket;
+        });
+    });
     socket->async_send_to(buffer(dnsRequest.data, dnsRequest.len),
                           udp::endpoint(make_address_v4(dnsServer), port),
                           [=](boost::system::error_code error, size_t size) {
                               if (!isTimeoutOrError(logTag, error, beginTime, timeout, complete)) {
                                   UdpDNSResponse *dnsResponse = new UdpDNSResponse(1024);
-                                  udp::endpoint serverEndpoint;
+                                  udp::endpoint *serverEndpoint = new udp::endpoint();
                                   socket->async_receive_from(
                                           buffer(dnsResponse->data, sizeof(uint8_t) * 1024),
-                                          serverEndpoint,
+                                          *serverEndpoint,
                                           [=](boost::system::error_code error, size_t size) {
+                                              delete serverEndpoint;
                                               if (!isTimeoutOrError(logTag, error, beginTime, timeout, complete) && size > 0) {
                                                   dnsResponse->len = size;
                                                   complete(dnsResponse);

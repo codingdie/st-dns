@@ -21,15 +21,16 @@ void testDNS(const string &domain, const string &server, const uint32_t port, co
         lock.unlock();
     };
     if (type.compare("TCP") == 0) {
-        DNSClient::INSTANCE.tcpDNS(domain, server, port, 100000, areas, complete);
+        DNSClient::INSTANCE.tcpDNS(domain, server, port, 5000, areas, complete);
     } else if (type.compare("TCP_SSL") == 0) {
-        DNSClient::INSTANCE.tcpTlsDNS(domain, server, port, 500000, areas, complete);
+        DNSClient::INSTANCE.tcpTlsDNS(domain, server, port, 10000, areas, complete);
     } else {
-        DNSClient::INSTANCE.udpDns(domain, server, port, 500000, [=](std::vector<uint32_t> ips) {
+        DNSClient::INSTANCE.udpDns(domain, server, port, 200, [=](std::vector<uint32_t> ips) {
             complete(ips, true);
         });
     }
     lock.lock();
+    std::this_thread::sleep_for(std::chrono::seconds(1));
     ASSERT_TRUE(result.size() > 0);
     ASSERT_TRUE(resultLoadAll);
 
@@ -58,7 +59,7 @@ void testParallel(FUNC testMethod, uint32_t count, uint32_t parral) {
     }
 }
 
-TEST(UnitTests, testTcpDNS) {
+TEST(UnitTests, testUdpDNS) {
     for (int i = 0; i < 3; i++) {
         testDNS("baidu.com", "114.114.114.114", 53, "UDP");
     }
@@ -70,7 +71,7 @@ TEST(UnitTests, testTcpTlsDNS) {
     }
 }
 
-TEST(UnitTests, testUdpDNS) {
+TEST(UnitTests, testTcpDNS) {
     for (int i = 0; i < 3; i++) {
         testDNS("baidu.com", "223.5.5.5", 53, "TCP");
     }
@@ -102,17 +103,16 @@ TEST(UnitTests, testSHM) {
 }
 
 TEST(UnitTests, testAreaIP) {
-
-    ASSERT_TRUE(st::areaip::isAreaIP("TW", "118.163.193.132"));
-    ASSERT_TRUE(st::areaip::isAreaIP("cn", "223.5.5.5"));
-    ASSERT_TRUE(st::areaip::isAreaIP("cn", "220.181.38.148"));
-    ASSERT_TRUE(st::areaip::isAreaIP("cn", "123.117.76.165"));
-    ASSERT_TRUE(!st::areaip::isAreaIP("cn", "172.217.5.110"));
-    ASSERT_TRUE(st::areaip::isAreaIP("us", "172.217.5.110"));
-    ASSERT_TRUE(st::areaip::isAreaIP("jp", "114.48.198.220"));
-    ASSERT_TRUE(!st::areaip::isAreaIP("us", "114.48.198.220"));
-    ASSERT_TRUE(!st::areaip::isAreaIP("cn", "218.146.11.198"));
-    ASSERT_TRUE(st::areaip::isAreaIP("kr", "218.146.11.198"));
+    ASSERT_TRUE(st::areaip::Manager::uniq().isAreaIP("TW", "118.163.193.132"));
+    ASSERT_TRUE(st::areaip::Manager::uniq().isAreaIP("cn", "223.5.5.5"));
+    ASSERT_TRUE(st::areaip::Manager::uniq().isAreaIP("cn", "220.181.38.148"));
+    ASSERT_TRUE(st::areaip::Manager::uniq().isAreaIP("cn", "123.117.76.165"));
+    ASSERT_TRUE(!st::areaip::Manager::uniq().isAreaIP("cn", "172.217.5.110"));
+    ASSERT_TRUE(st::areaip::Manager::uniq().isAreaIP("us", "172.217.5.110"));
+    ASSERT_TRUE(st::areaip::Manager::uniq().isAreaIP("jp", "114.48.198.220"));
+    ASSERT_TRUE(!st::areaip::Manager::uniq().isAreaIP("us", "114.48.198.220"));
+    ASSERT_TRUE(!st::areaip::Manager::uniq().isAreaIP("cn", "218.146.11.198"));
+    ASSERT_TRUE(st::areaip::Manager::uniq().isAreaIP("kr", "218.146.11.198"));
 }
 
 
@@ -125,7 +125,10 @@ TEST(UnitTests, testResolveMultiArea) {
 
 
 TEST(UnitTests, testIPAreaNetwork) {
-    string area = st::areaip::getAreaFromNet(st::utils::ipv4::strToIp("14.0.42.1"));
-    ASSERT_STREQ("JP", area.c_str());
+    st::areaip::Manager::uniq().isAreaIP("JP", "14.0.42.1");
+    st::areaip::Manager::uniq().isAreaIP("TW", "118.163.193.132");
 
+    std::this_thread::sleep_for(std::chrono::seconds(5));
+    bool result = st::areaip::Manager::uniq().isAreaIP("JP", "14.0.42.1");
+    ASSERT_TRUE(result);
 }

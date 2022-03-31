@@ -47,7 +47,7 @@ void st::dns::Config::load(const string &baseConfDir) {
                         dnsServer->whitelist.emplace(v.second.get_value<string>());
                     }
                 }
-                dnsServer->dnsCacheExpire = stoi(tree.get("dns_cache_expire", to_string(this->dnsCacheExpire)));
+                dnsServer->dnsCacheExpire = stoi(serverNode.get("dns_cache_expire", to_string(this->dnsCacheExpire)));
                 dnsServer->timeout = serverNode.get("timeout", 100);
                 auto areasNode = serverNode.get_child_optional("areas");
                 if (areasNode.is_initialized()) {
@@ -55,7 +55,7 @@ void st::dns::Config::load(const string &baseConfDir) {
                     for (boost::property_tree::ptree::value_type &v : areasArr) {
                         string area = v.second.get_value<string>();
                         if (!area.empty()) {
-                            if (!st::areaip::loadAreaIPs(area)) {
+                            if (!st::areaip::Manager::uniq().loadAreaIPs(area)) {
                                 exit(1);
                             }
                             dnsServer->areas.emplace_back(area);

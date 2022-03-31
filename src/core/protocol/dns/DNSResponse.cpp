@@ -38,12 +38,12 @@ uint32_t UdpDNSResponse::fistIP() const {
 }
 string UdpDNSResponse::fistIPArea() const {
     uint32_t ip = this->fistIP();
-    return st::areaip::getArea(ip);
+    return st::areaip::Manager::uniq().getArea(ip);
 }
 vector<string> UdpDNSResponse::IPAreas() const {
     vector<string> areas;
     for (auto it = this->ips.begin(); it != this->ips.end(); it++) {
-        auto area = st::areaip::getArea(*it);
+        auto area = st::areaip::Manager::uniq().getArea(*it);
         if (area.compare("default") == 0) {
             Logger::WARN << "ip" << st::utils::ipv4::ipToStr(*it) << "area not recognized" << END;
         }

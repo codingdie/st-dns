@@ -38,8 +38,10 @@ void DNSServer::start() {
 
 void DNSServer::shutdown() {
     this->state = 2;
+    socketS->cancel();
     ioContext.stop();
     delete ioWoker;
+    socketS->close();
     Logger::INFO << "st-dns server stoped, listen at" << config.ip + ":" + to_string(config.port) << END;
 }
 
@@ -369,7 +371,7 @@ void DNSServer::filterIPByArea(const string host, RemoteDNSServer *server, vecto
     if (!ips.empty() && server->whitelist.find(host) == server->whitelist.end() && !server->areas.empty()) {
         for (auto it = ips.begin(); it != ips.end();) {
             auto ip = *it;
-            if (!st::areaip::isAreaIP(server->areas, ip)) {
+            if (!st::areaip::Manager::uniq().isAreaIP(server->areas, ip)) {
                 it = ips.erase(it);
                 Logger::DEBUG << host << "remove not area ip" << st::utils::ipv4::ipToStr(ip) << "from" << server->ip
                               << st::utils::join(server->areas, "/") << END;

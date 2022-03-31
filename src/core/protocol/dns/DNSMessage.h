@@ -384,6 +384,8 @@ public:
     uint32_t liveTime = 0;
     uint16_t length = 0;
     vector<uint32_t> ipv4s;
+    const static uint32_t DEFAULT_SINGLE_IP_LEN = 2 + 2 + 2 + 4 + 2 + 4;
+    const static uint32_t MAX_LEN = 512;
 
     virtual ~DNSResourceZone() {
         if (domain != nullptr) {
@@ -446,9 +448,7 @@ public:
     }
 
     static DNSResourceZone *generate(uint8_t *data, uint32_t ip, uint32_t expire) {
-        uint32_t size = 2 + 2 + 2 + 4 + 2 + 4;
-        DNSResourceZone *resourceZone = new DNSResourceZone(data, size);
-        resourceZone->len = size;
+        DNSResourceZone *resourceZone = new DNSResourceZone(data, DEFAULT_SINGLE_IP_LEN);
         uint8_t *data1 = resourceZone->data;
         //domain
         *data1 = 0b11000000;

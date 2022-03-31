@@ -19,10 +19,12 @@ namespace st {
             }
             inline std::string nowStr() {
                 char buff[20];
-                time_t now = time::now() / 1000;
+                uint64_t nowt = time::now();
+                time_t now = nowt / 1000;
                 tm *time = localtime(&now);
                 strftime(buff, sizeof(buff), "%Y-%m-%dT%H:%M:%S", time);
-                return buff;
+                std::string result = buff;
+                return result + "." + std::to_string(nowt % 1000);
             }
         }// namespace time
     }    // namespace utils

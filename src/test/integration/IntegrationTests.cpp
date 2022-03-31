@@ -16,12 +16,13 @@ protected:
         dnsServer->waitStart();
     }
     void TearDown() override {
-        std::this_thread::sleep_for(std::chrono::seconds(5));
+        std::this_thread::sleep_for(std::chrono::seconds(1));
         dnsServer->shutdown();
         th->join();
         APMLogger::disable();
         delete th;
         delete dnsServer;
+        std::this_thread::sleep_for(std::chrono::seconds(1));
     }
 };
 class IntegrationTests : public BaseTest {
@@ -38,7 +39,7 @@ void testDNS(const string &domain) {
     mutex lock;
     lock.lock();
     vector<uint32_t> ips;
-    DNSClient::INSTANCE.udpDns(domain, server, port, 20000, [&](std::vector<uint32_t> result) {
+    DNSClient::INSTANCE.udpDns(domain, server, port, 25000, [&](std::vector<uint32_t> result) {
         ips = result;
         lock.unlock();
     });
@@ -50,9 +51,18 @@ void testDNS(const string &domain) {
     lock.unlock();
 }
 
-
 TEST_F(IntegrationTests, testDNS) {
     testDNS("google.com");
     testDNS("youtube.com");
     testDNS("facebook.com");
+    testDNS("twitter.com");
+    testDNS("baidu.com");
+}
+
+TEST_F(IntegrationTests, testForwardUDP) {
+    string result;
+    for (int i = 0; i < 10; i++) {
+        shell::exec("dig cname baidu.com @127.0.0.1 -p5353",result);
+    }
+    Logger::INFO << result << END;
 }

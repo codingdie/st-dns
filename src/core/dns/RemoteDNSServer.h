@@ -23,7 +23,7 @@ public:
     unordered_set<string> blacklist;
     vector<string> areas;
     int timeout = 100;
-    int dnsCacheExpire = 60 * 60;
+    int dnsCacheExpire = 10 * 60;
 
     static string generateServerId(const string &serverIp, int serverPort) {
         return boost::algorithm::ireplace_all_copy(serverIp, ".", "_") + "_" + to_string(serverPort);

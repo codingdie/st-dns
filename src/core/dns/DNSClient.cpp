@@ -90,7 +90,7 @@ void DNSClient::tcpTlsDNS(const string domain, const std::string &dnsServer, uin
     string logTag = to_string(dnsId) + " " + dnsServer + " tcpTlsDNS " + domains[0] + (!area.empty() ? " " + area : "");
     boost::asio::ssl::stream<tcp::socket> *socket = new boost::asio::ssl::stream<tcp::socket>(ioContext, sslCtx);
     socket->set_verify_mode(ssl::verify_none);
-    pair<uint8_t *, uint32_t> dataBytes = st::mem::pmalloc(1024);
+    pair<uint8_t *, uint32_t> dataBytes = st::mem::pmalloc(2048);
     pair<uint8_t *, uint32_t> lengthBytes = st::mem::pmalloc(2);
     std::function<void(std::vector<uint32_t> ips)> complete =
             [=](std::vector<uint32_t> ips) {
@@ -164,7 +164,7 @@ void DNSClient::tcpDNS(const string domain, const std::string &dnsServer, uint16
     uint16_t dnsId = dnsRequest->dnsHeader->id;
     string logTag = to_string(dnsId) + " tcpDNS " + dnsServer + " " + domains[0];
     tcp::socket *socket = new tcp::socket(ioContext);
-    pair<uint8_t *, uint32_t> dataBytes = st::mem::pmalloc(1024);
+    pair<uint8_t *, uint32_t> dataBytes = st::mem::pmalloc(2048);
     pair<uint8_t *, uint32_t> lengthBytes = st::mem::pmalloc(2);
     std::function<void(std::vector<uint32_t> ips)> complete = [=](std::vector<uint32_t> ips) {
         Logger::DEBUG << logTag << "cost" << time::now() - beginTime << dataBytes.second << END;

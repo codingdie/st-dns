@@ -106,14 +106,14 @@ void DNSServer::processSession(DNSSession *session) {
     session->apmLogger.addDimension("domain", session->getHost());
     if (session->getQueryType() == DNSQuery::A) {
         queryDNSRecord(session, complete);
-    } else if (session->getQueryType() != DNSQuery::AAAA) {
-        session->processType = DNSSession::ProcessType::FORWARD;
-        session->apmLogger.addDimension("processType", "forward");
-        forwardUdpDNSRequest(session, complete);
-    } else {
+    } else if (session->getQueryType() == DNSQuery::AAAA) {
         session->processType = DNSSession::ProcessType::DROP;
         session->apmLogger.addDimension("processType", "drop");
         complete(session);
+    } else {
+        session->processType = DNSSession::ProcessType::FORWARD;
+        session->apmLogger.addDimension("processType", "forward");
+        forwardUdpDNSRequest(session, complete);
     }
 }
 

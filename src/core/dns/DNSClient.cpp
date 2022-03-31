@@ -23,7 +23,7 @@ bool DNSClient::isTimeoutOrError(const string &logTag, boost::system::error_code
         return false;
     }
     if (ec) {
-        Logger::ERROR << logTag << "error!" << ec.message() << END
+        Logger::ERROR << logTag << "error! cost:" << cost << ec.message() << END
     } else {
         Logger::ERROR << logTag << "timout! cost" << cost << END;
     }
@@ -101,6 +101,9 @@ void DNSClient::tcpTlsDNS(const string domain, const std::string &dnsServer, uin
                 delete dnsRequest;
                 completeHandler(ips);
                 socket->async_shutdown([=](boost::system::error_code ec) {
+                    if (ec) {
+                        Logger::ERROR << logTag << "async_shutdown error!" << ec.message() << time::now() - beginTime << END;
+                    }
                     delete socket;
                 });
             };

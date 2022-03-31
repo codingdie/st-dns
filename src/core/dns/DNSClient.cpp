@@ -96,14 +96,10 @@ void DNSClient::tcpTlsDNS(const string domain, const std::string &dnsServer, uin
             [=](std::vector<uint32_t> ips) {
                 st::mem::pfree(dataBytes);
                 st::mem::pfree(lengthBytes);
-
-                Logger::DEBUG << logTag << "cost" << time::now() - beginTime << "ips" << st::utils::ipv4::ipsToStr(ips) << END;
+                Logger::INFO << logTag << "cost" << time::now() - beginTime << ", resolve ips" << st::utils::ipv4::ipsToStr(ips) << END;
                 delete dnsRequest;
                 completeHandler(ips);
                 socket->async_shutdown([=](boost::system::error_code ec) {
-                    if (ec) {
-                        Logger::ERROR << logTag << "async_shutdown error!" << ec.message() << time::now() - beginTime << END;
-                    }
                     delete socket;
                 });
             };

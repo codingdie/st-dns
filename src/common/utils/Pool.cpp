@@ -4,7 +4,7 @@ static std::atomic<uint64_t> freeNum(0);
 static std::atomic<uint64_t> mallocNum(0);
 #define POOL_CONFIG boost::default_user_allocator_new_delete, boost::details::pool::default_mutex, 64, 0
 struct CHUNCK_8 {};
-typedef boost::singleton_pool<CHUNCK_8, sizeof(uint8_t) * 64, POOL_CONFIG> CHUNCK_8_POOl;
+typedef boost::singleton_pool<CHUNCK_8, sizeof(uint8_t) * 8, POOL_CONFIG> CHUNCK_8_POOl;
 struct CHUNCK_1024 {};
 typedef boost::singleton_pool<CHUNCK_1024, sizeof(uint8_t) * 1024, POOL_CONFIG> CHUNCK_1024_POOl;
 struct CHUNCK_2048 {};

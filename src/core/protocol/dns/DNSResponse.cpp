@@ -145,6 +145,9 @@ UdpDNSResponse::UdpDNSResponse(UdpDnsRequest &request, DNSRecord &record, uint32
     //answer
     if (hasRecord) {
         for (auto it = ips.begin(); it != ips.end(); it++) {
+            if (finalLen + DNSResourceZone::DEFAULT_SINGLE_IP_LEN >= DNSResourceZone::MAX_LEN) {
+                break;
+            }
             DNSResourceZone *pResourceZone = DNSResourceZone::generate(curData, *it, expire);
             this->answerZones.emplace_back(pResourceZone);
             curData += pResourceZone->len;

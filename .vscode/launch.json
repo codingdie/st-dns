@@ -9,8 +9,9 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/st-dns-unit-test",
+            "preLaunchTask": "build",
             "args": [
-                // "--gtest_filter=UnitTests.testIPAreaNetwork"
+                "--gtest_filter=UnitTests.testSHM"
             ],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",

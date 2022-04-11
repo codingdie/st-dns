@@ -14,6 +14,7 @@
 #include <vector>
 #include "StringUtils.h"
 #include "IPUtils.h"
+#include "Logger.h"
 
 using namespace std;
 
@@ -29,12 +30,22 @@ namespace st {
                 return to_string(start) + "\t" + to_string(end) + "\t" + area;
             }
 
+            bool isValid() {
+                return area.size() == 2 && end >= start && start != 0;
+            }
+
             static AreaIP parse(const string &str) {
                 AreaIP result;
                 auto strs = st::utils::strutils::split(str, "\t");
-                result.start = stoul(strs[0]);
-                result.end = stoul(strs[1]);
-                result.area = strs[2];
+                if (strs.size() == 3) {
+                    try {
+                        result.start = stoul(strs[0]);
+                        result.end = stoul(strs[1]);
+                        result.area = strs[2];
+                    } catch (const std::exception &e) {
+                        st::utils::Logger::ERROR << "AreaIP parse error!" << str << e.what() << END;
+                    }
+                }
                 return result;
             }
             static AreaIP parse(const string &rangeStr, const string &area) {
@@ -58,7 +69,7 @@ namespace st {
             bool isAreaIP(const vector<string> &areas, const uint32_t &ip);
             bool isAreaIP(const string &areaReg, const string &ip);
             string getArea(const uint32_t &ip);
-            bool loadIPInfo(const uint32_t &ip, AreaIP &ipInfo);
+            vector<AreaIP> loadIPInfo(const uint32_t &ip);
             static Manager &uniq();
 
         private:

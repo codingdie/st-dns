@@ -45,7 +45,7 @@ namespace st {
 
             ~SHM();
 
-            void relocate();
+            void relocateReadSHM();
 
             std::string get(const std::string &key);
 

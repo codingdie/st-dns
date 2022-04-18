@@ -33,7 +33,6 @@ namespace st {
             const std::string REVERSE_NAME = "REVERSE";
             bool readOnly = false;
             boost::interprocess::managed_shared_memory *segment = nullptr;
-            void_allocator *alloc_inst = nullptr;
             shm_map *dnsMap = nullptr;
             std::atomic<bool> initSHMSuccess;
             uint16_t calVirtualPort(const std::string &area);

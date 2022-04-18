@@ -16,8 +16,8 @@ SHM::SHM(bool readOnly) : readOnly(readOnly), initSHMSuccess(false) {
             boost::interprocess::shared_memory_object::remove(NAME.c_str());
             segment = new boost::interprocess::managed_shared_memory(boost::interprocess::open_or_create, NAME.c_str(),
                                                                      1024 * 1024 * 4);
-            alloc_inst = new void_allocator(segment->get_segment_manager());
-            dnsMap = segment->construct<shm_map>(REVERSE_NAME.c_str())(std::less<shm_map_key_type>(), *alloc_inst);
+            void_allocator alloc_inst(segment->get_segment_manager());
+            dnsMap = segment->construct<shm_map>(REVERSE_NAME.c_str())(std::less<shm_map_key_type>(), alloc_inst);
             dnsMap->clear();
             initSHMSuccess = true;
         } else {
@@ -34,9 +34,6 @@ SHM::~SHM() {
         }
         // boost::interprocess::shared_memory_object::remove(NAME.c_str());
     }
-    if (alloc_inst != nullptr) {
-        delete alloc_inst;
-    }
     if (segment != nullptr) {
         delete segment;
     }
@@ -47,17 +44,11 @@ void SHM::relocateReadSHM() {
     try {
         auto segmentNew = new boost::interprocess::managed_shared_memory(boost::interprocess::open_only, NAME.c_str());
         auto dnsMapNew = segmentNew->find<shm_map>(REVERSE_NAME.c_str()).first;
-        auto allocInstNew = new void_allocator(segmentNew->get_segment_manager());
         initSHMSuccess = false;
         if (segment != nullptr) {
             delete segment;
         }
         segment = segmentNew;
-
-        if (alloc_inst != nullptr) {
-            delete alloc_inst;
-        }
-        alloc_inst = allocInstNew;
 
         dnsMap = dnsMapNew;
         initSHMSuccess = dnsMapNew == nullptr ? false : true;
@@ -70,7 +61,8 @@ std::string SHM::get(const std::string &key) {
     if (!initSHMSuccess.load()) {
         return "";
     }
-    shm_map_key_type k(key.c_str(), *alloc_inst);
+    void_allocator alloc_inst(segment->get_segment_manager());
+    shm_map_key_type k(key.c_str(), alloc_inst);
     auto it = dnsMap->find(k);
     if (it != dnsMap->end()) {
         return it->second.c_str();
@@ -81,8 +73,9 @@ void SHM::put(const std::string &key, const std::string &value) {
     if (!initSHMSuccess || readOnly || key.empty() || value.empty()) {
         return;
     }
-    shm_map_value_type shm_val(value.c_str(), *alloc_inst);
-    shm_map_key_type shm_key(key.c_str(), *alloc_inst);
+    void_allocator alloc_inst(segment->get_segment_manager());
+    shm_map_value_type shm_val(value.c_str(), alloc_inst);
+    shm_map_key_type shm_key(key.c_str(), alloc_inst);
     auto it = dnsMap->find(shm_key);
     if (it != dnsMap->end()) {
         it->second = shm_val;
@@ -95,8 +88,9 @@ void SHM::add(const std::string &key, const std::string &value) {
     if (!initSHMSuccess || readOnly || value.empty()) {
         return;
     }
-    shm_map_value_type v(value.c_str(), *alloc_inst);
-    shm_map_key_type k(key.c_str(), *alloc_inst);
+    void_allocator alloc_inst(segment->get_segment_manager());
+    shm_map_value_type v(value.c_str(), alloc_inst);
+    shm_map_key_type k(key.c_str(), alloc_inst);
     shm_pair_type pr(k, v);
     dnsMap->insert(pr);
 }

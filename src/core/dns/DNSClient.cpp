@@ -8,14 +8,6 @@
 
 DNSClient DNSClient::INSTANCE;
 
-
-void setMark(int fd, uint32_t mark) {
-    int error = setsockopt(fd, SOL_SOCKET, SO_MARK, &mark, sizeof(mark));
-    if (error == -1) {
-        Logger::ERROR << "set mark error" << strerror(errno) << Logger::ENDL;
-    }
-}
-
 template<typename Result>
 bool DNSClient::isTimeoutOrError(const string &logTag, boost::system::error_code ec, uint64_t beginTime, uint64_t timeout, std::function<void(Result)> completeHandler, Result defaultV) {
     uint64_t cost = time::now() - beginTime;
@@ -396,9 +388,7 @@ std::vector<uint32_t> DNSClient::parse(uint16_t length, pair<uint8_t *, uint32_t
     if (dnsResponse != nullptr && dnsResponse->isValid()) {
         ips = dnsResponse->ips;
     }
-    if (dnsResponse != nullptr) {
-        delete dnsResponse;
-    }
+    delete dnsResponse;
     return ips;
 }
 

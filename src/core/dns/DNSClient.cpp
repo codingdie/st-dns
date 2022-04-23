@@ -259,17 +259,18 @@ void DNSClient::tcpTlsDNS(const string domain, const std::string &dnsServer, uin
     } else {
         atomic_uint16_t *counter = new atomic_uint16_t(0);
         atomic_bool *loadAll = new atomic_bool(true);
-        std::vector<uint32_t> *result = new std::vector<uint32_t>();
+        std::unordered_set<uint32_t> *result = new std::unordered_set<uint32_t>();
         std::function<void(std::vector<uint32_t> ips)> eachHandler = [=](std::vector<uint32_t> ips) {
             counter->fetch_add(1);
             if (ips.size() == 0) {
                 *loadAll = false;
             }
             for (auto ip : ips) {
-                result->emplace_back(ip);
+                result->emplace(ip);
             }
             if (counter->load() >= areas.size()) {
-                completeHandler(*result, loadAll->load());
+                std::vector<uint32_t> s(result->begin(), result->end());
+                completeHandler(ips, loadAll->load());
                 delete result;
                 delete counter;
                 delete loadAll;

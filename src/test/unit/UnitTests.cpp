@@ -86,19 +86,32 @@ TEST(UnitTests, testBase64) {
 }
 
 TEST(UnitTests, testSHM) {
-    int count = 100;
+    st::SHM::share().clear();
+    uint64_t size0 = st::SHM::share().freeSize();
+    ASSERT_TRUE(size0 > 1024 * 1024 * 3);
+    uint64_t count = 10000;
     for (int i = 0; i < count; i++) {
-        st::dns::SHM::write().addOrUpdate(i, to_string(i) + "baidu.com");
+        st::SHM::share().put(i, to_string(i) + "baidu.com");
     }
+    ASSERT_TRUE(size0 > 1024 * 1024 * 3);
+
+    uint64_t size01 = st::SHM::share().freeSize();
+    ASSERT_TRUE(size0 > size01);
+
+    for (int i = count; i < count * 2; i++) {
+        st::SHM::share().put(i, to_string(i) + "baidu.com");
+    }
+    uint64_t size02 = st::SHM::share().freeSize();
+    ASSERT_TRUE(size01 > size02);
     for (int i = 0; i < count; i++) {
-        for (int j = 0; j < 10000; j++) {
-            auto host = st::dns::SHM::read().query(i);
+        for (int j = 0; j < 100; j++) {
+            auto host = st::dns::SHM::share().reverse(i);
             ASSERT_STREQ((to_string(i) + "baidu.com").c_str(), host.c_str());
         }
     }
 
-    auto testIp = count + 1;
-    auto host2 = st::dns::SHM::read().query(testIp);
+    auto testIp = count * 2 + 1;
+    auto host2 = st::dns::SHM::share().reverse(testIp);
     ASSERT_STREQ(st::utils::ipv4::ipToStr(testIp).c_str(), host2.c_str());
 }
 

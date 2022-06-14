@@ -22,9 +22,9 @@ void DNSCache::addCache(const string &domain, const vector<uint32_t> &ips, const
 
         for (auto ip : ips) {
             if (matchArea) {
-                st::dns::SHM::write().addOrUpdate(ip, domain);
+                st::SHM::share().put(to_string(ip), domain);
             } else {
-                st::dns::SHM::write().add(ip, domain);
+                st::SHM::share().putIfAbsent(to_string(ip), domain);
             }
         }
         record.ips = ips;
@@ -132,9 +132,9 @@ void DNSCache::loadFromFile() {
                 count++;
                 for (auto ip : record.ips) {
                     if (record.matchArea) {
-                        st::dns::SHM::write().addOrUpdate(ip, record.domain);
+                        st::SHM::share().put(to_string(ip), record.domain);
                     } else {
-                        st::dns::SHM::write().add(ip, record.domain);
+                        st::SHM::share().putIfAbsent(to_string(ip), record.domain);
                     }
                 }
             }

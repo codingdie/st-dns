@@ -1,146 +1,95 @@
 #include "SHM.h"
-using namespace st::dns;
+#include <boost/date_time/posix_time/posix_time.hpp>
 using namespace st::utils;
-
-SHM &SHM::read() {
-    static SHM read;
-    return read;
+using namespace boost::interprocess;
+std::string st::SHM::NAME = "ST-SHM";
+std::string st::SHM::LOCK_NAME = "ST-SHM-LOCK";
+st::SHM &st::SHM::share() {
+    static SHM in;
+    return in;
 }
-SHM &SHM::write() {
-    static SHM write(false);
-    return write;
+void st::SHM::checkMutexStatus() {
+    named_mutex mt(open_or_create, LOCK_NAME.c_str());
+    scoped_lock<named_mutex> testlock(mt, boost::interprocess::defer_lock);
+    int i = 0;
+    while (++i < 3 && !testlock.owns()) {
+        sleep(1);
+        testlock.try_lock();
+    }
+    if (i == 3) {
+        named_mutex::remove(LOCK_NAME.c_str());
+    }
 }
-SHM::SHM(bool readOnly) : readOnly(readOnly), initSHMSuccess(false) {
+st::SHM::SHM() : initSHMSuccess(false) {
     try {
-        if (!readOnly) {
-            boost::interprocess::shared_memory_object::remove(NAME.c_str());
-            segment = new boost::interprocess::managed_shared_memory(boost::interprocess::open_or_create, NAME.c_str(),
-                                                                     1024 * 1024 * 4);
-            void_allocator alloc_inst(segment->get_segment_manager());
-            dnsMap = segment->construct<shm_map>(REVERSE_NAME.c_str())(std::less<shm_map_key_type>(), alloc_inst);
-            dnsMap->clear();
-            initSHMSuccess = true;
-        } else {
-            relocateReadSHM();
-        }
+        checkMutexStatus();
+        named_mutex mutex(open_or_create, LOCK_NAME.c_str());
+        scoped_lock<named_mutex> lock(mutex);
+        segment = new managed_shared_memory(open_or_create, NAME.c_str(), 1024 * 1024 * 4);
+        void_allocator alloc_inst(segment->get_segment_manager());
+        segment->find_or_construct<shm_map>("KV")(std::less<shm_map_key_type>(), alloc_inst);
+        initSHMSuccess = true;
     } catch (const std::exception &e) {
         Logger::ERROR << "init SHM error!" << e.what() << END;
     }
 }
-SHM::~SHM() {
-    if (!readOnly) {
-        if (segment != nullptr) {
-            // segment->destroy<shm_map>(REVERSE_NAME.c_str());
-        }
-        // boost::interprocess::shared_memory_object::remove(NAME.c_str());
-    }
+st::SHM::~SHM() {
     if (segment != nullptr) {
         delete segment;
     }
 }
 
-
-void SHM::relocateReadSHM() {
-    try {
-        auto segmentNew = new boost::interprocess::managed_shared_memory(boost::interprocess::open_only, NAME.c_str());
-        auto dnsMapNew = segmentNew->find<shm_map>(REVERSE_NAME.c_str()).first;
-        initSHMSuccess = false;
-        if (segment != nullptr) {
-            delete segment;
-        }
-        segment = segmentNew;
-
-        dnsMap = dnsMapNew;
-        initSHMSuccess = dnsMapNew == nullptr ? false : true;
-    } catch (const std::exception &e) {
-        Logger::ERROR << "relocate error!" << e.what() << END;
-        initSHMSuccess = false;
-    }
-}
-std::string SHM::get(const std::string &key) {
-    if (!initSHMSuccess.load()) {
+std::string st::SHM::get(const std::string &key) {
+    if (!initSHMSuccess || key.empty()) {
         return "";
     }
+    named_mutex mutex(open_or_create, LOCK_NAME.c_str());
+    scoped_lock<named_mutex> lock(mutex);
     void_allocator alloc_inst(segment->get_segment_manager());
+    shm_map *kv = segment->find<shm_map>("KV").first;
     shm_map_key_type k(key.c_str(), alloc_inst);
-    auto it = dnsMap->find(k);
-    if (it != dnsMap->end()) {
+    auto it = kv->find(k);
+    if (it != kv->end()) {
         return it->second.c_str();
     }
     return "";
 }
-void SHM::put(const std::string &key, const std::string &value) {
-    if (!initSHMSuccess || readOnly || key.empty() || value.empty()) {
+void st::SHM::put(const std::string &key, const std::string &value) {
+    if (!initSHMSuccess || key.empty() || value.empty()) {
         return;
     }
+    named_mutex mutex(open_or_create, LOCK_NAME.c_str());
+    scoped_lock<named_mutex> lock(mutex);
     void_allocator alloc_inst(segment->get_segment_manager());
+    shm_map *kv = segment->find<shm_map>("KV").first;
     shm_map_value_type shm_val(value.c_str(), alloc_inst);
     shm_map_key_type shm_key(key.c_str(), alloc_inst);
-    auto it = dnsMap->find(shm_key);
-    if (it != dnsMap->end()) {
+    auto it = kv->find(shm_key);
+    if (it != kv->end()) {
         it->second = shm_val;
     } else {
         shm_pair_type shm_pair(shm_key, shm_val);
-        dnsMap->insert(shm_pair);
+        kv->insert(shm_pair);
     }
 }
-void SHM::add(const std::string &key, const std::string &value) {
-    if (!initSHMSuccess || readOnly || value.empty()) {
+void st::SHM::putIfAbsent(const std::string &key, const std::string &value) {
+    if (!initSHMSuccess || key.empty() || value.empty()) {
         return;
     }
+    named_mutex mutex(open_or_create, LOCK_NAME.c_str());
+    scoped_lock<named_mutex> lock(mutex);
     void_allocator alloc_inst(segment->get_segment_manager());
+    shm_map *kv = segment->find<shm_map>("KV").first;
     shm_map_value_type v(value.c_str(), alloc_inst);
     shm_map_key_type k(key.c_str(), alloc_inst);
     shm_pair_type pr(k, v);
-    dnsMap->insert(pr);
+    kv->insert(pr);
+}
+void st::SHM::clear() {
+    scoped_lock<named_mutex> lock(mutex());
+    segment->find<shm_map>("KV").first->clear();
 }
 
-std::string SHM::query(uint32_t ip) {
-    string val = get(to_string(ip));
-    if (val.length() > 0) {
-        return val;
-    }
-    return st::utils::ipv4::ipToStr(ip);
-}
-
-void SHM::add(uint32_t ip, const std::string &host) {
-    add(to_string(ip), host);
-}
-
-void SHM::addOrUpdate(uint32_t ip, const std::string host) {
-    put(to_string(ip), host);
-}
-uint16_t getVPortBegin() {
-    uint16_t vPortBegin = 53000;
-    const char *env = std::getenv("ST_DNS_VIRTUAL_PORT_BEGIN");
-    string vPortBeginStr = "";
-    if (env != nullptr) {
-        vPortBeginStr = env;
-        if (vPortBeginStr.length() > 0) {
-            vPortBegin = stoi(vPortBeginStr);
-        }
-    }
-    return vPortBegin;
-}
-
-
-uint16_t SHM::calVirtualPort(const std::string &area) {
-    auto areaCode = st::areaip::area2Code(area);
-    return getVPortBegin() + areaCode;
-}
-uint16_t SHM::initVirtualPort(uint32_t ip, uint16_t port, const std::string &area) {
-    uint16_t vPort = calVirtualPort(area);
-    put(to_string(ip) + ":" + to_string(vPort), to_string(port));
-    return vPort;
-}
-
-std::pair<std::string, uint16_t> SHM::getRealPort(uint32_t ip, uint16_t vPort) {
-    string realPortStr = get(to_string(ip) + ":" + to_string(vPort));
-    uint16_t realPort = vPort;
-    string area = "";
-    if (!realPortStr.empty()) {
-        realPort = stoi(realPortStr);
-        area = st::areaip::code2Area(vPort - getVPortBegin());
-    }
-    return make_pair(area, realPort);
+uint64_t st::SHM::freeSize() {
+    return segment->get_segment_manager()->get_free_memory();
 }

@@ -127,7 +127,8 @@ void DNSServer::endDNSSession(DNSSession *session) {
 
     session->apmLogger.addMetric("trustedDomainCount", DNSCache::INSTANCE.getTrustedDomainCount());
     session->apmLogger.addMetric("inQueryingDomainCount", watingSessions.size());
-    session->apmLogger.addMetric("memLeak", st::mem::leakSize());
+    session->apmLogger.addMetric("memLeakSize", st::mem::leakSize());
+    session->apmLogger.addMetric("shmFreeSize", st::SHM::share().freeSize());
     session->apmLogger.addDimension("success", to_string(success));
     auto firstIPArea = session->udpDNSResponse != nullptr ? session->udpDNSResponse->fistIPArea() : "";
     auto areas = session->udpDNSResponse != nullptr ? session->udpDNSResponse->IPAreas() : vector<string>({});

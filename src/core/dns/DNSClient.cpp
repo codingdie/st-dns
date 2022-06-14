@@ -83,7 +83,7 @@ void DNSClient::udpDns(const string domain, const std::string &dnsServer, uint32
 
 void DNSClient::tcpTlsDNS(const string domain, const std::string &dnsServer, uint16_t port, uint64_t timeout, const string &area, std::function<void(std::vector<uint32_t> ips)> completeHandler) {
     if (!area.empty()) {
-        port = st::dns::SHM::write().initVirtualPort(st::utils::ipv4::strToIp(dnsServer), port, area);
+        port = st::dns::SHM::share().setVirtualPort(st::utils::ipv4::strToIp(dnsServer), port, area);
     }
     vector<string> domains;
     domains.emplace_back(domain);
@@ -166,7 +166,7 @@ void DNSClient::tcpTlsDNS(const string domain, const std::string &dnsServer, uin
 
 void DNSClient::tcpDNS(const string domain, const std::string &dnsServer, uint16_t port, uint64_t timeout, const string &area, std::function<void(std::vector<uint32_t> ips)> completeHandler) {
     if (!area.empty()) {
-        port = st::dns::SHM::write().initVirtualPort(st::utils::ipv4::strToIp(dnsServer), port, area);
+        port = st::dns::SHM::share().setVirtualPort(st::utils::ipv4::strToIp(dnsServer), port, area);
     }
     vector<string> domains;
     domains.emplace_back(domain);

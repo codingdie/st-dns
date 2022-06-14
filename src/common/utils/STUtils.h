@@ -20,6 +20,7 @@
 #include "TimeUtils.h"
 #include "AreaIPUtils.h"
 #include "SHM.h"
+#include "DnsSHM.h"
 #include "asio/STUtils.h"
 using namespace st::utils;
 using namespace st;

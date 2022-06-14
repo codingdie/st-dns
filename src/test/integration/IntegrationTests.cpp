@@ -22,7 +22,7 @@ protected:
         APMLogger::disable();
         delete th;
         delete dnsServer;
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        std::this_thread::sleep_for(std::chrono::seconds(5));
     }
 };
 class IntegrationTests : public BaseTest {

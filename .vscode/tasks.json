@@ -6,7 +6,7 @@
         {
             "label": "build",
             "type": "shell",
-            "command": "cmake --build ./build --config Debug --target st-dns st-dns-unit-test st-dns-integration-test -j8"
+            "command": "cmake --build ./build --config Debug --target st-dns st-dns-unit-test st-dns-integration-test -j8 --"
         }
     ]
 }

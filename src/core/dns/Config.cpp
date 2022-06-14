@@ -63,7 +63,7 @@ void st::dns::Config::load(const string &baseConfDir) {
                     }
                 }
                 for (auto it = dnsServer->areas.begin(); it != dnsServer->areas.end(); it++) {
-                    st::dns::SHM::write().initVirtualPort(st::utils::ipv4::strToIp(dnsServer->ip), dnsServer->port, *it);
+                    st::dns::SHM::share().setVirtualPort(st::utils::ipv4::strToIp(dnsServer->ip), dnsServer->port, *it);
                 }
                 servers.emplace_back(dnsServer);
             }

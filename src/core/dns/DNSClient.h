@@ -5,10 +5,8 @@
 #ifndef ST_DNS_DNSCLIENT_H
 #define ST_DNS_DNSCLIENT_H
 
-static const int DEFAULT_DNS_PORT = 53;
-
-#include "DNS.h"
-#include "utils/STUtils.h"
+#include "protocol/protocol.h"
+#include "utils/utils.h"
 #include <boost/asio.hpp>
 #include <boost/asio/basic_datagram_socket.hpp>
 #include <boost/asio/ssl.hpp>
@@ -18,6 +16,7 @@ static const int DEFAULT_DNS_PORT = 53;
 
 using namespace boost::asio::ip;
 using namespace boost::asio;
+using namespace st::dns;
 
 using namespace std;
 
@@ -41,9 +40,9 @@ public:
     void tcpDNS(const string domain, const std::string &dnsServer, uint16_t port, uint64_t timeout, std::function<void(std::vector<uint32_t> ips)> completeHandler);
 
 
-    void forwardUdp(UdpDnsRequest &udpDnsRequest, const std::string &dnsServer, uint32_t port, uint64_t timeout, std::function<void(UdpDNSResponse *)> callback);
+    void forwardUdp(udp_request &udpDnsRequest, const std::string &dnsServer, uint32_t port, uint64_t timeout, std::function<void(udp_response *)> callback);
 
-    //    static TcpDNSResponse *EDNS(const std::string &domain, const std::string &dnsServer, uint16_t port, uint32_t ip, uint64_t timeout);
+    //    static tcp_response *EDNS(const std::string &domain, const std::string &dnsServer, uint16_t port, uint32_t ip, uint64_t timeout);
 
 
     DNSClient();
@@ -58,7 +57,7 @@ private:
     template<typename Result>
     bool isTimeoutOrError(const string &logTag, boost::system::error_code ec, uint64_t beginTime, uint64_t timeout, std::function<void(Result)> completeHandler, Result defaultV);
     bool isTimeoutOrError(const string &logTag, boost::system::error_code ec, uint64_t beginTime, uint64_t timeout, std::function<void(std::vector<uint32_t>)> completeHandler);
-    bool isTimeoutOrError(const string &logTag, boost::system::error_code ec, uint64_t beginTime, uint64_t timeout, std::function<void(UdpDNSResponse *res)> completeHandler);
+    bool isTimeoutOrError(const string &logTag, boost::system::error_code ec, uint64_t beginTime, uint64_t timeout, std::function<void(udp_response *res)> completeHandler);
 
 };
 

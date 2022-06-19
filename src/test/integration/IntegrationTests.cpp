@@ -9,9 +9,9 @@ protected:
     DNSServer *dnsServer;
     thread *th;
     void SetUp() override {
-        st::dns::Config::INSTANCE.load("../confs/test");
-        file::del(st::dns::Config::INSTANCE.dnsCacheFile);
-        dnsServer = new DNSServer(st::dns::Config::INSTANCE);
+        st::dns::config::INSTANCE.load("../confs/test");
+        file::del(st::dns::config::INSTANCE.dns_cache_file);
+        dnsServer = new DNSServer(st::dns::config::INSTANCE);
         th = new thread([=]() { dnsServer->start(); });
         dnsServer->waitStart();
     }
@@ -19,10 +19,10 @@ protected:
         std::this_thread::sleep_for(std::chrono::seconds(1));
         dnsServer->shutdown();
         th->join();
-        APMLogger::disable();
+        apm_logger::disable();
         delete th;
         delete dnsServer;
-        std::this_thread::sleep_for(std::chrono::seconds(5));
+        std::this_thread::sleep_for(std::chrono::seconds(10));
     }
 };
 class IntegrationTests : public BaseTest {
@@ -45,7 +45,7 @@ void testDNS(const string &domain) {
     });
     lock.lock();
     if (ips.size() > 0) {
-        Logger::INFO << domain << "ips:" << st::utils::ipv4::ipsToStr(ips) << END;
+        logger::INFO << domain << "ips:" << st::utils::ipv4::ips_to_str(ips) << END;
     }
     ASSERT_TRUE(ips.size() > 0);
     lock.unlock();
@@ -64,5 +64,5 @@ TEST_F(IntegrationTests, testForwardUDP) {
     for (int i = 0; i < 10; i++) {
         shell::exec("dig cname baidu.com @127.0.0.1 -p5353",result);
     }
-    Logger::INFO << result << END;
+    logger::INFO << result << END;
 }

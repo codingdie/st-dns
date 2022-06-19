@@ -5,10 +5,10 @@
 #ifndef ST_DNS_DNSSERVER_H
 #define ST_DNS_DNSSERVER_H
 
-#include "Config.h"
-#include "DNSCache.h"
-#include "DNSSession.h"
-#include "utils/STUtils.h"
+#include "config.h"
+#include "dns_cache.h"
+#include "session.h"
+#include "utils/utils.h"
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
 #include <string>
@@ -18,10 +18,11 @@
 using namespace boost::asio;
 using namespace boost::asio::ip;
 using namespace std;
+using namespace st::dns;
 
 class DNSServer {
 public:
-    DNSServer(st::dns::Config &config);
+    DNSServer(st::dns::config &config);
 
     void start();
 
@@ -31,41 +32,41 @@ public:
 
 private:
     atomic_int64_t rid;
-    st::dns::Config config;
+    st::dns::config config;
     udp::socket *socketS = nullptr;
     io_context ioContext;
     boost::asio::io_context::work *ioWoker;
-    unordered_map<string, unordered_set<DNSSession *>> watingSessions;
+    unordered_map<string, unordered_set<session *>> watingSessions;
     std::atomic<uint8_t> state;
     atomic_int64_t counter;
 
     void receive();
 
-    void processSession(DNSSession *session);
+    void processSession(session *session);
 
-    void queryDNSRecord(DNSSession *session, std::function<void(DNSSession *)> completeHandler);
+    void queryDNSRecord(session *session, std::function<void(st::dns::session *)> completeHandler);
 
-    void syncDNSRecordFromServer(const string host, std::function<void(DNSRecord record)> complete, vector<RemoteDNSServer *> servers, int pos, bool completed);
+    void syncDNSRecordFromServer(const string host, std::function<void(dns_record record)> complete, vector<remote_dns_server *> servers, int pos, bool completed);
 
-    void filterIPByArea(const string host, RemoteDNSServer *server, vector<uint32_t> &ips);
+    void filterIPByArea(const string host, remote_dns_server *server, vector<uint32_t> &ips);
 
-    void queryDNSRecordFromServer(DNSSession *session, std::function<void(DNSSession *session)> completeHandler);
+    void queryDNSRecordFromServer(session *session, std::function<void(st::dns::session *)> completeHandler);
 
-    void forwardUdpDNSRequest(DNSSession *session, std::function<void(DNSSession *)> completeHandler);
+    void forwardUdpDNSRequest(session *session, std::function<void(st::dns::session *)> completeHandler);
 
-    void forwardUdpDNSRequest(DNSSession *session, std::function<void(UdpDNSResponse *)> complete, vector<RemoteDNSServer *> servers, uint32_t pos);
+    void forwardUdpDNSRequest(session *session, std::function<void(udp_response *)> complete, vector<remote_dns_server *> servers, uint32_t pos);
 
-    void endDNSSession(DNSSession *session);
+    void endDNSSession(session *session);
 
-    void updateDNSRecord(DNSRecord record);
+    void updateDNSRecord(dns_record record);
 
-    void calRemoteDNSServers(const DNSRecord &record, vector<RemoteDNSServer *> &servers);
+    void calRemoteDNSServers(const dns_record &record, vector<remote_dns_server *> &servers);
 
-    bool beginQueryRemote(const string host, DNSSession *session);
+    bool beginQueryRemote(const string host, session *session);
 
-    unordered_set<DNSSession *> endQueryRemote(const string host);
+    unordered_set<session *> endQueryRemote(const string host);
 
-    uint32_t getExpire(DNSRecord &record);
+    uint32_t getExpire(dns_record &record);
 };
 
 

@@ -1,28 +1,28 @@
 //
 // Created by codingdie on 2020/6/27.
 //
-#include "DNSServer.h"
-#include "DNSClient.h"
+#include "dns_server.h"
+#include "dns_client.h"
 #include <gtest/gtest.h>
 class BaseTest : public ::testing::Test {
 protected:
-    DNSServer *dnsServer;
+    dns_server *dnsServer;
     thread *th;
     void SetUp() override {
-        st::dns::Config::INSTANCE.load("../confs/test");
-        file::del(st::dns::Config::INSTANCE.dnsCacheFile);
-        dnsServer = new DNSServer(st::dns::Config::INSTANCE);
+        st::dns::config::INSTANCE.load("../confs/test");
+        file::del(st::dns::config::INSTANCE.dns_cache_file);
+        dnsServer = new dns_server(st::dns::config::INSTANCE);
         th = new thread([=]() { dnsServer->start(); });
-        dnsServer->waitStart();
+        dnsServer->wait_start();
     }
     void TearDown() override {
         std::this_thread::sleep_for(std::chrono::seconds(1));
         dnsServer->shutdown();
         th->join();
-        APMLogger::disable();
+        apm_logger::disable();
         delete th;
         delete dnsServer;
-        std::this_thread::sleep_for(std::chrono::seconds(5));
+        std::this_thread::sleep_for(std::chrono::seconds(10));
     }
 };
 class IntegrationTests : public BaseTest {
@@ -39,13 +39,13 @@ void testDNS(const string &domain) {
     mutex lock;
     lock.lock();
     vector<uint32_t> ips;
-    DNSClient::INSTANCE.udpDns(domain, server, port, 25000, [&](std::vector<uint32_t> result) {
+    dns_client::INSTANCE.udp_dns(domain, server, port, 25000, [&](std::vector<uint32_t> result) {
         ips = result;
         lock.unlock();
     });
     lock.lock();
     if (ips.size() > 0) {
-        Logger::INFO << domain << "ips:" << st::utils::ipv4::ipsToStr(ips) << END;
+        logger::INFO << domain << "ips:" << st::utils::ipv4::ips_to_str(ips) << END;
     }
     ASSERT_TRUE(ips.size() > 0);
     lock.unlock();
@@ -64,5 +64,5 @@ TEST_F(IntegrationTests, testForwardUDP) {
     for (int i = 0; i < 10; i++) {
         shell::exec("dig cname baidu.com @127.0.0.1 -p5353",result);
     }
-    Logger::INFO << result << END;
+    logger::INFO << result << END;
 }

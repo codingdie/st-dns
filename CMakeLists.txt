@@ -13,16 +13,15 @@ include_directories(${OPENSSL_INCLUDE_DIR})
 message("${OPENSSL_INCLUDE_DIR}")
 message("${OPENSSL_LIBRARIES}")
 include_directories(src/core/dns)
-include_directories(src/core/protocol/dns)
 include_directories(src/common)
 
-file(GLOB_RECURSE SOURCE_FILES src/core/*.cpp)
+file(GLOB_RECURSE SOURCE_FILES src/core/dns/*.cpp)
 file(GLOB_RECURSE SOURCE_INTEGRATION_TEST_FILES src/test/integration/*.cpp)
 file(GLOB_RECURSE SOURCE_UNIT_TEST_FILES src/test/unit/*.cpp)
 file(GLOB_RECURSE SOURCE_COMMON_FILES src/common/*.cpp)
 
 message("${SOURCE_FILES}")
-add_executable(st-dns src/server/main.cpp ${SOURCE_FILES} ${SOURCE_COMMON_FILES})
+add_executable(st-dns src/core/main.cpp ${SOURCE_FILES} ${SOURCE_COMMON_FILES})
 set(OTHER_LIBRARIES "rt")
 
 target_link_libraries(st-dns ${Boost_LIBRARIES} ${OPENSSL_LIBRARIES} ${OTHER_LIBRARIES})

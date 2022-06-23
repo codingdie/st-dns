@@ -41,7 +41,7 @@ string logger::tag = "default";
 udp_log_server logger::UDP_LOG_SERVER;
 
 
-void logger::doLog() {
+void logger::do_log() {
     std::lock_guard<std::mutex> lg(logMutex);
     string time = time::now_str();
     string::size_type pos = 0L;
@@ -49,15 +49,15 @@ void logger::doLog() {
     std::ostringstream st;
     while ((pos = this->str.find("\n", pos)) != std::string::npos) {
         auto line = this->str.substr(lastPos, (pos - lastPos));
-        doLog(time, st, line);
+        do_log(time, st, line);
         pos += 1;
         lastPos = pos;
     }
     auto line = this->str.substr(lastPos, (this->str.length() - lastPos));
-    doLog(time, st, line);
+    do_log(time, st, line);
     string finalStr = st.str();
-    std_logger::INSTANCE.log(finalStr, getSTD());
-    if (this->UDP_LOG_SERVER.isValid()) {
+    std_logger::INSTANCE.log(finalStr, get_std());
+    if (this->UDP_LOG_SERVER.is_valid()) {
         for (auto &line : strutils::split(finalStr, "\n")) {
             if (!line.empty()) {
                 udp_logger::INSTANCE.log(this->UDP_LOG_SERVER, "[" + tag + "] " + line);
@@ -67,14 +67,14 @@ void logger::doLog() {
     this->str.clear();
 }
 
-void logger::doLog(const string &time, ostream &st, const string &line) {
+void logger::do_log(const string &time, ostream &st, const string &line) {
     if (this->level >= LEVEL) {
         st << time << SPLIT << "[" << levelName << "]" << SPLIT << "[" << this_thread::get_id() << "]" << SPLIT << "["
            << traceId << "]" << SPLIT << line << endl;
     }
 }
 
-ostream *logger::getSTD() {
+ostream *logger::get_std() {
     ostream *stream = &cout;
     if (levelName == "ERROR") {
         stream = &cerr;
@@ -82,16 +82,16 @@ ostream *logger::getSTD() {
     return stream;
 }
 
-bool udp_log_server::isValid() { return ip.length() > 0 && port > 0; }
+bool udp_log_server::is_valid() { return ip.length() > 0 && port > 0; }
 
 
 logger &logger::operator<<(const char *log) {
-    appendStr(log);
+    append_str(log);
     return *this;
 }
 
 logger &logger::operator<<(char *log) {
-    appendStr(log);
+    append_str(log);
     return *this;
 }
 
@@ -104,16 +104,16 @@ logger &logger::operator<<(char ch) {
 logger::logger(string levelName, uint32_t level) : levelName(levelName), level(level) {}
 
 logger &logger::operator<<(const string &string) {
-    appendStr(string);
+    append_str(string);
     return *this;
 }
 
 
-void logger::appendStr(const string &info) { this->str.append(info).append(SPLIT); }
+void logger::append_str(const string &info) { this->str.append(info).append(SPLIT); }
 
 logger &logger::operator<<(const unordered_set<string> &strs) {
     for (auto str : strs) {
-        appendStr(str);
+        append_str(str);
     }
     return *this;
 }
@@ -157,12 +157,12 @@ std::thread *apm_logger::LOG_THREAD;
 apm_logger::apm_logger(const string name) { this->add_dimension("name", name); }
 
 void apm_logger::start() {
-    this->startTime = time::now();
-    this->lastStepTime = this->startTime;
+    this->start_time = time::now();
+    this->last_step_time = this->start_time;
 }
 
 void apm_logger::end() {
-    uint64_t cost = time::now() - this->startTime;
+    uint64_t cost = time::now() - this->start_time;
     this->add_metric("cost", cost);
     this->add_metric("count", 1);
     string name = dimensions.get<string>("name");
@@ -171,18 +171,18 @@ void apm_logger::end() {
         string metricName = it->first.data();
         long value = boost::lexical_cast<long>(it->second.data());
         std::lock_guard<std::mutex> lg(APM_STATISTICS_MUTEX);
-        accumulateMetric(STATISTICS[name][dimensionsId][metricName], value);
+        accumulate_metric(STATISTICS[name][dimensionsId][metricName], value);
     }
 }
 
 
 void apm_logger::step(const string step) {
-    uint64_t cost = time::now() - this->lastStepTime;
-    this->lastStepTime = time::now();
+    uint64_t cost = time::now() - this->last_step_time;
+    this->last_step_time = time::now();
     this->add_metric(step + "Cost", cost);
 }
 
-void apm_logger::accumulateMetric(unordered_map<string, long> &metric, long value) {
+void apm_logger::accumulate_metric(unordered_map<string, long> &metric, long value) {
     if (metric.empty()) {
         metric["sum"] = 0;
         metric["min"] = numeric_limits<long>::max();
@@ -204,15 +204,15 @@ void apm_logger::perf(const string &name, unordered_map<string, string> &&dimens
     pt.put("name", name);
     string id = base64::encode(toJson(pt));
     std::lock_guard<std::mutex> lg(APM_STATISTICS_MUTEX);
-    accumulateMetric(STATISTICS[name][id]["count"], count);
-    accumulateMetric(STATISTICS[name][id]["cost"], cost);
+    accumulate_metric(STATISTICS[name][id]["count"], count);
+    accumulate_metric(STATISTICS[name][id]["cost"], cost);
 }
 void apm_logger::enable(const string udpServerIP, uint16_t udpServerPort) {
     UDP_LOG_SERVER.ip = udpServerIP;
     UDP_LOG_SERVER.port = udpServerPort;
     IO_CONTEXT_WORK = new boost::asio::io_context::work(IO_CONTEXT);
     LOG_THREAD = new std::thread([&]() { IO_CONTEXT.run(); });
-    scheduleLog();
+    schedule_log();
 }
 void apm_logger::disable() {
     IO_CONTEXT.stop();
@@ -221,7 +221,7 @@ void apm_logger::disable() {
     delete LOG_THREAD;
 }
 
-void apm_logger::scheduleLog() {
+void apm_logger::schedule_log() {
     LOG_TIMMER.expires_from_now(boost::posix_time::seconds(60));
     LOG_TIMMER.async_wait([](boost::system::error_code ec) {
         std::lock_guard<std::mutex> lg(APM_STATISTICS_MUTEX);
@@ -246,13 +246,13 @@ void apm_logger::scheduleLog() {
                     }
                 }
                 finalPT.put("count", count);
-                if (UDP_LOG_SERVER.isValid()) {
+                if (UDP_LOG_SERVER.is_valid()) {
                     udp_logger::INSTANCE.log(UDP_LOG_SERVER, toJson(finalPT));
                 }
             }
         }
         STATISTICS.clear();
-        scheduleLog();
+        schedule_log();
     });
 }
 

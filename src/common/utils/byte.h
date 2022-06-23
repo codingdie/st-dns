@@ -13,7 +13,7 @@ typedef uint8_t byte;
 
 namespace st {
     namespace utils {
-        inline void copyByte(byte *from, byte *to, int size) {
+        inline void copy_byte(byte *from, byte *to, int size) {
             for (auto i = 0L; i < size; i++) { *(to + i) = *(from + i); }
         }
 
@@ -34,7 +34,7 @@ namespace st {
         };
 
         template<typename Num>
-        inline void toBytes(byte *byteArr, Num num) {
+        inline void to_bytes(byte *byteArr, Num num) {
             uint8_t len = sizeof(Num);
             for (auto i = 0; i < len; i++) {
                 uint64_t move = (len - i - 1) * 8U;

@@ -83,7 +83,7 @@ tcp_request::tcp_request(const vector<std::string> &hosts) : udp_request(1024 + 
 
     uint8_t len_arr[2];
     uint16_t dataLen = this->len;
-    st::utils::toBytes(len_arr, dataLen);
+    st::utils::to_bytes(len_arr, dataLen);
     st::utils::copy(len_arr, data, 0U, 0, SIZE_HEADER);
     this->len = this->len + SIZE_HEADER;
 }

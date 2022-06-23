@@ -24,7 +24,7 @@ namespace st {
         public:
             string ip = "";
             uint16_t port = 0;
-            bool isValid();
+            bool is_valid();
         };
         class udp_logger {
         public:
@@ -51,11 +51,11 @@ namespace st {
             uint32_t level = 0;
             string str;
             static thread_local boost::asio::io_context ctxThreadLocal;
-            void appendStr(const string &info);
-            void doLog(const string &time, ostream &st, const string &line);
-            ostream *getSTD();
-            bool enableUDPLogger();
-            void doLog();
+            void append_str(const string &info);
+            void do_log(const string &time, ostream &st, const string &line);
+            ostream *get_std();
+            bool enable_udp_logger();
+            void do_log();
 
         public:
             void static init(boost::property_tree::ptree &config);
@@ -87,9 +87,9 @@ namespace st {
             template<typename A>
             logger &operator<<(const A &str1) {
                 if (typeid(str1) == typeid(MASK) && str1 == ENDL) {
-                    doLog();
+                    do_log();
                 } else {
-                    this->appendStr(to_string(str1));
+                    this->append_str(to_string(str1));
                 }
                 return *this;
             }
@@ -121,13 +121,13 @@ namespace st {
             static boost::asio::io_context IO_CONTEXT;
             static boost::asio::io_context::work *IO_CONTEXT_WORK;
             static std::thread *LOG_THREAD;
-            static void scheduleLog();
-            static void accumulateMetric(unordered_map<string, long> &metric, long value);
+            static void schedule_log();
+            static void accumulate_metric(unordered_map<string, long> &metric, long value);
 
             boost::property_tree::ptree dimensions;
             boost::property_tree::ptree metrics;
-            uint64_t startTime;
-            uint64_t lastStepTime;
+            uint64_t start_time;
+            uint64_t last_step_time;
         };
     }// namespace utils
 }// namespace st

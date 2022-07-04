@@ -2,8 +2,8 @@
 // Created by codingdie on 2020/6/27.
 //
 #include <gtest/gtest.h>
-#include "DNSClient.h"
-#include "DNSServer.h"
+#include "dns_client.h"
+#include "dns_server.h"
 #include <iostream>
 #include <chrono>
 #include <thread>
@@ -21,11 +21,11 @@ void testDNS(const string &domain, const string &server, const uint32_t port, co
         lock.unlock();
     };
     if (type.compare("TCP") == 0) {
-        DNSClient::INSTANCE.tcpDNS(domain, server, port, 5000, areas, complete);
+        dns_client::INSTANCE.tcp_dns(domain, server, port, 5000, areas, complete);
     } else if (type.compare("TCP_SSL") == 0) {
-        DNSClient::INSTANCE.tcpTlsDNS(domain, server, port, 10000, areas, complete);
+        dns_client::INSTANCE.tcp_tls_dns(domain, server, port, 10000, areas, complete);
     } else {
-        DNSClient::INSTANCE.udpDns(domain, server, port, 200, [=](std::vector<uint32_t> ips) {
+        dns_client::INSTANCE.udp_dns(domain, server, port, 200, [=](std::vector<uint32_t> ips) {
             complete(ips, true);
         });
     }

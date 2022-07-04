@@ -5,62 +5,63 @@
 #ifndef ST_DNS_REQUEST_H
 #define ST_DNS_REQUEST_H
 
-#include "DNSMessage.h"
+#include "dns_message.h"
 #include <iostream>
 
 
 using namespace std;
 namespace st {
     namespace dns {
+        namespace protocol {
+
+            class EDNSAdditionalZone : public basic_data {
+
+            public:
+                EDNSAdditionalZone(uint32_t len);
+
+                static EDNSAdditionalZone *generate(uint32_t ip);
+            };
+
+            class udp_request : public basic_data {
+            public:
+                dns_header *header = nullptr;
+
+                dns_query_zone *query_zone = nullptr;
+
+                std::vector<string> hosts;
+
+                EDNSAdditionalZone *edns_zone = nullptr;
+
+                udp_request(const vector<std::string> &hosts);
 
 
-        class EDNSAdditionalZone : public BasicData {
+                udp_request(uint64_t len);
 
-        public:
-            EDNSAdditionalZone(uint32_t len);
+                udp_request();
 
-            static EDNSAdditionalZone *generate(uint32_t ip);
-        };
+                virtual ~udp_request();
 
-        class udp_request : public BasicData {
-        public:
-            DNSHeader *header = nullptr;
+                bool parse(uint32_t n);
 
-            DNSQueryZone *query_zone = nullptr;
+                string get_host() const;
 
-            std::vector<string> hosts;
+                dns_query::Type get_query_type() const;
 
-            EDNSAdditionalZone *edns_zone = nullptr;
+                uint16_t get_query_type_value() const;
 
-            udp_request(const vector<std::string> &hosts);
+            protected:
+                void init(uint8_t *data, const vector<std::string> &hosts);
+            };
 
+            class tcp_request : public udp_request {
+            public:
+                const static uint8_t SIZE_HEADER = 2;
+                explicit tcp_request(const vector<std::string> &hosts);
 
-            udp_request(uint64_t len);
+                virtual ~tcp_request();
+            };
 
-            udp_request();
-
-            virtual ~udp_request();
-
-            bool parse(uint32_t n);
-
-            string get_host() const;
-
-            DNSQuery::Type get_query_type() const;
-
-            uint16_t get_query_type_value() const;
-
-        protected:
-            void init(uint8_t *data, const vector<std::string> &hosts);
-        };
-
-        class tcp_request : public udp_request {
-        public:
-            const static uint8_t SIZE_HEADER = 2;
-            explicit tcp_request(const vector<std::string> &hosts);
-
-            virtual ~tcp_request();
-        };
-
-    }// namespace dns
+        }// namespace protocol
+    }    // namespace dns
 }// namespace st
 #endif//ST_DNS_REQUEST_H

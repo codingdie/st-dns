@@ -5,6 +5,7 @@
 #include "session.h"
 
 using namespace st::dns;
+using namespace st::dns::protocol;
 st::dns::session::~session() {
     if (response != nullptr) {
         delete response;
@@ -21,7 +22,7 @@ uint64_t st::dns::session::get_id() const {
 string st::dns::session::get_host() const {
     return request.get_host();
 }
-DNSQuery::Type st::dns::session::get_query_type() const {
+dns_query::Type st::dns::session::get_query_type() const {
     return request.get_query_type();
 }
 

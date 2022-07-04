@@ -8,38 +8,37 @@
 
 class interval_counter {
 
-public:
-    std::atomic<uint64_t> lastIntervalTime;
-    std::atomic<uint64_t> lastRecordTime;
-    std::atomic<uint64_t> startTime;
-    std::atomic<uint64_t> intervalCount;
-    std::atomic<uint64_t> totalCount;
+private:
+    std::atomic<uint64_t> last_interval_time;
+    std::atomic<uint64_t> last_record_time;
+    std::atomic<uint64_t> start_time;
+    std::atomic<uint64_t> interval_count;
+    std::atomic<uint64_t> total_count;
 
+public:
     std::pair<uint64_t, uint64_t> interval() {
         long now = st::utils::time::now();
-        uint64_t intervalTime = now - lastIntervalTime;
-        uint64_t count = intervalCount.load();
-        lastIntervalTime = now;
-        intervalCount = 0;
-        return std::make_pair<>(intervalTime, count);
-    };
-    std::pair<uint64_t, uint64_t> total() const {
-        long now = st::utils::time::now();
-        return std::make_pair<>(now - startTime.load(), totalCount.load());
+        uint64_t interval_time = now - last_interval_time;
+        uint64_t count = interval_count.load();
+        last_interval_time = now;
+        interval_count = 0;
+        return std::make_pair<>(interval_time, count);
     };
     interval_counter &operator+=(const uint64_t incr) {
-        lastRecordTime = st::utils::time::now();
-        if (lastIntervalTime.load() == 0) {
-            lastIntervalTime = lastRecordTime.load();
-            startTime = lastRecordTime.load();
+        last_record_time = st::utils::time::now();
+        if (last_interval_time.load() == 0) {
+            last_interval_time = last_record_time.load();
+            start_time = last_record_time.load();
         }
-        intervalCount += incr;
-        totalCount += incr;
+        interval_count += incr;
+        total_count += incr;
         return *this;
     }
-    bool isStart() { return totalCount.load() > 0; };
-    uint64_t getLastRecordTime() { return this->lastRecordTime.load(); };
-    interval_counter() : lastIntervalTime(0), lastRecordTime(0), startTime(0), intervalCount(0), totalCount(0){};
+    uint64_t total() const { return total_count.load(); };
+
+    bool is_start() { return total() > 0; };
+    uint64_t get_last_record_time() { return this->last_record_time.load(); };
+    interval_counter() : last_interval_time(0), last_record_time(0), start_time(0), interval_count(0), total_count(0){};
     ~interval_counter() {}
 };
 

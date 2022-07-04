@@ -1,6 +1,6 @@
 #include "utils/utils.h"
 #include "config.h"
-#include "DNSServer.h"
+#include "dns_server.h"
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
 #include <iostream>
@@ -11,7 +11,7 @@ static const string pidFile = "/var/run/st-dns.pid";
 
 void startServer(const string &confPath) {
     st::dns::config::INSTANCE.load(confPath);
-    DNSServer dnsServer(st::dns::config::INSTANCE);
+    dns_server dnsServer(st::dns::config::INSTANCE);
     dnsServer.start();
 }
 

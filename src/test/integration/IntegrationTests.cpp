@@ -1,19 +1,19 @@
 //
 // Created by codingdie on 2020/6/27.
 //
-#include "DNSServer.h"
-#include "DNSClient.h"
+#include "dns_server.h"
+#include "dns_client.h"
 #include <gtest/gtest.h>
 class BaseTest : public ::testing::Test {
 protected:
-    DNSServer *dnsServer;
+    dns_server *dnsServer;
     thread *th;
     void SetUp() override {
         st::dns::config::INSTANCE.load("../confs/test");
         file::del(st::dns::config::INSTANCE.dns_cache_file);
-        dnsServer = new DNSServer(st::dns::config::INSTANCE);
+        dnsServer = new dns_server(st::dns::config::INSTANCE);
         th = new thread([=]() { dnsServer->start(); });
-        dnsServer->waitStart();
+        dnsServer->wait_start();
     }
     void TearDown() override {
         std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -39,7 +39,7 @@ void testDNS(const string &domain) {
     mutex lock;
     lock.lock();
     vector<uint32_t> ips;
-    DNSClient::INSTANCE.udpDns(domain, server, port, 25000, [&](std::vector<uint32_t> result) {
+    dns_client::INSTANCE.udp_dns(domain, server, port, 25000, [&](std::vector<uint32_t> result) {
         ips = result;
         lock.unlock();
     });

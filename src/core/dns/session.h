@@ -26,10 +26,10 @@ namespace st {
             };
             apm_logger logger;
             boost::asio::ip::udp::endpoint client_endpoint;
-            udp_request request;
+            protocol::udp_request request;
             dns_record record;
             process_type process_type = QUERY;
-            udp_response *response = nullptr;
+            protocol::udp_response *response = nullptr;
             vector<remote_dns_server *> servers;
 
             session(uint64_t id);
@@ -41,7 +41,7 @@ namespace st {
 
             string get_host() const;
 
-            DNSQuery::Type get_query_type() const;
+            protocol::dns_query::Type get_query_type() const;
 
             uint16_t get_query_type_value() const;
 

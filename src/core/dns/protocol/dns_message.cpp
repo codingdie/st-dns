@@ -2,16 +2,17 @@
 // Created by codingdie on 2020/5/23.
 //
 
-#include "DNSMessage.h"
+#include "dns_message.h"
 #include <boost/pool/singleton_pool.hpp>
 
-uint8_t DNSQuery::DEFAULT_FLAGS[DEFAULT_FLAGS_SIZE] = {0x00, 0x01, 0x00, 0x01};
+using namespace st::dns::protocol;
+uint8_t dns_query::DEFAULT_FLAGS[DEFAULT_FLAGS_SIZE] = {0x00, 0x01, 0x00, 0x01};
 
 
-BasicData::BasicData(uint32_t size) {
+basic_data::basic_data(uint32_t size) {
     this->alloc(size);
 }
-void BasicData::alloc(uint32_t size) {
+void basic_data::alloc(uint32_t size) {
     auto mem = st::mem::pmalloc(size);
     this->data = mem.first;
     this->mlen = mem.second;
@@ -19,37 +20,37 @@ void BasicData::alloc(uint32_t size) {
     for (uint32_t i = 0; i < len; i++) {
         *(this->data + i) = 0;
     }
-    this->dataOwner = true;
+    this->owner = true;
 }
 
-BasicData::~BasicData() {
-    if (data != nullptr && dataOwner) {
+basic_data::~basic_data() {
+    if (data != nullptr && owner) {
         st::mem::pfree(data, mlen);
     }
 }
 
-DNSQuery::~DNSQuery() {
+dns_query::~dns_query() {
     if (domain != nullptr) {
         delete domain;
     }
 };
 
-DnsIdGenerator::DnsIdGenerator() {
+dns_id_generator::dns_id_generator() {
     srand(time::now());
     id = new std::atomic_int16_t(rand() % 0xFFFFFF);
 };
 
-DnsIdGenerator::~DnsIdGenerator() {
+dns_id_generator::~dns_id_generator() {
     delete id;
 }
 
-DnsIdGenerator DnsIdGenerator::INSTANCE;
+dns_id_generator dns_id_generator::INSTANCE;
 
-uint16_t DnsIdGenerator::id16() {
-    return INSTANCE.generateId16();
+uint16_t dns_id_generator::id16() {
+    return INSTANCE.generate_id_16();
 };
 
-DNSDomain *DNSDomain::generate(uint8_t *data, const string &host) {
+dns_domain *dns_domain::generate(uint8_t *data, const string &host) {
     const char *hostChar = host.data();
     vector<pair<unsigned char, unsigned char>> subLens;
     int total = 0;
@@ -71,7 +72,7 @@ DNSDomain *DNSDomain::generate(uint8_t *data, const string &host) {
     }
     uint64_t finalDataLen = subLens.size() + total + 1;
 
-    auto *dnsDomain = new DNSDomain(data, finalDataLen);
+    auto *dnsDomain = new dns_domain(data, finalDataLen);
     auto hostCharData = dnsDomain->data;
     int i = 0;
     for (auto &pair : subLens) {
@@ -89,7 +90,7 @@ DNSDomain *DNSDomain::generate(uint8_t *data, const string &host) {
 }
 uint64_t parseRe(uint8_t *allData, uint64_t allDataSize, uint64_t begin, uint64_t maxParse, string &domain, int depth) {
     if (depth > 20) {
-        logger::ERROR << "DNSDomain parse to many depth!" << END;
+        logger::ERROR << "dns_domain parse to many depth!" << END;
         return 0L;
     }
     uint8_t *data = allData + begin;
@@ -144,10 +145,10 @@ uint64_t parseRe(uint8_t *allData, uint64_t allDataSize, uint64_t begin, uint64_
 }
 
 
-uint64_t DNSDomain::parse(uint8_t *allData, uint64_t allDataSize, uint64_t begin, uint64_t maxParse, string &domain) {
+uint64_t dns_domain::parse(uint8_t *allData, uint64_t allDataSize, uint64_t begin, uint64_t maxParse, string &domain) {
     return parseRe(allData, allDataSize, begin, maxParse, domain, 0);
 }
-string DNSDomain::getFIDomain(const string &domain) {
+string dns_domain::getFIDomain(const string &domain) {
     uint64_t pos = domain.find_last_of('.');
     if (pos == string::npos) {
         return "";
@@ -157,7 +158,7 @@ string DNSDomain::getFIDomain(const string &domain) {
     return fiDomain;
 }
 
-string DNSDomain::removeFIDomain(const string &domain) {
+string dns_domain::removeFIDomain(const string &domain) {
     uint64_t pos = domain.find_last_of('.');
     if (pos == string::npos) {
         return domain;

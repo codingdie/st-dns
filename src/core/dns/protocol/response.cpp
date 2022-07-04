@@ -3,12 +3,12 @@
 //
 
 #include "response.h"
-using namespace st::dns;
+using namespace st::dns::protocol;
 
 void udp_response::print() const {
-    BasicData::print();
+    basic_data::print();
 
-    if (isValid()) {
+    if (is_valid()) {
         cout << "id:" << this->header->id << endl;
         cout << "header:" << this->header->len << endl;
         cout << "queryZone:" << this->queryZone->len << endl;
@@ -27,7 +27,7 @@ udp_response::~udp_response() {
     }
 }
 
-udp_response::udp_response(uint64_t len) : BasicData(len) {
+udp_response::udp_response(uint64_t len) : basic_data(len) {
 }
 
 uint32_t udp_response::fist_ip() const {
@@ -54,17 +54,17 @@ vector<string> udp_response::ip_areas() const {
 
 
 void udp_response::parse(uint64_t max_readable) {
-    this->markValid();
+    this->mark_valid();
     int answerZonesSize = 0;
-    if (max_readable > DNSHeader::DEFAULT_LEN) {
+    if (max_readable > dns_header::DEFAULT_LEN) {
         uint64_t restUnParseSize = max_readable;
         uint8_t *dataZone = this->data;
         bool successParsedAll = false;
-        while (this->isValid() && successParsedAll == false) {
+        while (this->is_valid() && successParsedAll == false) {
             if (this->header == nullptr) {
-                DNSHeader *parseHeader = DNSHeader::parse(dataZone, restUnParseSize);
+                dns_header *parseHeader = dns_header::parse(dataZone, restUnParseSize);
                 if (parseHeader == nullptr) {
-                    this->markInValid();
+                    this->mark_invalid();
                 } else {
                     this->header = parseHeader;
                     dataZone += this->header->len;
@@ -73,10 +73,10 @@ void udp_response::parse(uint64_t max_readable) {
             } else {
                 if (this->header->responseCode == 0) {
                     if (this->queryZone == nullptr) {
-                        DNSQueryZone *ptr = new DNSQueryZone(dataZone, restUnParseSize, this->header->questionCount);
-                        if (!ptr->isValid()) {
+                        dns_query_zone *ptr = new dns_query_zone(dataZone, restUnParseSize, this->header->questionCount);
+                        if (!ptr->is_valid()) {
                             delete ptr;
-                            this->markInValid();
+                            this->mark_invalid();
                         } else {
                             this->queryZone = ptr;
                             dataZone += this->queryZone->len;
@@ -86,9 +86,9 @@ void udp_response::parse(uint64_t max_readable) {
                         if (this->answerZones.size() < this->header->answerCount) {
                             dataZone += answerZonesSize;
                             restUnParseSize -= answerZonesSize;
-                            for (auto i = this->answerZones.size(); i < this->header->answerCount && this->isValid(); i++) {
-                                auto *answer = new DNSResourceZone(data, max_readable, max_readable - restUnParseSize);
-                                if (answer->isValid()) {
+                            for (auto i = this->answerZones.size(); i < this->header->answerCount && this->is_valid(); i++) {
+                                auto *answer = new dns_resource_zone(data, max_readable, max_readable - restUnParseSize);
+                                if (answer->is_valid()) {
                                     answerZonesSize += answer->len;
                                     dataZone += answer->len;
                                     restUnParseSize -= answer->len;
@@ -100,7 +100,7 @@ void udp_response::parse(uint64_t max_readable) {
                                     }
                                 } else {
                                     delete answer;
-                                    this->markInValid();
+                                    this->mark_invalid();
                                 }
                             }
                         } else {
@@ -114,26 +114,26 @@ void udp_response::parse(uint64_t max_readable) {
         }
 
     } else {
-        this->markInValid();
+        this->mark_invalid();
     }
     this->len = max_readable;
-    if (!this->isValid()) {
+    if (!this->is_valid()) {
         string domain = this->queryZone != nullptr && this->queryZone->hosts.size() > 0 ? this->queryZone->hosts[0] : "";
         apm_logger::perf("st-dns-parse-failed", {{"domain", domain}}, 0);
     }
 }
 
-udp_response::udp_response(uint8_t *data, uint64_t len) : BasicData(data, len) {
+udp_response::udp_response(uint8_t *data, uint64_t len) : basic_data(data, len) {
 }
 
-udp_response::udp_response(udp_request &request, dns_record &record, uint32_t expire) : BasicData(1024) {
+udp_response::udp_response(udp_request &request, dns_record &record, uint32_t expire) : basic_data(1024) {
     int finalLen = 0;
     vector<uint32_t> &ips = record.ips;
     auto curData = this->data;
     bool hasRecord = !ips.empty();
 
     //header
-    this->header = DNSHeader::generateAnswer(curData, request.header->id, request.query_zone != nullptr ? request.query_zone->querys.size() : 0, ips.size());
+    this->header = dns_header::generateAnswer(curData, request.header->id, request.query_zone != nullptr ? request.query_zone->querys.size() : 0, ips.size());
     curData += this->header->len;
     finalLen += this->header->len;
     //query
@@ -145,10 +145,10 @@ udp_response::udp_response(udp_request &request, dns_record &record, uint32_t ex
     //answer
     if (hasRecord) {
         for (auto it = ips.begin(); it != ips.end(); it++) {
-            if (finalLen + DNSResourceZone::DEFAULT_SINGLE_IP_LEN >= DNSResourceZone::MAX_LEN) {
+            if (finalLen + dns_resource_zone::DEFAULT_SINGLE_IP_LEN >= dns_resource_zone::MAX_LEN) {
                 break;
             }
-            DNSResourceZone *pResourceZone = DNSResourceZone::generate(curData, *it, expire);
+            dns_resource_zone *pResourceZone = dns_resource_zone::generate(curData, *it, expire);
             this->answerZones.emplace_back(pResourceZone);
             curData += pResourceZone->len;
             finalLen += pResourceZone->len;
@@ -163,24 +163,24 @@ void tcp_response::parse(uint64_t maxReadable) {
     if (maxReadable > 2) {
         st::utils::read(this->data, this->data_size);
         if (this->data_size == maxReadable - 2) {
-            st::dns::udp_response *response = new st::dns::udp_response(this->data + 2, data_size);
+            udp_response *response = new udp_response(this->data + 2, data_size);
             response->parse(data_size);
-            if (response->isValid()) {
+            if (response->is_valid()) {
                 this->response = response;
             } else {
-                this->markInValid();
+                this->mark_invalid();
                 delete response;
             }
         } else {
-            this->markInValid();
+            this->mark_invalid();
         }
     } else {
-        this->markInValid();
+        this->mark_invalid();
     }
     this->len = maxReadable;
 }
 
-tcp_response::tcp_response(uint16_t len) : BasicData(len) {
+tcp_response::tcp_response(uint16_t len) : basic_data(len) {
 }
 
 tcp_response::~tcp_response() {

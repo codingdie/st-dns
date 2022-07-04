@@ -17,7 +17,6 @@
 #include "protocol/protocol.h"
 using namespace std;
 using namespace boost::property_tree;
-using namespace std;
 class remote_dns_server {
 public:
     string ip;

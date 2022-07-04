@@ -5,14 +5,14 @@
 #include "request.h"
 #include <chrono>
 #include <vector>
-using namespace st::dns;
+using namespace st::dns::protocol;
 void udp_request::init(uint8_t *data, const vector<std::string> &hosts) {
-    this->header = DNSHeader::generateQuery(data, hosts.size());
-    this->query_zone = DNSQueryZone::generate(data + this->header->len, hosts);
+    this->header = dns_header::generateQuery(data, hosts.size());
+    this->query_zone = dns_query_zone::generate(data + this->header->len, hosts);
     this->hosts = hosts;
     this->len = this->header->len + this->query_zone->len;
 }
-udp_request::udp_request(const vector<std::string> &hosts) : BasicData(1024) {
+udp_request::udp_request(const vector<std::string> &hosts) : basic_data(1024) {
     this->init(this->data, hosts);
 }
 udp_request::~udp_request() {
@@ -26,16 +26,16 @@ udp_request::~udp_request() {
 
 
 bool udp_request::parse(uint32_t n) {
-    if (n > DNSHeader::DEFAULT_LEN) {
-        DNSHeader *header = DNSHeader::parse(data, DNSHeader::DEFAULT_LEN);
+    if (n > dns_header::DEFAULT_LEN) {
+        dns_header *header = dns_header::parse(data, dns_header::DEFAULT_LEN);
         if (header != nullptr) {
             this->header = header;
-            DNSQueryZone *queryZone = new DNSQueryZone(data + DNSHeader::DEFAULT_LEN, n - DNSHeader::DEFAULT_LEN, header->questionCount);
-            if (queryZone->isValid()) {
+            dns_query_zone *queryZone = new dns_query_zone(data + dns_header::DEFAULT_LEN, n - dns_header::DEFAULT_LEN, header->questionCount);
+            if (queryZone->is_valid()) {
 
                 if (queryZone->querys.size() == 0) {
-                    this->printHex();
-                    markInValid();
+                    this->print_hex();
+                    mark_invalid();
                 } else {
                     query_zone = queryZone;
                     for (auto it : queryZone->querys) {
@@ -45,20 +45,20 @@ bool udp_request::parse(uint32_t n) {
                     }
                 }
             } else {
-                markInValid();
+                mark_invalid();
             }
         } else {
-            markInValid();
+            mark_invalid();
         }
     } else {
-        markInValid();
+        mark_invalid();
     }
     this->len = n;
-    return isValid();
+    return is_valid();
 }
 
 
-udp_request::udp_request(uint64_t len) : BasicData(len) {
+udp_request::udp_request(uint64_t len) : basic_data(len) {
 }
 
 string udp_request::get_host() const {
@@ -67,7 +67,7 @@ string udp_request::get_host() const {
     }
     return hosts.front();
 }
-DNSQuery::Type udp_request::get_query_type() const {
+dns_query::Type udp_request::get_query_type() const {
     return this->query_zone->querys[0]->queryType;
 }
 
@@ -137,5 +137,5 @@ EDNSAdditionalZone *EDNSAdditionalZone::generate(uint32_t ip) {
     return zone;
 }
 
-EDNSAdditionalZone::EDNSAdditionalZone(uint32_t len) : BasicData(len) {
+EDNSAdditionalZone::EDNSAdditionalZone(uint32_t len) : basic_data(len) {
 }

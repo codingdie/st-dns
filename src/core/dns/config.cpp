@@ -94,16 +94,14 @@ remote_dns_server::calculateQueryServer(const string &domain, const vector<remot
     string fiDomain = st::dns::protocol::dns_domain::getFIDomain(domain);
     for (auto it = servers.begin(); it != servers.end(); it++) {
         remote_dns_server *server = *it.base();
-
         if ((fiDomain == "LAN" || fiDomain == "ARPA") && find(server->areas.begin(), server->areas.end(), "LAN") == server->areas.end()) {
             continue;
         }
-
-        auto whiteIterator = server->whitelist.find(domain);
-        if (whiteIterator != server->whitelist.end()) {
-            result.clear();
-            result.emplace_back(server);
-            break;
+        for (auto &item : server->whitelist) {
+            if (domain == item || item.find("." + domain) != string::npos) {
+                result.clear();
+                result.emplace_back(server);
+            }
         }
         auto blackIterator = server->blacklist.find(domain);
         if (blackIterator != server->blacklist.end()) {

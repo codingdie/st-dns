@@ -11,7 +11,7 @@ dns_cache dns_cache::INSTANCE;
 static mutex rLock;
 
 void dns_cache::add(const string &domain, const vector<uint32_t> &ips, const string &dnsServer, const int expire,
-                        const bool match_area) {
+                    const bool match_area) {
     {
         if (!has_trusted_record(domain) && match_area) {
             trusted_domain_count++;
@@ -28,7 +28,7 @@ void dns_cache::add(const string &domain, const vector<uint32_t> &ips, const str
         record.domain = domain;
         record.match_area = match_area;
         record.expire_time = time::now() + expire * 1000;
-        logger::INFO << "addDNSCache" << domain << ipv4::ips_to_str(ips) << "from" << dnsServer << "expire" << expire
+        logger::INFO << "add dns cache" << domain << ipv4::ips_to_str(ips) << "from" << dnsServer << "expire" << expire
                      << "match_area" << match_area << END;
         ofstream fs(st::dns::config::INSTANCE.dns_cache_file, std::ios_base::out | std::ios_base::app);
         if (fs.is_open()) {
@@ -63,32 +63,52 @@ uint32_t dns_cache::server_count(const string &domain) {
     return count;
 }
 
-
 void dns_cache::query(const string &domain, dns_record &record) {
     lock_guard<mutex> lg(rLock);
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
     record.domain = domain;
     auto iterator = caches.find(domain);
+    vector<ip_quality_info> ip_records;
     if (iterator != caches.end()) {
         unordered_map<string, dns_record> &maps = iterator->second;
-
-        for (auto it = st::dns::config::INSTANCE.servers.begin(); it != st::dns::config::INSTANCE.servers.end(); it++) {
-            auto serverId = (*it)->id();
+        uint8_t server_order = 0;
+        for (auto server : st::dns::config::INSTANCE.servers) {
+            auto serverId = server->id();
+            server_order++;
             if (maps.find(serverId) != maps.end()) {
-                record = maps[serverId];
-                if (record.expire_time > st::utils::time::now()) {
-                    record.expire = false;
-                } else {
-                    record.expire = true;
-                }
-                vector<uint32_t> ips(record.ips.begin(), record.ips.end());
-                std::shuffle(ips.begin(), ips.end(), std::default_random_engine(seed));
-                record.ips = std::vector<uint32_t>(ips.begin(), ips.end());
-                if (record.match_area) {
-                    return;
+                dns_record t_record = maps[serverId];
+                std::shuffle(t_record.ips.begin(), t_record.ips.end(), std::default_random_engine(seed));
+
+                for (auto ip : t_record.ips) {
+                    ip_quality_info tmp;
+                    tmp.ip = ip;
+                    tmp.forbid = st::proxy::shm::uniq().is_ip_forbid(ip);
+                    tmp.server = t_record.server;
+                    tmp.expire = t_record.expire_time < st::utils::time::now();
+                    tmp.expire_time = t_record.expire_time;
+                    tmp.match_area = t_record.match_area;
+                    tmp.server_order = server_order;
+                    ip_records.emplace_back(tmp);
                 }
             }
         }
+    }
+    std::sort(ip_records.begin(), ip_records.end(), ip_quality_info::compare);
+    for (auto &item : ip_records) {
+        if (item.match_area && !item.forbid) {
+            record.ips.emplace_back(item.ip);
+        }
+    }
+    if (record.ips.empty()) {
+        for (auto &item : ip_records) {
+            record.ips.emplace_back(item.ip);
+        }
+    }
+    if (!ip_records.empty()) {
+        record.match_area = ip_records[0].match_area;
+        record.expire_time = ip_records[0].expire_time;
+        record.server = ip_records[0].server;
+        record.expire = ip_records[0].expire;
     }
 }
 

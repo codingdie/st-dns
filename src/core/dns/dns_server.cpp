@@ -68,14 +68,14 @@ void dns_server::receive() {
                                    if (parsed) {
                                        process_session(session);
                                    } else {
-                                            logger::ERROR << "invalid dns request" << END;
-                                            end_session(session);
+                                       logger::ERROR << "invalid dns request" << END;
+                                       end_session(session);
                                    }
-                                    } else {
-                                        end_session(session);
-                                    }
-                                    receive();
-                                });
+                               } else {
+                                   end_session(session);
+                               }
+                               receive();
+                           });
 }
 
 uint32_t dns_server::cal_expire(dns_record &record) {
@@ -176,7 +176,7 @@ void dns_server::query_dns_record(session *session, std::function<void(st::dns::
         } else {
             session->logger.add_dimension("process_type", "cache");
             if (record.expire || !record.match_area) {
-                update_dns_record(record);
+                update_dns_record(record.domain);
             }
             complete(session);
         }
@@ -186,8 +186,7 @@ void dns_server::query_dns_record(session *session, std::function<void(st::dns::
 void dns_server::query_dns_record_from_remote(session *session, std::function<void(st::dns::session *session)> complete_handler) {
     auto record = session->record;
     auto host = record.domain;
-    vector<remote_dns_server *> &servers = session->servers;
-    cal_remote_dns_servers(record, servers);
+    vector<remote_dns_server *> servers = remote_dns_server::calculateQueryServer(host, config.servers);
     if (servers.empty()) {
         logger::ERROR << host << "query_dns_record_from_remote cal_remote_dns_servers empty!" << END;
         complete_handler(session);
@@ -209,7 +208,7 @@ void dns_server::query_dns_record_from_remote(session *session, std::function<vo
     }
 }
 void dns_server::forward_dns_request(session *session, std::function<void(st::dns::session *session)> complete_handler) {
-    vector<remote_dns_server *> &servers = session->servers;
+    vector<remote_dns_server *> servers;
     for (auto &it : config.servers) {
         if (it->type == "UDP") {
             servers.emplace_back(it);
@@ -240,22 +239,7 @@ void dns_server::forward_dns_request(session *session, std::function<void(udp_re
         }
     });
 }
-void dns_server::cal_remote_dns_servers(const dns_record &record, vector<remote_dns_server *> &servers) {
-    auto host = record.domain;
-    //默认更新所有上游server记录
-    servers = remote_dns_server::calculateQueryServer(host, config.servers);
-    //如果当前记录不为空，且满足地区最优，且所有上游都至少成功同步过一次记录，则只更新此server记录
-    if (!record.ips.empty() && record.match_area && dns_cache::INSTANCE.server_count(host) == servers.size()) {
-        servers.clear();
-        remote_dns_server *server = this->config.get_dns_server_by_id(record.server);
-        if (server != nullptr) {
-            servers.emplace_back(server);
-        } else {
-            servers = remote_dns_server::calculateQueryServer(host, config.servers);
-        }
-    }
-}
-bool dns_server::begin_query_remote(const string host, session *session) {
+bool dns_server::begin_query_remote(const string &host, session *session) {
     bool result = false;
     rLock.lock();
 
@@ -273,7 +257,7 @@ bool dns_server::begin_query_remote(const string host, session *session) {
     logger::DEBUG << host << "begin_query_remote" << END;
     return result;
 }
-unordered_set<session *> dns_server::end_query_remote(const string host) {
+unordered_set<session *> dns_server::end_query_remote(const string &host) {
     unordered_set<session *> result;
     rLock.lock();
     result = wating_sessions[host];
@@ -282,34 +266,32 @@ unordered_set<session *> dns_server::end_query_remote(const string host) {
     logger::DEBUG << host << "end_query_remote" << END;
     return result;
 }
-void dns_server::update_dns_record(dns_record record) {
-    logger::DEBUG << "begin update_dns_record !" << record.domain << END;
+void dns_server::update_dns_record(const string &domain) {
+    logger::DEBUG << "begin update_dns_record !" << domain << END;
 
-    auto host = record.domain;
-    vector<remote_dns_server *> servers;
-    cal_remote_dns_servers(record, servers);
+    vector<remote_dns_server *> servers = remote_dns_server::calculateQueryServer(domain, config.servers);
     if (servers.empty()) {
-        logger::ERROR << host << "update_dns_record cal_remote_dns_servers empty!" << END;
+        logger::ERROR << domain << "update_dns_record cal_remote_dns_servers empty!" << END;
         return;
     }
-    if (begin_query_remote(host, nullptr)) {
+    if (begin_query_remote(domain, nullptr)) {
         if (!servers.empty()) {
             sync_dns_record_from_remote(
-                    host, [=](dns_record record) {
-                        end_query_remote(host);
+                    domain, [=](dns_record record) {
+                        end_query_remote(domain);
                         logger::DEBUG << "update_dns_record finished!" << END;
                     },
                     servers, 0, false);
         } else {
             logger::ERROR << "update_dns_record servers empty!" << END;
-            end_query_remote(host);
+            end_query_remote(domain);
         }
     } else {
-        logger::DEBUG << "update_dns_record inQuerying" << host << END;
+        logger::DEBUG << "update_dns_record inQuerying" << domain << END;
     }
 }
 
-void dns_server::sync_dns_record_from_remote(const string host, std::function<void(dns_record record)> complete,
+void dns_server::sync_dns_record_from_remote(const string &host, std::function<void(dns_record record)> complete,
                                              vector<remote_dns_server *> servers,
                                              int pos, bool completed) {
     if (pos >= servers.size()) {
@@ -328,11 +310,10 @@ void dns_server::sync_dns_record_from_remote(const string host, std::function<vo
         filter_ip_by_area(host, server, ips);
         if (!ips.empty()) {
             dns_cache::INSTANCE.add(host, ips, server->id(),
-                                        loadAll ? server->dns_cache_expire : 60, true);
+                                    loadAll ? server->dns_cache_expire : 60, true);
         } else {
             if (!oriIps.empty()) {
-                dns_cache::INSTANCE.add(host, oriIps, server->id(),
-                                            server->dns_cache_expire, false);
+                dns_cache::INSTANCE.add(host, oriIps, server->id(), server->dns_cache_expire, false);
             }
         }
         dns_record record;
@@ -340,7 +321,7 @@ void dns_server::sync_dns_record_from_remote(const string host, std::function<vo
         logger::DEBUG << logTag << "finished! original" << ipv4::ips_to_str(ips) << " final" << ipv4::ips_to_str(ips) << END;
         if (!record.ips.empty() && completed) {
             complete(record);
-            update_dns_record(record);
+            update_dns_record(record.domain);
         } else {
             if (ips.empty() && pos + 1 < servers.size()) {
                 sync_dns_record_from_remote(host, complete, servers, pos + 1, completed);
@@ -369,7 +350,7 @@ void dns_server::sync_dns_record_from_remote(const string host, std::function<vo
     }
 }
 
-void dns_server::filter_ip_by_area(const string host, remote_dns_server *server, vector<uint32_t> &ips) {
+void dns_server::filter_ip_by_area(const string &host, remote_dns_server *server, vector<uint32_t> &ips) {
     if (!ips.empty() && server->whitelist.find(host) == server->whitelist.end() && !server->areas.empty()) {
         for (auto it = ips.begin(); it != ips.end();) {
             auto ip = *it;

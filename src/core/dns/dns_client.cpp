@@ -249,23 +249,23 @@ void dns_client::tcp_tls_dns(const string &domain, const std::string &dnsServer,
             complete_handler(ips, true);
         });
     } else {
-        atomic_uint16_t *counter = new atomic_uint16_t(0);
-        atomic_bool *loadAll = new atomic_bool(true);
-        std::unordered_set<uint32_t> *result = new std::unordered_set<uint32_t>();
+        auto *counter = new atomic_uint16_t(0);
+        auto *load_all = new atomic_bool(true);
+        auto *result = new std::unordered_set<uint32_t>();
         std::function<void(std::vector<uint32_t> ips)> eachHandler = [=](std::vector<uint32_t> ips) {
             counter->fetch_add(1);
             if (ips.size() == 0) {
-                *loadAll = false;
+                *load_all = false;
             }
             for (auto ip : ips) {
                 result->emplace(ip);
             }
             if (counter->load() >= areas.size()) {
                 std::vector<uint32_t> s(result->begin(), result->end());
-                complete_handler(ips, loadAll->load());
+                complete_handler(s, load_all->load());
                 delete result;
                 delete counter;
-                delete loadAll;
+                delete load_all;
             }
         };
         for (const string area : areas) {

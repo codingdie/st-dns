@@ -5,11 +5,11 @@
 #ifndef ST_FILEUTILS_H
 #define ST_FILEUTILS_H
 
+#include "logger.h"
 #include <boost/filesystem.hpp>
 #include <fstream>
 #include <iostream>
 #include <unordered_set>
-#include "logger.h"
 
 namespace st {
     namespace utils {
@@ -41,6 +41,18 @@ namespace st {
                 boost::filesystem::path bpath(path);
                 boost::filesystem::remove(bpath);
             }
+            inline bool mkdirs(const string &path) {
+                boost::system::error_code error;
+                boost::filesystem::path bpath(path);
+                if (boost::filesystem::exists(bpath) && boost::filesystem::is_directory(path)) {
+                    return true;
+                }
+                boost::filesystem::create_directories(bpath, error);
+                if (error) {
+                    std::cerr << error << std::endl;
+                    return false;
+                }
+            }
 
             inline bool create_if_not_exits(const string &path) {
                 bool result = false;
@@ -64,7 +76,7 @@ namespace st {
                     } else {
                         result = true;
                     }
-                } catch (exception& ex) {
+                } catch (exception &ex) {
                     logger::ERROR << "create file failed!" << ex.what() << path << END;
                 }
                 return result;

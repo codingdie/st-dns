@@ -5,8 +5,8 @@
 #ifndef ST_LOGGER_H
 #define ST_LOGGER_H
 
-#include "time.h"
 #include "asio.h"
+#include "moment.h"
 #include <atomic>
 #include <boost/property_tree/ptree.hpp>
 #include <chrono>
@@ -70,7 +70,6 @@ namespace st {
             static string tag;
 
             explicit logger(string levelName, uint32_t level);
-
 
 
             logger &operator<<(const char *log);

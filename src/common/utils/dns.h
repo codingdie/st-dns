@@ -4,7 +4,7 @@
 #include "ipv4.h"
 #include "logger.h"
 #include "shell.h"
-#include "string.h"
+#include "string_utils.h"
 #include <boost/algorithm/string.hpp>
 #include <boost/asio.hpp>
 #include <string>

@@ -4,7 +4,7 @@
 
 #include "logger.h"
 #include "base64.h"
-#include "string.h"
+#include "string_utils.h"
 #include <boost/lexical_cast.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <ctime>
@@ -19,7 +19,7 @@ using namespace st::utils;
 string toJson(const boost::property_tree::ptree &properties) {
     std::ostringstream st;
     write_json(st, properties, false);
-    std::regex reg("\\\"([0-9]+\\.{0,1}[0-9]*)\\\"");
+    std::regex reg(R"(\"([0-9]+\.{0,1}[0-9]*)\")");
     return std::regex_replace(st.str(), reg, "$1");
 }
 

@@ -46,9 +46,9 @@ private:
 
     void query_dns_record(session *session, std::function<void(st::dns::session *)> complete_handler);
 
-    void sync_dns_record_from_remote(const string host, std::function<void(dns_record record)> complete, vector<remote_dns_server *> servers, int pos, bool completed);
+    void sync_dns_record_from_remote(const string &host, std::function<void(dns_record record)> complete, vector<remote_dns_server *> servers, int pos, bool completed);
 
-    void filter_ip_by_area(const string host, remote_dns_server *server, vector<uint32_t> &ips);
+    void filter_ip_by_area(const string &host, remote_dns_server *server, vector<uint32_t> &ips);
 
     void query_dns_record_from_remote(session *session, std::function<void(st::dns::session *)> complete_handler);
 
@@ -58,13 +58,11 @@ private:
 
     void end_session(session *session);
 
-    void update_dns_record(dns_record record);
+    void update_dns_record(const string &domain);
 
-    void cal_remote_dns_servers(const dns_record &record, vector<remote_dns_server *> &servers);
+    bool begin_query_remote(const string &domain, session *session);
 
-    bool begin_query_remote(const string host, session *session);
-
-    unordered_set<session *> end_query_remote(const string host);
+    unordered_set<session *> end_query_remote(const string &host);
 
     uint32_t cal_expire(dns_record &record);
 };

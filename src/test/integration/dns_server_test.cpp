@@ -52,17 +52,14 @@ void testDNS(const string &domain) {
 }
 
 TEST_F(IntegrationTests, testDNS) {
-    testDNS("google.com");
-    testDNS("youtube.com");
-    testDNS("facebook.com");
-    testDNS("twitter.com");
-    testDNS("baidu.com");
-}
-
-TEST_F(IntegrationTests, testForwardUDP) {
-    string result;
     for (int i = 0; i < 10; i++) {
-        shell::exec("dig cname baidu.com @127.0.0.1 -p5353",result);
+        testDNS("twitter.com");
+        testDNS("google.com");
+        testDNS("youtube.com");
+        testDNS("facebook.com");
+        testDNS("twitter.com");
+        testDNS("baidu.com");
+        string result;
+        shell::exec("dig cname baidu.com @127.0.0.1 -p5353", result);
     }
-    logger::INFO << result << END;
 }

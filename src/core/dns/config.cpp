@@ -2,7 +2,7 @@
 // Created by System Administrator on 2020/10/8.
 //
 #include "config.h"
-
+#include <regex>
 st::dns::config st::dns::config::INSTANCE;
 void st::dns::config::load(const string &base_conf_dir) {
     this->base_conf_dir = base_conf_dir;
@@ -97,10 +97,18 @@ remote_dns_server::calculateQueryServer(const string &domain, const vector<remot
         if ((fiDomain == "LAN" || fiDomain == "ARPA") && find(server->areas.begin(), server->areas.end(), "LAN") == server->areas.end()) {
             continue;
         }
-        for (auto &item : server->whitelist) {
-            if (domain == item || item.find("." + domain) != string::npos) {
+        for (auto &regex : server->whitelist) {
+            bool in_whitelist = domain == regex || regex.find("." + domain) != string::npos;
+            if (!in_whitelist) {
+                std::regex reg(regex);
+                if (std::regex_match(domain, reg)) {
+                    in_whitelist = true;
+                }
+            }
+            if (in_whitelist) {
                 result.clear();
                 result.emplace_back(server);
+                return result;
             }
         }
         auto blackIterator = server->blacklist.find(domain);

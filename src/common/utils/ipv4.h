@@ -1,7 +1,7 @@
 #ifndef DNS_H
 #define DNS_H
 
-#include "string.h"
+#include "string_utils.h"
 #include <string>
 #include <unordered_set>
 

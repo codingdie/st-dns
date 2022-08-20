@@ -147,3 +147,28 @@ TEST(UnitTests, testIPAreaNetwork) {
     bool result = st::areaip::manager::uniq().is_area_ip("JP", "14.0.42.1");
     ASSERT_TRUE(result);
 }
+
+
+TEST(UnitTests, test_ip_sort) {
+    unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+    vector<ip_quality_info> ip_records;
+    auto create = [](uint32_t ip, bool match, bool forbid) {
+        ip_quality_info b;
+        b.ip = ip;
+        b.match_area = match;
+        b.forbid = forbid;
+        return b;
+    };
+    ip_records.emplace_back(create(3, true, false));
+    ip_records.emplace_back(create(1, false, false));
+    ip_records.emplace_back(create(2, true, true));
+    ip_records.emplace_back(create(4, true, false));
+    std::shuffle(ip_records.begin(), ip_records.end(), std::default_random_engine(seed));
+    std::sort(ip_records.begin(), ip_records.end(), ip_quality_info::compare);
+    for (auto item : ip_records) {
+        logger::INFO << item.ip;
+    }
+    logger::INFO << END;
+    ASSERT_EQ(1, ip_records[3].ip);
+    ASSERT_EQ(2, ip_records[2].ip);
+}

@@ -6,15 +6,15 @@
 #include <boost/interprocess/containers/map.hpp>
 #include <boost/interprocess/containers/string.hpp>
 #include <boost/interprocess/managed_shared_memory.hpp>
-#include <boost/interprocess/sync/scoped_lock.hpp>
 #include <boost/interprocess/sync/named_mutex.hpp>
+#include <boost/interprocess/sync/scoped_lock.hpp>
 #include <functional>
 #include <iostream>
+#include <mutex>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
-#include <unordered_map>
-#include <mutex>
 namespace st {
     namespace shm {
         class kv {
@@ -40,10 +40,10 @@ namespace st {
             std::string ns;
             void check_mutex_status();
             std::string shm_name();
-            std::string mutex_Name();
+            std::string mutex_name();
 
         public:
-            kv(const std::string &ns, uint32_t max_size);
+            kv(std::string ns, uint32_t max_size);
 
             ~kv();
 
@@ -54,18 +54,24 @@ namespace st {
             std::string get(const std::string &key);
 
             void put(const std::string &key, const std::string &value);
+            void erase(const std::string &key);
 
             void clear();
 
             template<typename KeyType>
             void put(KeyType key, const std::string &value) {
-                put(to_string(key), value);
+                put(std::to_string(key), value);
+            }
+
+            template<typename ValueType>
+            void put(const std::string &key, ValueType value) {
+                put(key, std::to_string(value));
             }
 
             void put_if_absent(const std::string &key, const std::string &value);
 
             uint64_t free_size();
-            
+
             static uint64_t free_size(const std::string &ns);
         };
     }// namespace shm

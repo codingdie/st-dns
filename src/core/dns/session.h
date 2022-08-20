@@ -30,7 +30,6 @@ namespace st {
             dns_record record;
             process_type process_type = QUERY;
             protocol::udp_response *response = nullptr;
-            vector<remote_dns_server *> servers;
 
             session(uint64_t id);
 

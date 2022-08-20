@@ -4,10 +4,10 @@
 
 #include "area_ip.h"
 #include "file.h"
-#include <iostream>
 #include <boost/asio.hpp>
-#include <queue>
 #include <boost/property_tree/json_parser.hpp>
+#include <iostream>
+#include <queue>
 using namespace boost::property_tree;
 
 
@@ -32,7 +32,8 @@ namespace st {
                         CN_AREA_2_AREA[key] = value;
                     }
                 } catch (json_parser_error &e) {
-                    logger::ERROR << "init_area_code_name_map error! not valid json" << e.message() << CN_CODE_JSON << END;
+                    logger::ERROR << "init_area_code_name_map error! not valid json" << e.message() << CN_CODE_JSON
+                                  << END;
                 }
             }
         }
@@ -42,9 +43,7 @@ namespace st {
             ctx = new boost::asio::io_context();
             stat_timer = new boost::asio::deadline_timer(*ctx);
             ctx_work = new boost::asio::io_context::work(*ctx);
-            th = new thread([=]() {
-                ctx->run();
-            });
+            th = new thread([=]() { ctx->run(); });
             vector<area_ip_range> ips;
             ips.emplace_back(area_ip_range::parse("192.168.0.0/16", "LAN"));
             ips.emplace_back(area_ip_range::parse("10.0.0.0/8", "LAN"));
@@ -173,7 +172,8 @@ namespace st {
                 uint64_t begin = st::utils::time::now();
                 if (get_area(ip, net_caches).empty()) {
                     auto ipInfos = load_ip_info(ip);
-                    apm_logger::perf("load-net-ipinfo", {{"success", to_string(!ipInfos.first.empty())}}, st::utils::time::now() - begin);
+                    apm_logger::perf("load-net-ipinfo", {{"success", to_string(!ipInfos.first.empty())}},
+                                     st::utils::time::now() - begin);
                     if (!ipInfos.first.empty()) {
                         auto area = ipInfos.first;
                         ofstream fs(IP_NET_AREA_FILE, std::ios_base::out | std::ios_base::app);
@@ -193,13 +193,14 @@ namespace st {
                         std::this_thread::sleep_for(std::chrono::milliseconds(timeout - cost));
                     }
                 } else {
-                    logger::INFO << "async load ip info skiped!" << st::utils::ipv4::ip_to_str(ip) << END;
+                    logger::INFO << "async load ip info skipped!" << st::utils::ipv4::ip_to_str(ip) << END;
                 }
             };
             ctx->post(boost::bind(doLoadIPInfo, ip));
         }
 
-        bool manager::is_area_ip(const string &areaCode, const uint32_t &ip, unordered_map<string, vector<area_ip_range>> &caches) {
+        bool manager::is_area_ip(const string &areaCode, const uint32_t &ip,
+                                 unordered_map<string, vector<area_ip_range>> &caches) {
             //todo find fast
             auto iterator = caches.find(areaCode);
             if (iterator != caches.end()) {
@@ -247,27 +248,32 @@ namespace st {
             vector<area_ip_range> ip_ranges;
             string result;
             string area;
-            string command = "curl -s -m 10 --location --request GET \"https://ipinfo.io/widget/" + ipv4::ip_to_str(ip) + "?token=" + to_string(time::now()) + R"(" --header "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.75 Safari/537.3" --header "Referer: https://ipinfo.io/")";
+            string command =
+                    "curl -s -m 10 --location --request GET \"https://ipinfo.io/widget/" + ipv4::ip_to_str(ip) +
+                    "?token=" + to_string(time::now()) +
+                    R"(" --header "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.75 Safari/537.3" --header "Referer: https://ipinfo.io/")";
             if (shell::exec(command, result)) {
                 ptree tree;
                 try {
                     std::stringstream ss(result);
                     read_json(ss, tree);
-                    auto country = tree.get("country", "");
-                    area = country;
-                    if (!country.empty() && country.size() == 2) {
+                    area = tree.get("country", "");
+                    auto abuse = tree.get_child_optional("abuse");
+                    if (area.empty() && abuse.is_initialized()) {
+                        area = abuse.get().get("country", "");
+                    }
+                    if (!area.empty() && area.size() == 2) {
                         auto asn = tree.get_child_optional("asn");
                         if (asn.is_initialized()) {
                             auto route = asn.get().get("route", "");
                             if (!route.empty()) {
-                                ip_ranges.emplace_back(area_ip_range::parse(route, country));
+                                ip_ranges.emplace_back(area_ip_range::parse(route, area));
                             }
                         } else {
-                            auto abuse = tree.get_child_optional("abuse");
                             if (abuse.is_initialized()) {
                                 auto route = abuse.get().get("network", "");
                                 if (!route.empty()) {
-                                    ip_ranges.emplace_back(area_ip_range::parse(route, country));
+                                    ip_ranges.emplace_back(area_ip_range::parse(route, area));
                                 }
                             }
                         }
@@ -320,7 +326,8 @@ namespace st {
                 }
                 fileStream.flush();
                 fileStream.close();
-                logger::INFO << "sync net area ips success! before:" << this->net_caches.size() << "after:" << newCaches.size() << END;
+                logger::INFO << "sync net area ips success! before:" << this->net_caches.size()
+                             << "after:" << newCaches.size() << END;
                 this->net_caches = newCaches;
             }
         }

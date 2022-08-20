@@ -54,7 +54,6 @@ namespace st {
             void append_str(const string &info);
             void do_log(const string &time, ostream &st, const string &line);
             ostream *get_std();
-            bool enable_udp_logger();
             void do_log();
 
         public:
@@ -94,7 +93,7 @@ namespace st {
                 return *this;
             }
         };
-#define END st::utils::logger::MASK::ENDL;
+#define END st::utils::logger::MASK::ENDL
         class apm_logger {
         public:
             static void enable(const string udpServerIP, const uint16_t udpServerPort);

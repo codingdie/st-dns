@@ -15,7 +15,7 @@ bool dns_client::is_timeout_or_error(const string &logTag, boost::system::error_
         return false;
     }
     if (ec && ec != boost::asio::error::operation_aborted) {
-        logger::ERROR << logTag << "error! cost:" << cost << ec.message() << END
+        logger::ERROR << logTag << "error! cost:" << cost << ec.message() << END;
     } else {
         logger::ERROR << logTag << "timout! cost" << cost << END;
     }
@@ -173,13 +173,13 @@ void dns_client::tcp_dns(const string &domain, const std::string &dnsServer, uin
     uint64_t beginTime = time::now();
     boost::asio::ssl::context sslCtx(boost::asio::ssl::context::sslv23_client);
     tcp::endpoint serverEndpoint(make_address_v4(dnsServer), port);
-    tcp_request *dnsRequest = new tcp_request(domains);
+    auto *dnsRequest = new tcp_request(domains);
     uint16_t dnsId = dnsRequest->header->id;
     string logTag = to_string(dnsId) + " tcp_dns " + dnsServer + " " + domains[0];
-    tcp::socket *socket = new tcp::socket(ioContext);
+    auto *socket = new tcp::socket(ioContext);
     pair<uint8_t *, uint32_t> dataBytes = st::mem::pmalloc(2048);
     pair<uint8_t *, uint32_t> lengthBytes = st::mem::pmalloc(2);
-    deadline_timer *timeoutTimer = new deadline_timer(ioContext);
+    auto *timeoutTimer = new deadline_timer(ioContext);
     std::function<void(std::vector<uint32_t> ips)> complete =
             [=](std::vector<uint32_t> ips) {
                 delete timeoutTimer;

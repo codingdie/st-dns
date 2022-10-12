@@ -1,6 +1,6 @@
 #include "utils/utils.h"
-#include "config.h"
-#include "dns_server.h"
+#include "../core/config.h"
+#include "../core/dns_server.h"
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
 #include <iostream>

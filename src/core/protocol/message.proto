@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package st.dns.proto;
+
+option optimize_for = LITE_RUNTIME;
+
+message record {
+    uint32 expire = 1;
+    repeated uint32 ips = 4;
+}
+
+message records {
+    string domain = 1;
+    map<string, record> map = 2;
+}
+

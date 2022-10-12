@@ -6,35 +6,45 @@
 #include "config.h"
 #include <random>
 #include <vector>
+#include "protocol/message.pb.h"
 dns_cache dns_cache::INSTANCE;
 
 static mutex rLock;
 
 void dns_cache::add(const string &domain, const vector<uint32_t> &ips, const string &dnsServer, const int expire,
                     const bool match_area) {
-    {
-        if (!has_trusted_record(domain) && match_area) {
-            trusted_domain_count++;
-        }
-        lock_guard<mutex> lg(rLock);
-        unordered_map<string, dns_record> &records = caches[domain];
-        dns_record &record = records[dnsServer];
+    if (!has_trusted_record(domain) && match_area) {
+        trusted_domain_count++;
+    }
+    st::dns::proto::records dns_records = get_dns_records(domain);
+    dns_records.set_domain(domain);
+    st::dns::proto::record pb;
+    pb.set_expire(expire + time::now() / 1000);
+    for (const auto &ip : ips) {
+        pb.add_ips(ip);
+    }
+    (*dns_records.mutable_map())[dnsServer] = pb;
+    db.put(domain, dns_records.SerializeAsString());
 
-        for (auto ip : ips) {
-            st::dns::shm::share().add_reverse_record(ip, domain, match_area);
-        }
-        record.ips = ips;
-        record.server = dnsServer;
-        record.domain = domain;
-        record.match_area = match_area;
-        record.expire_time = time::now() + expire * 1000;
-        logger::INFO << "add dns cache" << domain << ipv4::ips_to_str(ips) << "from" << dnsServer << "expire" << expire
-                     << "match_area" << match_area << END;
-        ofstream fs(st::dns::config::INSTANCE.dns_cache_file, std::ios_base::out | std::ios_base::app);
-        if (fs.is_open()) {
-            fs << record.serialize() << "\n";
-            fs.flush();
-        }
+    lock_guard<mutex> lg(rLock);
+    unordered_map<string, dns_record> &records = caches[domain];
+    dns_record &record = records[dnsServer];
+
+    for (auto ip : ips) {
+        st::dns::shm::share().add_reverse_record(ip, domain, match_area);
+    }
+    record.ips = ips;
+    record.server = dnsServer;
+    record.domain = domain;
+    record.match_area = match_area;
+    record.expire_time = time::now() + expire * 1000;
+
+    logger::INFO << "add dns cache" << domain << ipv4::ips_to_str(ips) << "from" << dnsServer << "expire" << expire
+                 << "match_area" << match_area << END;
+    ofstream fs(st::dns::config::INSTANCE.dns_cache_file, std::ios_base::out | std::ios_base::app);
+    if (fs.is_open()) {
+        fs << record.serialize() << "\n";
+        fs.flush();
     }
 }
 bool dns_cache::has_trusted_record(const string &domain) {
@@ -86,7 +96,7 @@ void dns_cache::query(const string &domain, dns_record &record) {
                     tmp.server = t_record.server;
                     tmp.expire = t_record.expire_time < st::utils::time::now();
                     tmp.expire_time = t_record.expire_time;
-                    tmp.match_area = t_record.match_area;
+                    tmp.match_area = areaip::manager::uniq().is_area_ip(server->areas, ip);
                     tmp.server_order = server_order;
                     ip_records.emplace_back(tmp);
                 }
@@ -128,7 +138,7 @@ unordered_set<string> dns_cache::query_not_match_area_servers(const string &doma
     return result;
 }
 
-dns_cache::dns_cache() {
+dns_cache::dns_cache() : db("st-dns-record", 1024 * 1024) {
 }
 
 void dns_cache::load_from_file() {
@@ -179,6 +189,14 @@ void dns_cache::saveToFile() {
 
 uint32_t dns_cache::get_trusted_domain_count() {
     return trusted_domain_count;
+}
+st::dns::proto::records dns_cache::get_dns_records(const string &domain) {
+    string data = db.get(domain);
+    st::dns::proto::records record;
+    if (!data.empty()) {
+        record.ParseFromString(data);
+    }
+    return record;
 }
 
 string dns_record::serialize() {

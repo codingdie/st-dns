@@ -10,6 +10,7 @@ static const char *const KV_FOLDER = "/var/lib/st/kv/";
 namespace st {
     namespace kv {
         disk_kv::~disk_kv() {
+            delete db;
         }
         std::string disk_kv::get(const std::string &key) {
             string data;

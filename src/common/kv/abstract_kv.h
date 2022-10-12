@@ -21,6 +21,8 @@ namespace st {
 
             virtual void clear(){};
 
+            virtual void list(std::function<void(const std::string &key, const std::string &value)> consumer){};
+
         protected:
             std::string ns;
             uint32_t max_size;

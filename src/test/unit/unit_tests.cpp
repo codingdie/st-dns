@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 #include "dns_client.h"
 #include "dns_server.h"
+#include "utils/utils.h"
 #include <iostream>
 #include <chrono>
 #include <thread>
@@ -87,27 +88,27 @@ TEST(UnitTests, testBase64) {
 
 TEST(UnitTests, testSHM) {
     auto ns = "TEST";
-    st::shm::kv::create(ns, 5 * 1024 * 1024);
-    st::shm::kv::share(ns)->clear();
-    uint64_t size0 = st::shm::kv::share(ns)->free_size();
+    kv::shm_kv::create(ns, 5 * 1024 * 1024);
+    kv::shm_kv::share(ns)->clear();
+    uint64_t size0 = kv::shm_kv::share(ns)->free_size();
     ASSERT_TRUE(size0 > 1024 * 1024 * 3);
     int count = 10000;
     for (int i = 0; i < count; i++) {
-        st::shm::kv::share(ns)->put(i, to_string(i) + "baidu.com");
+        kv::shm_kv::share(ns)->put(to_string(i), to_string(i) + "baidu.com");
     }
     ASSERT_TRUE(size0 > 1024 * 1024 * 3);
 
-    uint64_t size01 = st::shm::kv::share(ns)->free_size();
+    uint64_t size01 = kv::shm_kv::share(ns)->free_size();
     ASSERT_TRUE(size0 > size01);
 
     for (int i = count; i < count * 2; i++) {
-        st::shm::kv::share(ns)->put(i, to_string(i) + "baidu.com");
+        kv::shm_kv::share(ns)->put(to_string(i), to_string(i) + "baidu.com");
     }
-    uint64_t size02 = st::shm::kv::share(ns)->free_size();
+    uint64_t size02 = kv::shm_kv::share(ns)->free_size();
     ASSERT_TRUE(size01 > size02);
     for (int i = 0; i < count; i++) {
         for (int j = 0; j < 100; j++) {
-            auto host = st::shm::kv::share(ns)->get(to_string(i));
+            auto host = kv::shm_kv::share(ns)->get(to_string(i));
             ASSERT_STREQ((to_string(i) + "baidu.com").c_str(), host.c_str());
         }
     }
@@ -171,4 +172,19 @@ TEST(UnitTests, test_ip_sort) {
     logger::INFO << END;
     ASSERT_EQ(1, ip_records[3].ip);
     ASSERT_EQ(2, ip_records[2].ip);
+}
+
+
+TEST(UnitTests, test_dns_cache) {
+    dns_cache::INSTANCE.add("test01.com", {1, 2, 3}, "192.168.31.2", 60, 0);
+    dns_cache::INSTANCE.add("test01.com", {1, 2, 3}, "192.168.31.1", 60, 0);
+    dns_cache::INSTANCE.add("test01.com", {1, 2}, "192.168.31.1", 60, 0);
+    const proto::records &records = dns_cache::INSTANCE.get_dns_records("test01.com");
+    auto ma = records.map();
+    for (const auto &item : ma) {
+        cout << item.first << endl;
+    }
+    ASSERT_EQ(2, records.map_size());
+    ASSERT_EQ(2, records.map().at("192.168.31.1").ips_size());
+    ASSERT_EQ(3, records.map().at("192.168.31.2").ips_size());
 }

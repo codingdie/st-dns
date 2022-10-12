@@ -8,7 +8,7 @@
 
 #include "dns_message.h"
 #include "request.h"
-#include "dns_cache.h"
+#include "../dns_cache.h"
 #include <iostream>
 using namespace std;
 namespace st {

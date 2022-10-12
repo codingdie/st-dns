@@ -10,7 +10,7 @@ namespace st {
             static shm in;
             return in;
         }
-        void shm::forbid_ip(uint32_t ip) { ip_blacklist->put(ip, std::to_string(utils::time::now())); }
+        void shm::forbid_ip(uint32_t ip) { ip_blacklist->put(std::to_string(ip), std::to_string(utils::time::now())); }
         void shm::recover_ip(uint32_t ip) { ip_blacklist->erase(std::to_string(ip)); }
         bool shm::is_ip_forbid(uint32_t ip) {
             auto str = ip_blacklist->get(std::to_string(ip));

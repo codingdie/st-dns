@@ -6,7 +6,7 @@
 #define ST_PROXY_PROXY_SHM_H
 
 
-#include "kv.h"
+#include "kv/shm_kv.h"
 #include <vector>
 
 namespace st {
@@ -14,7 +14,7 @@ namespace st {
 
         class shm {
         private:
-            st::shm::kv *ip_blacklist = st::shm::kv::create("ST-PROXY-IP-BLACKLIST", 1 * 1024 * 1024);
+            kv::shm_kv *ip_blacklist = kv::shm_kv::create("ST-PROXY-IP-BLACKLIST", 1 * 1024 * 1024);
 
         public:
             void forbid_ip(uint32_t ip);

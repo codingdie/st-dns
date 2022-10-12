@@ -1,17 +1,17 @@
 #ifndef ST_DNS_SHM_H
 #define ST_DNS_SHM_H
 
-#include "kv.h"
-#include "../ipv4.h"
-#include "../logger.h"
-#include "../area_ip.h"
+#include "kv/shm_kv.h"
+#include "utils/ipv4.h"
+#include "utils/logger.h"
+#include "utils/area_ip.h"
 namespace st {
     namespace dns {
         class shm {
         private:
             uint16_t cal_virtual_port(const std::string &area);
-            st::shm::kv *reverse = st::shm::kv::create("DNS-REVERSE", 4 * 1024 * 1024);
-            st::shm::kv *virtual_port = st::shm::kv::create("DNS-VIRTUAL-PROT", 1024);
+            kv::shm_kv *reverse = kv::shm_kv::create("DNS-REVERSE", 4 * 1024 * 1024);
+            kv::shm_kv *virtual_port = kv::shm_kv::create("DNS-VIRTUAL-PROT", 1024);
 
         public:
             static st::dns::shm &share();

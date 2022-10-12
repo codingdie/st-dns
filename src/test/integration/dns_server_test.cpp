@@ -1,8 +1,8 @@
 //
 // Created by codingdie on 2020/6/27.
 //
-#include "dns_server.h"
-#include "dns_client.h"
+#include "../../core/dns_server.h"
+#include "../../core/dns_client.h"
 #include <gtest/gtest.h>
 class BaseTest : public ::testing::Test {
 protected:

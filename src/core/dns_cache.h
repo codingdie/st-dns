@@ -16,7 +16,8 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
-#include "dns_cache.h"
+#include "kv/disk_kv.h"
+#include "protocol/message.pb.h"
 using namespace std;
 
 class ip_quality_info {
@@ -68,9 +69,8 @@ class dns_cache {
 private:
     long trusted_domain_count = 0;
     unordered_map<string, unordered_map<string, dns_record>> caches;
-
+    st::kv::disk_kv db;
     void saveToFile();
-
 
 public:
     dns_cache();
@@ -80,6 +80,8 @@ public:
     static dns_cache INSTANCE;
 
     void load_from_file();
+
+    st::dns::proto::records get_dns_records(const string &domain);
 
     void add(const string &domain, const vector<uint32_t> &ips, const string &dnsServer, int expire,
              bool match_area);

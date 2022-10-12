@@ -47,11 +47,11 @@ install(TARGETS st-dns DESTINATION bin)
 option(OPENWRT "Build for Openwrt support" OFF)
 
 if (OPENWRT)
-    install(DIRECTORY confs/openwrt/ DESTINATION etc/st/proxy)
+    install(DIRECTORY confs/openwrt/ DESTINATION etc/st/dns)
 elseif (CMAKE_HOST_APPLE)
-    install(DIRECTORY confs/darwin/ DESTINATION etc/st/proxy)
+    install(DIRECTORY confs/darwin/ DESTINATION etc/st/dns)
 elseif (CMAKE_HOST_UNIX)
-    install(DIRECTORY confs/linux/ DESTINATION etc/st/proxy)
+    install(DIRECTORY confs/linux/ DESTINATION etc/st/dns)
 endif ()
 
 #gtest

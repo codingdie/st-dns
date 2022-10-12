@@ -76,8 +76,8 @@ public:
     dns_cache();
 
     uint32_t get_trusted_domain_count();
+    static dns_cache &uniq();
 
-    static dns_cache INSTANCE;
 
     void load_from_file();
 

@@ -29,7 +29,7 @@ dns_server::dns_server(st::dns::config &config) : rid(time::now()), config(confi
 
 void dns_server::start() {
     iw = new boost::asio::io_context::work(ic);
-    dns_cache::INSTANCE.load_from_file();
+    dns_cache::uniq().load_from_file();
     logger::INFO << "st-dns start, listen at" << config.ip << config.port << END;
     receive();
     state++;
@@ -126,7 +126,7 @@ void dns_server::end_session(session *session) {
         success &= !session->record.ips.empty();
     }
 
-    session->logger.add_metric("trusted_domain_count", dns_cache::INSTANCE.get_trusted_domain_count());
+    session->logger.add_metric("trusted_domain_count", dns_cache::uniq().get_trusted_domain_count());
     session->logger.add_metric("in_querying_domain_count", wating_sessions.size());
     session->logger.add_metric("mem_leak_size", st::mem::leak_size());
     session->logger.add_metric("dns_reverse_shm_free_size", st::dns::shm::share().free_size());
@@ -162,11 +162,11 @@ void dns_server::query_dns_record(session *session, std::function<void(st::dns::
         session->logger.add_dimension("process_type", "local");
         complete(session);
     } else {
-        dns_cache::INSTANCE.query(host, record);
+        dns_cache::uniq().query(host, record);
         if (record.ips.empty()) {
             string fiDomain = dns_domain::getFIDomain(host);
             if (fiDomain == "LAN") {
-                dns_cache::INSTANCE.query(dns_domain::removeFIDomain(host), record);
+                dns_cache::uniq().query(dns_domain::removeFIDomain(host), record);
                 record.domain = host;
             }
         }
@@ -202,7 +202,7 @@ void dns_server::query_dns_record_from_remote(session *session, std::function<vo
                         complete_handler(se);
                     }
                 },
-                servers, 0, dns_cache::INSTANCE.has_any_record(host));
+                servers, 0, dns_cache::uniq().has_any_record(host));
     } else {
         logger::DEBUG << host << "is in query!" << END;
     }
@@ -297,7 +297,7 @@ void dns_server::sync_dns_record_from_remote(const string &host, std::function<v
     if (pos >= servers.size()) {
         logger::ERROR << "not known host" << host << END;
         dns_record record;
-        dns_cache::INSTANCE.query(host, record);
+        dns_cache::uniq().query(host, record);
         complete(record);
         return;
     }
@@ -309,15 +309,15 @@ void dns_server::sync_dns_record_from_remote(const string &host, std::function<v
         vector<uint32_t> oriIps = ips;
         filter_ip_by_area(host, server, ips);
         if (!ips.empty()) {
-            dns_cache::INSTANCE.add(host, ips, server->id(),
+            dns_cache::uniq().add(host, ips, server->id(),
                                     loadAll ? server->dns_cache_expire : 60, true);
         } else {
             if (!oriIps.empty()) {
-                dns_cache::INSTANCE.add(host, oriIps, server->id(), server->dns_cache_expire, false);
+                dns_cache::uniq().add(host, oriIps, server->id(), server->dns_cache_expire, false);
             }
         }
         dns_record record;
-        dns_cache::INSTANCE.query(host, record);
+        dns_cache::uniq().query(host, record);
         logger::DEBUG << logTag << "finished! original" << ipv4::ips_to_str(ips) << " final" << ipv4::ips_to_str(ips) << END;
         if (!record.ips.empty() && completed) {
             complete(record);

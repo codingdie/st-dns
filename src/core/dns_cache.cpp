@@ -7,7 +7,6 @@
 #include <random>
 #include <vector>
 #include "protocol/message.pb.h"
-dns_cache dns_cache::INSTANCE;
 
 static mutex rLock;
 
@@ -197,6 +196,10 @@ st::dns::proto::records dns_cache::get_dns_records(const string &domain) {
         record.ParseFromString(data);
     }
     return record;
+}
+dns_cache &dns_cache::uniq() {
+    static dns_cache INSTANCE;
+    return INSTANCE;
 }
 
 string dns_record::serialize() {

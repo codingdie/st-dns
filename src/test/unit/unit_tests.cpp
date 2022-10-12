@@ -176,10 +176,10 @@ TEST(UnitTests, test_ip_sort) {
 
 
 TEST(UnitTests, test_dns_cache) {
-    dns_cache::INSTANCE.add("test01.com", {1, 2, 3}, "192.168.31.2", 60, 0);
-    dns_cache::INSTANCE.add("test01.com", {1, 2, 3}, "192.168.31.1", 60, 0);
-    dns_cache::INSTANCE.add("test01.com", {1, 2}, "192.168.31.1", 60, 0);
-    const proto::records &records = dns_cache::INSTANCE.get_dns_records("test01.com");
+    dns_cache::uniq().add("test01.com", {1, 2, 3}, "192.168.31.2", 60, 0);
+    dns_cache::uniq().add("test01.com", {1, 2, 3}, "192.168.31.1", 60, 0);
+    dns_cache::uniq().add("test01.com", {1, 2}, "192.168.31.1", 60, 0);
+    const proto::records &records = dns_cache::uniq().get_dns_records("test01.com");
     auto ma = records.map();
     for (const auto &item : ma) {
         cout << item.first << endl;

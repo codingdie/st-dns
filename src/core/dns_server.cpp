@@ -43,8 +43,7 @@ void dns_server::config_console() {
                 }
             }
         } else if (command == "dns record dump") {
-            dns_record_manager::uniq().dump();
-            result = "ok";
+            result = dns_record_manager::uniq().dump();
         }
         return result;
     };

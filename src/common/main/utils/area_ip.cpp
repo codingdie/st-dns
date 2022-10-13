@@ -34,9 +34,9 @@ namespace st {
             sync_net_area_ip();
         }
         manager::~manager() {
-            ctx->stop();
             stat_timer->cancel();
             delete ctx_work;
+            ctx->stop();
             th->join();
             delete ctx;
             delete th;

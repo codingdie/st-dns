@@ -42,7 +42,8 @@ namespace st {
                         return nums[size / 2];
                     }
                 }
-                median()= default;;
+                median() = default;
+                ;
                 ~median() = default;
 
             private:

@@ -7,7 +7,7 @@
 
 #include "protocol/protocol.h"
 #include "config.h"
-#include "utils/utils.h"
+#include "st.h"
 #include <boost/asio.hpp>
 namespace st {
     namespace dns {

@@ -13,7 +13,7 @@
 #include <string>
 #include <vector>
 
-#include "utils/utils.h"
+#include "st.h"
 #include "protocol/protocol.h"
 using namespace std;
 using namespace boost::property_tree;
@@ -50,6 +50,7 @@ namespace st {
             static config INSTANCE;
             string ip = "127.0.0.1";
             int port = 53;
+            int console_port = 5757;
             uint32_t dns_cache_expire = 60 * 10;
             string dns_cache_file = "/var/lib/st/dns/cache.txt";
             string base_conf_dir = "/usr/local/etc/st/dns";

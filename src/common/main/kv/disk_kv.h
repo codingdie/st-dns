@@ -6,6 +6,7 @@
 #define ST_DNS_DISK_KV_H
 #include "kv.h"
 #include "utils/file.h"
+#include "proto/kv.pb.h"
 #include <leveldb/db.h>
 namespace st {
     namespace kv {
@@ -20,10 +21,12 @@ namespace st {
             void put(const std::string &key, const std::string &value, uint32_t expire) override;
             void erase(const std::string &key) override;
             void clear() override;
+            void list(std::function<void(const std::string &, const std::string &)> consumer) override;
 
         private:
             leveldb::DB *db = nullptr;
             leveldb::Options options;
+            bool not_expired(const st::kv::proto::value &val) const;
         };
 
     }// namespace kv

@@ -7,6 +7,7 @@
 
 #include <string>
 #include <vector>
+#include <boost/algorithm/string.hpp>
 
 namespace st {
     namespace utils {
@@ -28,6 +29,19 @@ namespace st {
                     result.emplace_back(line);
                 }
 
+                return result;
+            }
+            inline void trim(std::string &str) {
+                boost::trim(str);
+            }
+
+            template<typename Collection>
+            inline std::string join(const Collection &lists, const char *delimit) {
+                std::string result;
+                for (auto value : lists) {
+                    if (!result.empty()) { result += delimit; }
+                    result += value;
+                }
                 return result;
             }
         }// namespace strutils

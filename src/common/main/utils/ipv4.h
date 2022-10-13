@@ -31,7 +31,7 @@ namespace st {
                         return 0;
                     }
                     auto numStr = ipStr.substr(lastPos, pos);
-                    if(numStr.empty()){
+                    if (numStr.empty()) {
                         return 0;
                     }
                     for (string::size_type i = 0; i < numStr.length(); i++) {

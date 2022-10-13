@@ -3,7 +3,7 @@
 //
 
 #include "dns_client.h"
-#include "utils/utils.h"
+#include "st.h"
 #include <sys/socket.h>
 
 dns_client dns_client::INSTANCE;

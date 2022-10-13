@@ -16,7 +16,8 @@ void st::dns::config::load(const string &base_conf_dir) {
             exit(1);
         }
         this->ip = tree.get("ip", string("127.0.0.1"));
-        this->port = stoi(tree.get("port", string("1080")));
+        this->port = tree.get("port", port);
+        this->console_port = tree.get("console_port", console_port);
         this->dns_cache_expire = stoi(tree.get("dns_cache_expire", to_string(this->dns_cache_expire)));
         this->dns_cache_file = tree.get("dns_cache_file", this->dns_cache_file);
         this->area_resolve_optimize = tree.get("area_resolve_optimize", false);

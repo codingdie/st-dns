@@ -1,4 +1,4 @@
-#include "utils/utils.h"
+#include "st.h"
 #include "config.h"
 #include "dns_server.h"
 #include <boost/asio.hpp>
@@ -21,7 +21,7 @@ void serviceScript(const string confPath, const string op) {
 
 int main(int argc, char *argv[]) {
     bool inputConfigPath = false;
-    string confPath = "";
+    string confPath;
     if (argc >= 3 && string(argv[1]) == "-c") {
         confPath = argv[2];
         inputConfigPath = true;

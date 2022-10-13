@@ -31,7 +31,7 @@ void dns_server::config_console() {
     console.desc.add_options()("domain", boost::program_options::value<string>()->default_value("baidu.com"), "domain")("help", "produce help message");
     console.impl = [](const vector<string> &commands, const boost::program_options::variables_map &options) {
         auto command = utils::strutils::join(commands, " ");
-        string result;
+        std::pair<bool, std::string> result = make_pair(false, "not invalid command");
         if (command == "dns record get") {
             if (options.count("domain")) {
                 auto domain = options["domain"].as<string>();
@@ -39,11 +39,11 @@ void dns_server::config_console() {
                     auto records = dns_record_manager::uniq().get_dns_record_list(domain);
                     vector<string> strs(records.size());
                     std::transform(records.begin(), records.end(), strs.begin(), [](const dns_record &item) { return item.serialize(); });
-                    result = strutils::join(strs, "\n");
+                    result = make_pair(true, strutils::join(strs, "\n"));
                 }
             }
         } else if (command == "dns record dump") {
-            result = dns_record_manager::uniq().dump();
+            result = make_pair(true, dns_record_manager::uniq().dump());
         }
         return result;
     };

@@ -12,7 +12,7 @@ namespace st {
         class udp_console {
         public:
             udp_console(const std::string &ip, uint16_t port);
-            std::function<std::string(const vector<std::string> &commands, const boost::program_options::variables_map &options)> impl;
+            std::function<std::pair<bool, std::string>(const vector<std::string> &commands, const boost::program_options::variables_map &options)> impl;
             boost::program_options::options_description desc;
 
             void start();

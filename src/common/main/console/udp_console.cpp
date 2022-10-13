@@ -23,8 +23,12 @@ namespace st {
                                           string command = command_buffer;
                                           logger::INFO << "receive command:" << command << END;
                                           auto parsed_command = parse_command(command);
-                                          string result = impl(parsed_command.first, parsed_command.second);
-                                          send_response(result);
+                                          std::pair<bool, std::string> result = impl(parsed_command.first, parsed_command.second);
+                                          if (result.first) {
+                                              send_response("success\n" + result.second + "\n");
+                                          } else {
+                                              send_response("failed\n" + result.second + "\n");
+                                          }
                                       });
         }
         void udp_console::send_response(const string &result) {
@@ -48,7 +52,8 @@ namespace st {
             vector<string> options;
             bool is_option = false;
             uint16_t argc = 1;
-            for (const auto &item : splits) {
+            for (auto &item : splits) {
+                strutils::trim(item);
                 if (!is_option && item[0] != '-') {
                     commands.emplace_back(item);
                 } else {

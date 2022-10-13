@@ -67,5 +67,5 @@ TEST_F(IntegrationTests, test_dns) {
     auto result = console::client::command(ip, console_port, "dns record get --domain=baidu.com", 1000);
     ASSERT_TRUE(!result.empty());
     result = console::client::command(ip, console_port, "dns record dump", 60000);
-    ASSERT_STREQ("/tmp/st-dns-record.txt", result.c_str());
+    ASSERT_STREQ("succsss\n/tmp/st-dns-record.txt", result.c_str());
 }

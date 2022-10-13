@@ -38,10 +38,11 @@ namespace st {
             static std::string LOCK_NAME;
             static std::unordered_map<std::string, kv::shm_kv *> INSTANCES;
             static std::mutex create_mutex;
+            boost::interprocess::named_mutex interprocess_mutex;
+
             boost::interprocess::managed_shared_memory *segment = nullptr;
             void check_mutex_status();
             std::string shm_name();
-            std::string mutex_name();
         };
     }// namespace kv
 }// namespace st

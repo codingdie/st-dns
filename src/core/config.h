@@ -50,6 +50,7 @@ namespace st {
             static config INSTANCE;
             string ip = "127.0.0.1";
             int port = 53;
+            string console_ip = "127.0.0.1";
             int console_port = 5757;
             uint32_t dns_cache_expire = 60 * 10;
             string dns_cache_file = "/var/lib/st/dns/cache.txt";

@@ -40,21 +40,18 @@ st::kv::shm_kv *st::kv::shm_kv::share(const std::string &ns) {
     return nullptr;
 }
 void st::kv::shm_kv::check_mutex_status() {
-    named_mutex mt(open_or_create, mutex_name().c_str());
-    if (!mt.timed_lock(boost::posix_time::second_clock::local_time() + boost::posix_time::seconds(3))) {
-        named_mutex::remove(mutex_name().c_str());
-    } else {
-        mt.unlock();
-    }
+    // if (!interprocess_mutex.timed_lock(boost::posix_time::second_clock::local_time() + boost::posix_time::seconds(3))) {
+    //     named_mutex::remove(mutex_name().c_str());
+    // } else {
+    //     mt.unlock();
+    // }
 }
 std::string st::kv::shm_kv::shm_name() { return NAME + "-" + ns; }
-std::string st::kv::shm_kv::mutex_name() { return LOCK_NAME + "-" + ns; }
 
 
-st::kv::shm_kv::shm_kv(const std::string &ns, uint32_t maxSize) : abstract_kv(ns, maxSize) {
-    check_mutex_status();
-    named_mutex mutex(open_or_create, mutex_name().c_str());
-    scoped_lock<named_mutex> lock(mutex);
+st::kv::shm_kv::shm_kv(const std::string &ns, uint32_t maxSize) : abstract_kv(ns, maxSize),
+                                                                  interprocess_mutex(open_or_create, (LOCK_NAME + "-" + ns).c_str()) {
+    scoped_lock<named_mutex> lock(interprocess_mutex);
     segment = new managed_shared_memory(open_or_create, shm_name().c_str(), max_size);
     void_allocator alloc_inst(segment->get_segment_manager());
     segment->find_or_construct<shm_map>("KV")(std::less<shm_map_key_type>(), alloc_inst);
@@ -65,8 +62,7 @@ std::string st::kv::shm_kv::get(const std::string &key) {
     if (key.empty() || segment == nullptr) {
         return "";
     }
-    named_mutex mutex(open_or_create, mutex_name().c_str());
-    scoped_lock<named_mutex> lock(mutex);
+    scoped_lock<named_mutex> lock(interprocess_mutex);
     void_allocator alloc_inst(segment->get_segment_manager());
     shm_map *kv = segment->find<shm_map>("KV").first;
     shm_map_key_type k(key.c_str(), alloc_inst);
@@ -80,8 +76,7 @@ void st::kv::shm_kv::put(const std::string &key, const std::string &value) {
     if (key.empty() || value.empty() || segment == nullptr) {
         return;
     }
-    named_mutex mutex(open_or_create, mutex_name().c_str());
-    scoped_lock<named_mutex> lock(mutex);
+    scoped_lock<named_mutex> lock(interprocess_mutex);
     void_allocator alloc_inst(segment->get_segment_manager());
     shm_map *kv = segment->find<shm_map>("KV").first;
     shm_map_value_type shm_val(value.c_str(), alloc_inst);
@@ -98,8 +93,7 @@ void st::kv::shm_kv::put_if_absent(const std::string &key, const std::string &va
     if (key.empty() || value.empty() || segment == nullptr) {
         return;
     }
-    named_mutex mutex(open_or_create, mutex_name().c_str());
-    scoped_lock<named_mutex> lock(mutex);
+    scoped_lock<named_mutex> lock(interprocess_mutex);
     void_allocator alloc_inst(segment->get_segment_manager());
     shm_map *kv = segment->find<shm_map>("KV").first;
     shm_map_value_type v(value.c_str(), alloc_inst);
@@ -108,14 +102,12 @@ void st::kv::shm_kv::put_if_absent(const std::string &key, const std::string &va
     kv->insert(pr);
 }
 void st::kv::shm_kv::clear() {
-    named_mutex mutex(open_or_create, mutex_name().c_str());
-    scoped_lock<named_mutex> lock(mutex);
+    scoped_lock<named_mutex> lock(interprocess_mutex);
     segment->find<shm_map>("KV").first->clear();
 }
 uint64_t st::kv::shm_kv::free_size() { return this->segment->get_segment_manager()->get_free_memory(); }
 void st::kv::shm_kv::erase(const std::string &key) {
-    named_mutex mutex(open_or_create, mutex_name().c_str());
-    scoped_lock<named_mutex> lock(mutex);
+    scoped_lock<named_mutex> lock(interprocess_mutex);
     void_allocator alloc_inst(segment->get_segment_manager());
     shm_map *kv = segment->find<shm_map>("KV").first;
     shm_map_key_type k(key.c_str(), alloc_inst);

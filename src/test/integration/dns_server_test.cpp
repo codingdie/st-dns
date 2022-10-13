@@ -33,7 +33,7 @@ protected:
     void TearDown() override { BaseTest::TearDown(); }
 };
 
-void testDNS(const string &domain) {
+void test_dns(const string &domain) {
     const string server = "127.0.0.1";
     const uint32_t port = 5353;
     mutex lock;
@@ -51,15 +51,21 @@ void testDNS(const string &domain) {
     lock.unlock();
 }
 
-TEST_F(IntegrationTests, testDNS) {
-    for (int i = 0; i < 10; i++) {
-        testDNS("twitter.com");
-        testDNS("google.com");
-        testDNS("youtube.com");
-        testDNS("facebook.com");
-        testDNS("twitter.com");
-        testDNS("baidu.com");
+TEST_F(IntegrationTests, test_dns) {
+    for (int i = 0; i < 3; i++) {
+        test_dns("twitter.com");
+        test_dns("google.com");
+        test_dns("youtube.com");
+        test_dns("facebook.com");
+        test_dns("twitter.com");
+        test_dns("baidu.com");
         string result;
         shell::exec("dig cname baidu.com @127.0.0.1 -p5353", result);
     }
+    string ip = st::dns::config::INSTANCE.ip;
+    int console_port = st::dns::config::INSTANCE.console_port;
+    auto result = console::client::command(ip, console_port, "dns record get --domain=baidu.com", 1000);
+    ASSERT_TRUE(!result.empty());
+    result = console::client::command(ip, console_port, "dns record dump", 60000);
+    ASSERT_STREQ("/tmp/st-dns-record.txt", result.c_str());
 }

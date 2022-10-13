@@ -20,26 +20,7 @@ namespace st {
             static manager instance;
             return instance;
         }
-        void manager::init_area_code_name_map() {
-            if (CN_AREA_2_AREA.empty()) {
-                try {
-                    ptree tree;
-                    std::stringstream results(CN_CODE_JSON);
-                    read_json(results, tree);
-                    for (auto it = tree.begin(); it != tree.end(); it++) {
-                        auto key = it->first;
-                        auto value = it->second.get_value<string>();
-                        CN_AREA_2_AREA[key] = value;
-                    }
-                } catch (json_parser_error &e) {
-                    logger::ERROR << "init_area_code_name_map error! not valid json" << e.message() << CN_CODE_JSON
-                                  << END;
-                }
-            }
-        }
-
         manager::manager() {
-            init_area_code_name_map();
             ctx = new boost::asio::io_context();
             stat_timer = new boost::asio::deadline_timer(*ctx);
             ctx_work = new boost::asio::io_context::work(*ctx);
@@ -54,9 +35,10 @@ namespace st {
         }
         manager::~manager() {
             ctx->stop();
+            stat_timer->cancel();
+            delete ctx_work;
             th->join();
             delete ctx;
-            delete ctx_work;
             delete th;
             delete stat_timer;
         }

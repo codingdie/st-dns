@@ -6,7 +6,7 @@
 #define ST_DNS_DNS_MESSAGE_H
 
 
-#include "utils/utils.h"
+#include "st.h"
 #include <atomic>
 #include <boost/asio.hpp>
 #include <cstdlib>

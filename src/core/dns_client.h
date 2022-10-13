@@ -6,7 +6,7 @@
 #define ST_DNS_DNS_CLIENT_H
 
 #include "protocol/protocol.h"
-#include "utils/utils.h"
+#include "st.h"
 #include <boost/asio.hpp>
 #include <boost/asio/basic_datagram_socket.hpp>
 #include <boost/asio/ssl.hpp>

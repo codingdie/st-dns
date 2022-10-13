@@ -2,10 +2,10 @@
 // Created by codingdie on 2020/5/24.
 //
 
-#ifndef ST_DNS_DNS_CACHE_H
-#define ST_DNS_DNS_CACHE_H
+#ifndef ST_DNS_DNS_RECORD_MANAGER_H
+#define ST_DNS_DNS_RECORD_MANAGER_H
 
-#include "utils/utils.h"
+#include "st.h"
 
 #include <iostream>
 #include <mutex>
@@ -20,7 +20,7 @@
 #include "protocol/message.pb.h"
 using namespace std;
 
-class ip_quality_info {
+class dns_ip_record {
 public:
     uint32_t ip = 0;
     bool match_area = false;
@@ -29,7 +29,7 @@ public:
     uint64_t expire_time = 0;
     string server;
     uint8_t server_order;
-    static bool compare(ip_quality_info &a, ip_quality_info &b) {
+    static bool compare(dns_ip_record &a, dns_ip_record &b) {
         if (a.match_area != b.match_area) {
             if (a.match_area) {
                 return true;
@@ -52,7 +52,6 @@ public:
 
 
 class dns_record {
-
 public:
     vector<uint32_t> ips;
     uint64_t expire_time = 0;
@@ -60,28 +59,22 @@ public:
     string domain;
     bool expire = false;
     bool match_area = false;
-
-    string serialize();
-    bool deserialize(const string &str);
+    string serialize() const;
+    static vector<dns_record> transform(const st::dns::proto::records &records);
 };
 
-class dns_cache {
+class dns_record_manager {
 private:
-    long trusted_domain_count = 0;
-    unordered_map<string, unordered_map<string, dns_record>> caches;
     st::kv::disk_kv db;
-    void saveToFile();
 
 public:
-    dns_cache();
+    dns_record_manager();
 
-    uint32_t get_trusted_domain_count();
-    static dns_cache &uniq();
+    static dns_record_manager &uniq();
 
+    std::vector<dns_record> get_dns_record_list(const string &domain);
 
-    void load_from_file();
-
-    st::dns::proto::records get_dns_records(const string &domain);
+    st::dns::proto::records get_dns_records_pb(const string &domain);
 
     void add(const string &domain, const vector<uint32_t> &ips, const string &dnsServer, int expire,
              bool match_area);
@@ -90,11 +83,7 @@ public:
 
     bool has_any_record(const string &domain);
 
-    bool has_trusted_record(const string &domain);
-
-    uint32_t server_count(const string &domain);
-
-    unordered_set<string> query_not_match_area_servers(const string &domain);
+    std::string dump();
 };
 
-#endif//ST_DNS_DNS_CACHE_H
+#endif//ST_DNS_DNS_RECORD_MANAGER_H

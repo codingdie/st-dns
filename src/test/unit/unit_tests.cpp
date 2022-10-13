@@ -4,7 +4,7 @@
 #include <gtest/gtest.h>
 #include "dns_client.h"
 #include "dns_server.h"
-#include "utils/utils.h"
+#include "st.h"
 #include <iostream>
 #include <chrono>
 #include <thread>
@@ -152,9 +152,9 @@ TEST(UnitTests, testIPAreaNetwork) {
 
 TEST(UnitTests, test_ip_sort) {
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
-    vector<ip_quality_info> ip_records;
+    vector<dns_ip_record> ip_records;
     auto create = [](uint32_t ip, bool match, bool forbid) {
-        ip_quality_info b;
+        dns_ip_record b;
         b.ip = ip;
         b.match_area = match;
         b.forbid = forbid;
@@ -165,7 +165,7 @@ TEST(UnitTests, test_ip_sort) {
     ip_records.emplace_back(create(2, true, true));
     ip_records.emplace_back(create(4, true, false));
     std::shuffle(ip_records.begin(), ip_records.end(), std::default_random_engine(seed));
-    std::sort(ip_records.begin(), ip_records.end(), ip_quality_info::compare);
+    std::sort(ip_records.begin(), ip_records.end(), dns_ip_record::compare);
     for (auto item : ip_records) {
         logger::INFO << item.ip;
     }
@@ -176,10 +176,10 @@ TEST(UnitTests, test_ip_sort) {
 
 
 TEST(UnitTests, test_dns_cache) {
-    dns_cache::uniq().add("test01.com", {1, 2, 3}, "192.168.31.2", 60, 0);
-    dns_cache::uniq().add("test01.com", {1, 2, 3}, "192.168.31.1", 60, 0);
-    dns_cache::uniq().add("test01.com", {1, 2}, "192.168.31.1", 60, 0);
-    const proto::records &records = dns_cache::uniq().get_dns_records("test01.com");
+    dns_record_manager::uniq().add("test01.com", {1, 2, 3}, "192.168.31.2", 60, 0);
+    dns_record_manager::uniq().add("test01.com", {1, 2, 3}, "192.168.31.1", 60, 0);
+    dns_record_manager::uniq().add("test01.com", {1, 2}, "192.168.31.1", 60, 0);
+    const proto::records &records = dns_record_manager::uniq().get_dns_records_pb("test01.com");
     auto ma = records.map();
     for (const auto &item : ma) {
         cout << item.first << endl;

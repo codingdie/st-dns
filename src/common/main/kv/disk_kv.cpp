@@ -18,13 +18,14 @@ namespace st {
             proto::value val;
             if (s.ok()) {
                 val.ParseFromString(data);
-                if (val.expire() == 0 || val.expire() < utils::time::now() / 1000) {
+                if (not_expired(val)) {
                     return utils::base64::decode(val.str());
                 }
                 this->erase(key);
             }
             return "";
         }
+        bool disk_kv::not_expired(const proto::value &val) const { return val.expire() == 0 || val.expire() < utils::time::now() / 1000; }
         void disk_kv::put(const std::string &key, const std::string &value) {
             this->put(key, value, 0);
         }
@@ -50,6 +51,17 @@ namespace st {
             leveldb::Status status = leveldb::DB::Open(options, KV_FOLDER + ns, &db);
             options.block_cache = leveldb::NewLRUCache(max_size);
             assert(status.ok());
+        }
+        void disk_kv::list(std::function<void(const std::string &, const std::string &)> consumer) {
+            leveldb::Iterator *it = db->NewIterator(leveldb::ReadOptions());
+            for (it->SeekToFirst(); it->Valid(); it->Next()) {
+                proto::value val;
+                val.ParseFromString(it->value().ToString());
+                if (not_expired(val)) {
+                    consumer(it->key().ToString(), utils::base64::decode(val.str()));
+                }
+            }
+            delete it;
         }
     }// namespace kv
 }// namespace st

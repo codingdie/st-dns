@@ -9,27 +9,50 @@
 #include <unordered_set>
 #include <vector>
 
-#include "dns_cache.h"
+#include "dns_record_manager.h"
 #include "dns_client.h"
-#include "utils/utils.h"
+#include "st.h"
 static mutex rLock;
 
 using namespace std::placeholders;
 using namespace std;
 using namespace st::dns;
 using namespace st::dns::protocol;
-dns_server::dns_server(st::dns::config &config) : rid(time::now()), config(config), counter(0) {
+dns_server::dns_server(st::dns::config &config) : rid(time::now()), config(config), counter(0), console(config.ip, config.console_port) {
     try {
         ss = new udp::socket(ic, udp::endpoint(boost::asio::ip::make_address_v4(config.ip), config.port));
     } catch (const boost::system::system_error &e) {
         logger::ERROR << "bind address error" << config.ip << config.port << e.what() << END;
         exit(1);
     }
+    config_console();
+}
+void dns_server::config_console() {
+    console.desc.add_options()("domain", boost::program_options::value<string>()->default_value("baidu.com"), "domain")("help", "produce help message");
+    console.impl = [](const vector<string> &commands, const boost::program_options::variables_map &options) {
+        auto command = utils::strutils::join(commands, " ");
+        string result;
+        if (command == "dns record get") {
+            if (options.count("domain")) {
+                auto domain = options["domain"].as<string>();
+                if (!domain.empty()) {
+                    auto records = dns_record_manager::uniq().get_dns_record_list(domain);
+                    vector<string> strs(records.size());
+                    std::transform(records.begin(), records.end(), strs.begin(), [](const dns_record &item) { return item.serialize(); });
+                    result = strutils::join(strs, "\n");
+                }
+            }
+        } else if (command == "dns record dump") {
+            dns_record_manager::uniq().dump();
+            result = "ok";
+        }
+        return result;
+    };
+    console.start();
 }
 
 void dns_server::start() {
     iw = new boost::asio::io_context::work(ic);
-    dns_cache::uniq().load_from_file();
     logger::INFO << "st-dns start, listen at" << config.ip << config.port << END;
     receive();
     state++;
@@ -78,7 +101,7 @@ void dns_server::receive() {
                            });
 }
 
-uint32_t dns_server::cal_expire(dns_record &record) {
+uint32_t dns_server::cal_expire(dns_record &record) const {
     uint32_t expire = config.dns_cache_expire;
     if (!record.match_area) {
         expire = 1;
@@ -126,7 +149,6 @@ void dns_server::end_session(session *session) {
         success &= !session->record.ips.empty();
     }
 
-    session->logger.add_metric("trusted_domain_count", dns_cache::uniq().get_trusted_domain_count());
     session->logger.add_metric("in_querying_domain_count", wating_sessions.size());
     session->logger.add_metric("mem_leak_size", st::mem::leak_size());
     session->logger.add_metric("dns_reverse_shm_free_size", st::dns::shm::share().free_size());
@@ -148,7 +170,7 @@ void dns_server::end_session(session *session) {
     delete session;
 }
 
-void dns_server::query_dns_record(session *session, std::function<void(st::dns::session *)> complete_handler) {
+void dns_server::query_dns_record(session *session, const std::function<void(st::dns::session *)> &complete_handler) {
     auto complete = [=](st::dns::session *se) {
         se->response = new udp_response(se->request, se->record, cal_expire(se->record));
         complete_handler(se);
@@ -162,11 +184,11 @@ void dns_server::query_dns_record(session *session, std::function<void(st::dns::
         session->logger.add_dimension("process_type", "local");
         complete(session);
     } else {
-        dns_cache::uniq().query(host, record);
+        dns_record_manager::uniq().query(host, record);
         if (record.ips.empty()) {
             string fiDomain = dns_domain::getFIDomain(host);
             if (fiDomain == "LAN") {
-                dns_cache::uniq().query(dns_domain::removeFIDomain(host), record);
+                dns_record_manager::uniq().query(dns_domain::removeFIDomain(host), record);
                 record.domain = host;
             }
         }
@@ -183,7 +205,7 @@ void dns_server::query_dns_record(session *session, std::function<void(st::dns::
     }
 }
 
-void dns_server::query_dns_record_from_remote(session *session, std::function<void(st::dns::session *session)> complete_handler) {
+void dns_server::query_dns_record_from_remote(session *session, const std::function<void(st::dns::session *session)> &complete_handler) {
     auto record = session->record;
     auto host = record.domain;
     vector<remote_dns_server *> servers = remote_dns_server::calculateQueryServer(host, config.servers);
@@ -196,18 +218,17 @@ void dns_server::query_dns_record_from_remote(session *session, std::function<vo
         sync_dns_record_from_remote(
                 host, [=](dns_record record) {
                     auto sessions = end_query_remote(host);
-                    for (auto it = sessions.begin(); it != sessions.end(); it++) {
-                        st::dns::session *se = *it;
+                    for (auto se : sessions) {
                         se->record = record;
                         complete_handler(se);
                     }
                 },
-                servers, 0, dns_cache::uniq().has_any_record(host));
+                servers, 0, dns_record_manager::uniq().has_any_record(host));
     } else {
         logger::DEBUG << host << "is in query!" << END;
     }
 }
-void dns_server::forward_dns_request(session *session, std::function<void(st::dns::session *session)> complete_handler) {
+void dns_server::forward_dns_request(session *session, const std::function<void(st::dns::session *session)> &complete_handler) {
     vector<remote_dns_server *> servers;
     for (auto &it : config.servers) {
         if (it->type == "UDP") {
@@ -225,7 +246,7 @@ void dns_server::forward_dns_request(session *session, std::function<void(st::dn
         complete_handler(session);
     }
 }
-void dns_server::forward_dns_request(session *session, std::function<void(udp_response *)> complete, vector<remote_dns_server *> servers, uint32_t pos) {
+void dns_server::forward_dns_request(session *session, const std::function<void(udp_response *)> &complete, vector<remote_dns_server *> servers, uint32_t pos) {
     if (pos >= servers.size()) {
         complete(nullptr);
         return;
@@ -277,7 +298,7 @@ void dns_server::update_dns_record(const string &domain) {
     if (begin_query_remote(domain, nullptr)) {
         if (!servers.empty()) {
             sync_dns_record_from_remote(
-                    domain, [=](dns_record record) {
+                    domain, [=](const dns_record &record) {
                         end_query_remote(domain);
                         logger::DEBUG << "update_dns_record finished!" << END;
                     },
@@ -291,13 +312,13 @@ void dns_server::update_dns_record(const string &domain) {
     }
 }
 
-void dns_server::sync_dns_record_from_remote(const string &host, std::function<void(dns_record record)> complete,
+void dns_server::sync_dns_record_from_remote(const string &host, const std::function<void(dns_record record)> &complete,
                                              vector<remote_dns_server *> servers,
                                              int pos, bool completed) {
     if (pos >= servers.size()) {
         logger::ERROR << "not known host" << host << END;
         dns_record record;
-        dns_cache::uniq().query(host, record);
+        dns_record_manager::uniq().query(host, record);
         complete(record);
         return;
     }
@@ -309,15 +330,15 @@ void dns_server::sync_dns_record_from_remote(const string &host, std::function<v
         vector<uint32_t> oriIps = ips;
         filter_ip_by_area(host, server, ips);
         if (!ips.empty()) {
-            dns_cache::uniq().add(host, ips, server->id(),
-                                    loadAll ? server->dns_cache_expire : 60, true);
+            dns_record_manager::uniq().add(host, ips, server->id(),
+                                           loadAll ? server->dns_cache_expire : 60, true);
         } else {
             if (!oriIps.empty()) {
-                dns_cache::uniq().add(host, oriIps, server->id(), server->dns_cache_expire, false);
+                dns_record_manager::uniq().add(host, oriIps, server->id(), server->dns_cache_expire, false);
             }
         }
         dns_record record;
-        dns_cache::uniq().query(host, record);
+        dns_record_manager::uniq().query(host, record);
         logger::DEBUG << logTag << "finished! original" << ipv4::ips_to_str(ips) << " final" << ipv4::ips_to_str(ips) << END;
         if (!record.ips.empty() && completed) {
             complete(record);
@@ -339,11 +360,11 @@ void dns_server::sync_dns_record_from_remote(const string &host, std::function<v
         }
     }
     logger::DEBUG << logTag << "start!" << END;
-    if (server->type.compare("TCP_SSL") == 0) {
+    if (server->type == "TCP_SSL") {
         dns_client::INSTANCE.tcp_tls_dns(host, server->ip, server->port, server->timeout, areas, dnsComplete);
     } else if (server->type.compare("TCP") == 0) {
         dns_client::INSTANCE.tcp_dns(host, server->ip, server->port, server->timeout, areas, dnsComplete);
-    } else if (server->type.compare("UDP") == 0) {
+    } else if (server->type == "UDP") {
         dns_client::INSTANCE.udp_dns(host, server->ip, server->port, server->timeout, [=](std::vector<uint32_t> ips) {
             dnsComplete(ips, true);
         });

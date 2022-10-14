@@ -120,7 +120,7 @@ vector<dns_record> dns_record::transform(const st::dns::proto::records &records)
 }
 std::string dns_record_manager::dump() {
     auto path = "/tmp/st-dns-record.txt";
-    ofstream fs(path, std::ios_base::out | std::ios_base::app);
+    ofstream fs(path, std::ios_base::out | std::ios_base::trunc);
     if (fs.is_open()) {
         db.list([&fs](const std::string &key, const std::string &value) {
             st::dns::proto::records records;

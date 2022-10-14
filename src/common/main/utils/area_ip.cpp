@@ -150,7 +150,7 @@ namespace st {
             return "";
         }
         void manager::async_load_ip_info(const uint32_t &ip) {
-            std::function<void(const uint32_t &ip)> doLoadIPInfo = [=](const uint32_t &ip) {
+            std::function<void(const uint32_t &ip)> doLoadIPInfo = [this](const uint32_t &ip) {
                 uint64_t begin = st::utils::time::now();
                 if (get_area(ip, net_caches).empty()) {
                     auto ipInfos = load_ip_info(ip);
@@ -182,7 +182,7 @@ namespace st {
         }
 
         bool manager::is_area_ip(const string &areaCode, const uint32_t &ip,
-                                 unordered_map<string, vector<area_ip_range>> &caches) {
+                                 const unordered_map<string, vector<area_ip_range>> &caches) {
             //todo find fast
             auto iterator = caches.find(areaCode);
             if (iterator != caches.end()) {
@@ -195,7 +195,7 @@ namespace st {
             return false;
         }
 
-        string manager::get_area(const uint32_t &ip, unordered_map<string, vector<area_ip_range>> &caches) {
+        string manager::get_area(const uint32_t &ip, const unordered_map<string, vector<area_ip_range>> &caches) {
             if (ip != 0) {
                 for (auto it = caches.begin(); it != caches.end(); it++) {
                     string area = (*it).first;
@@ -207,9 +207,9 @@ namespace st {
             return "";
         }
 
-        string manager::get_area(const uint32_t &ip, unordered_map<uint32_t, string> &caches) {
+        string manager::get_area(const uint32_t &ip, const unordered_map<uint32_t, string> &caches) {
             if (caches.find(ip) != caches.end()) {
-                return caches[ip];
+                return caches.at(ip);
             }
             return "";
         }

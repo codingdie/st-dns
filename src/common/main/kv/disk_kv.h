@@ -26,7 +26,7 @@ namespace st {
         private:
             leveldb::DB *db = nullptr;
             leveldb::Options options;
-            bool not_expired(const st::kv::proto::value &val) const;
+            static bool not_expired(const st::kv::proto::value &val);
         };
 
     }// namespace kv

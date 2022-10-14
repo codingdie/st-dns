@@ -79,10 +79,10 @@ namespace st {
             boost::asio::io_context::work *ctx_work = nullptr;
             std::thread *th = nullptr;
             boost::asio::deadline_timer *stat_timer;
-            bool is_area_ip(const string &areaCode, const uint32_t &ip,
-                            unordered_map<string, vector<area_ip_range>> &caches);
-            string get_area(const uint32_t &ip, unordered_map<string, vector<area_ip_range>> &caches);
-            string get_area(const uint32_t &ip, unordered_map<uint32_t, string> &caches);
+            static bool is_area_ip(const string &areaCode, const uint32_t &ip,
+                                   const unordered_map<string, vector<area_ip_range>> &caches);
+            string get_area(const uint32_t &ip, const unordered_map<string, vector<area_ip_range>> &caches);
+            string get_area(const uint32_t &ip, const unordered_map<uint32_t, string> &caches);
             string get_area_code(const string &areaReg);
             string download_area_ips(const string &areaCode);
             void async_load_ip_info(const uint32_t &ip);

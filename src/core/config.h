@@ -53,7 +53,6 @@ namespace st {
             string console_ip = "127.0.0.1";
             int console_port = 5757;
             uint32_t dns_cache_expire = 60 * 10;
-            string dns_cache_file = "/var/lib/st/dns/cache.txt";
             string base_conf_dir = "/usr/local/etc/st/dns";
             vector<remote_dns_server *> servers;
             bool area_resolve_optimize = false;

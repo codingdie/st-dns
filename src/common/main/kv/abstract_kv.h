@@ -1,5 +1,5 @@
-#ifndef ST_KV_H
-#define ST_KV_H
+#ifndef ST_ABSTRACT_KV_H
+#define ST_ABSTRACT_KV_H
 
 #include <string>
 

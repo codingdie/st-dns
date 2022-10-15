@@ -1,28 +1,25 @@
 //
 // Created by codingdie on 2020/6/27.
 //
-#include "../../core/dns_server.h"
-#include "../../core/dns_client.h"
+#include "dns_server.h"
+#include "dns_client.h"
 #include <gtest/gtest.h>
 class BaseTest : public ::testing::Test {
 protected:
-    dns_server *dnsServer;
-    thread *th;
+    dns_server *server = nullptr;
+    thread *th = nullptr;
     void SetUp() override {
         st::dns::config::INSTANCE.load("../confs/test");
-        file::del(st::dns::config::INSTANCE.dns_cache_file);
-        dnsServer = new dns_server(st::dns::config::INSTANCE);
-        th = new thread([=]() { dnsServer->start(); });
-        dnsServer->wait_start();
+        dns_record_manager::uniq().clear();
+        server = new dns_server(st::dns::config::INSTANCE);
+        th = new thread([=]() { server->start(); });
+        server->wait_start();
     }
     void TearDown() override {
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-        dnsServer->shutdown();
+        server->shutdown();
         th->join();
-        apm_logger::disable();
         delete th;
-        delete dnsServer;
-        std::this_thread::sleep_for(std::chrono::seconds(10));
+        delete server;
     }
 };
 class IntegrationTests : public BaseTest {
@@ -39,7 +36,7 @@ void test_dns(const string &domain) {
     mutex lock;
     lock.lock();
     vector<uint32_t> ips;
-    dns_client::INSTANCE.udp_dns(domain, server, port, 25000, [&](std::vector<uint32_t> result) {
+    dns_client::uniq().udp_dns(domain, server, port, 25000, [&](std::vector<uint32_t> result) {
         ips = result;
         lock.unlock();
     });
@@ -50,6 +47,7 @@ void test_dns(const string &domain) {
     ASSERT_TRUE(ips.size() > 0);
     lock.unlock();
 }
+
 
 TEST_F(IntegrationTests, test_dns) {
     for (int i = 0; i < 3; i++) {
@@ -62,10 +60,13 @@ TEST_F(IntegrationTests, test_dns) {
         string result;
         shell::exec("dig cname baidu.com @127.0.0.1 -p5353", result);
     }
+
     string ip = st::dns::config::INSTANCE.console_ip;
     int console_port = st::dns::config::INSTANCE.console_port;
     auto result = console::client::command(ip, console_port, "dns record get --domain=baidu.com", 1000);
     ASSERT_TRUE(!result.empty());
     result = console::client::command(ip, console_port, "dns record dump", 60000);
     ASSERT_STREQ("success\n/tmp/st-dns-record.txt\n", result.c_str());
+    result = console::client::command(ip, console_port, "dns record analyse", 60000);
+    ASSERT_TRUE(result.find("success") != string::npos);
 }

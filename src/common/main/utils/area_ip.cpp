@@ -20,11 +20,10 @@ namespace st {
             static manager instance;
             return instance;
         }
-        manager::manager() {
-            ctx = new boost::asio::io_context();
-            stat_timer = new boost::asio::deadline_timer(*ctx);
-            ctx_work = new boost::asio::io_context::work(*ctx);
-            th = new thread([=]() { ctx->run(); });
+        manager::manager() : ctx() {
+            ctx_work = new boost::asio::io_context::work(ctx);
+            stat_timer = new boost::asio::deadline_timer(ctx);
+            th = new thread([this]() { this->ctx.run(); });
             vector<area_ip_range> ips;
             ips.emplace_back(area_ip_range::parse("192.168.0.0/16", "LAN"));
             ips.emplace_back(area_ip_range::parse("10.0.0.0/8", "LAN"));
@@ -35,10 +34,9 @@ namespace st {
         }
         manager::~manager() {
             stat_timer->cancel();
+            ctx.stop();
             delete ctx_work;
-            ctx->stop();
             th->join();
-            delete ctx;
             delete th;
             delete stat_timer;
         }
@@ -178,7 +176,7 @@ namespace st {
                     logger::INFO << "async load ip info skipped!" << st::utils::ipv4::ip_to_str(ip) << END;
                 }
             };
-            ctx->post(boost::bind(doLoadIPInfo, ip));
+            ctx.post(boost::bind(doLoadIPInfo, ip));
         }
 
         bool manager::is_area_ip(const string &areaCode, const uint32_t &ip,

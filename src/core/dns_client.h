@@ -19,42 +19,41 @@ using namespace boost::asio;
 using namespace st::dns;
 
 using namespace std;
+#define dns_complete std::function<void(const std::vector<uint32_t> &ips)>
+#define dns_multi_area_complete std::function<void(std::vector<uint32_t> ips, bool load_all)>
 
 class dns_client {
 public:
-    static dns_client INSTANCE;
+    void udp_dns(const string &domain, const std::string &dns_server, uint32_t port, uint64_t timeout, const dns_complete &complete_handler);
 
-    void udp_dns(const string &domain, const std::string &dnsServer, uint32_t port, uint64_t timeout, std::function<void(std::vector<uint32_t> ips)> complete_handler);
+    void tcp_tls_dns(const string &domain, const std::string &dns_server, uint16_t port, uint64_t timeout, const string &area, const dns_complete &complete_handler);
 
-    void tcp_tls_dns(const string &domain, const std::string &dnsServer, uint16_t port, uint64_t timeout, const string &area, std::function<void(std::vector<uint32_t> ips)> complete_handler);
+    void tcp_tls_dns(const string &domain, const std::string &dns_server, uint16_t port, uint64_t timeout, const unordered_set<string> &areas, const dns_multi_area_complete &complete_handler);
 
-    void tcp_tls_dns(const string &domain, const std::string &dnsServer, uint16_t port, uint64_t timeout, const unordered_set<string> &areas, std::function<void(std::vector<uint32_t> ips, bool loadAll)> complete_handler);
+    void tcp_tls_dns(const string &domain, const std::string &dns_server, uint16_t port, uint64_t timeout, const dns_complete &complete_handler);
 
-    void tcp_tls_dns(const string &domain, const std::string &dnsServer, uint16_t port, uint64_t timeout, std::function<void(std::vector<uint32_t> ips)> complete_handler);
+    void tcp_dns(const string &domain, const std::string &dns_server, uint16_t port, uint64_t timeout, const string &area, const dns_complete &complete_handler);
 
-    void tcp_dns(const string &domain, const std::string &dnsServer, uint16_t port, uint64_t timeout, const string &area, std::function<void(std::vector<uint32_t> ips)> complete_handler);
+    void tcp_dns(const string &domain, const std::string &dns_server, uint16_t port, uint64_t timeout, const unordered_set<string> &areas, const dns_multi_area_complete &complete_handler);
 
-    void tcp_dns(const string &domain, const std::string &dnsServer, uint16_t port, uint64_t timeout, const unordered_set<string> &areas, std::function<void(std::vector<uint32_t> ips, bool loadAll)> complete_handler);
+    void tcp_dns(const string &domain, const std::string &dns_server, uint16_t port, uint64_t timeout, const dns_complete &complete_handler);
 
-    void tcp_dns(const string &domain, const std::string &dnsServer, uint16_t port, uint64_t timeout, std::function<void(std::vector<uint32_t> ips)> complete_handler);
-
-    void forward_udp(protocol::udp_request &udpDnsRequest, const std::string &dnsServer, uint32_t port, uint64_t timeout, std::function<void(protocol::udp_response *)> callback);
-
-    //    static tcp_response *EDNS(const std::string &domain, const std::string &dnsServer, uint16_t port, uint32_t ip, uint64_t timeout);
+    void forward_udp(protocol::udp_request &dns_request, const std::string &dns_server, uint32_t port, uint64_t timeout, std::function<void(protocol::udp_response *)> callback);
 
     dns_client();
+    static dns_client &uniq();
 
     virtual ~dns_client();
 
 private:
-    io_context ioContext;
-    boost::asio::io_context::work *ioWoker;
+    io_context ic;
+    boost::asio::io_context::work *iw;
     std::thread *th;
-    std::vector<uint32_t> parse(uint16_t length, pair<uint8_t *, uint32_t> lengthBytes, pair<uint8_t *, uint32_t> dataBytes, uint16_t dnsId);
+    std::vector<uint32_t> parse(uint16_t length, pair<uint8_t *, uint32_t> length_bytea, pair<uint8_t *, uint32_t> data_bytes, uint16_t dnsId);
     template<typename Result>
     bool is_timeout_or_error(const string &logTag, boost::system::error_code ec, uint64_t beginTime, uint64_t timeout, std::function<void(Result)> complete_handler, Result defaultV);
-    bool is_timeout_or_error(const string &logTag, boost::system::error_code ec, uint64_t beginTime, uint64_t timeout, std::function<void(std::vector<uint32_t>)> complete_handler);
-    bool is_timeout_or_error(const string &logTag, boost::system::error_code ec, uint64_t beginTime, uint64_t timeout, std::function<void(protocol::udp_response *res)> complete_handler);
+    bool is_timeout_or_error(const string &logTag, boost::system::error_code ec, uint64_t beginTime, uint64_t timeout, const dns_complete &complete_handler);
+    bool is_timeout_or_error(const string &logTag, boost::system::error_code ec, uint64_t beginTime, uint64_t timeout, const std::function<void(protocol::udp_response *res)> &complete_handler);
 };
 
 #endif//ST_DNS_DNS_CLIENT_H

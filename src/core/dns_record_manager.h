@@ -59,10 +59,23 @@ public:
     string domain;
     bool expire = false;
     bool match_area = false;
+    uint16_t trusted_ip_count;
+    uint16_t total_ip_count;
     string serialize() const;
     static vector<dns_record> transform(const st::dns::proto::records &records);
 };
 
+
+class dns_record_stats {
+public:
+    uint32_t total_domain = 0;
+    uint32_t trusted_domain = 0;
+    uint32_t total_ip = 0;
+    uint16_t trusted_ip = 0;
+    string serialize() const {
+        return "total_domain:" + to_string(total_domain) + "\ntrusted_domain:" + to_string(trusted_domain) + "\ntotal_ip:" + to_string(total_ip) + "\ntrusted_ip:" + to_string(trusted_ip);
+    }
+};
 class dns_record_manager {
 private:
     st::kv::disk_kv db;
@@ -76,14 +89,21 @@ public:
 
     st::dns::proto::records get_dns_records_pb(const string &domain);
 
-    void add(const string &domain, const vector<uint32_t> &ips, const string &dnsServer, int expire,
-             bool match_area);
+    void add(const string &domain, const vector<uint32_t> &ips, const string &dns_server, int expire);
 
     void query(const string &domain, dns_record &record);
+    dns_record query(const string &domain);
+
+    void remove(const string &domain);
+
+    void clear();
+
+    dns_record_stats stats();
 
     bool has_any_record(const string &domain);
 
     std::string dump();
+    dns_record transform(const st::dns::proto::records &records) const;
 };
 
 #endif//ST_DNS_DNS_RECORD_MANAGER_H

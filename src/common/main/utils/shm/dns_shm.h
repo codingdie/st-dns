@@ -16,9 +16,11 @@ namespace st {
         public:
             static st::dns::shm &share();
 
-            void add_reverse_record(uint32_t ip, std::string domain, bool overwrite);
+            void add_reverse_record(uint32_t ip, std::string domain);
 
             std::string reverse_resolve(uint32_t ip);
+
+            vector<std::string> reverse_resolve_all(uint32_t ip);
 
             uint16_t set_virtual_port(uint32_t ip, uint16_t port, const std::string &area);
 

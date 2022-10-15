@@ -7,20 +7,26 @@ st::dns::shm &st::dns::shm::share() {
     return in;
 }
 
-void st::dns::shm::add_reverse_record(uint32_t ip, std::string domain, bool overwrite) {
-    if (overwrite) {
-        reverse->put(to_string(ip), domain);
-    } else {
-        reverse->put_if_absent(to_string(ip), domain);
+void st::dns::shm::add_reverse_record(uint32_t ip, std::string domain) {
+    auto domainStr = reverse->get(to_string(ip));
+    auto domains = strutils::split(domainStr, ",");
+    if (find(domains.begin(), domains.end(), domain) != domains.end()) {
+        domains.emplace_back(domain);
+        reverse->put(to_string(ip), strutils::join(domains, ","));
     }
 }
 
+vector<std::string> shm::reverse_resolve_all(uint32_t ip) {
+    return strutils::split(reverse->get(to_string(ip)), ",");
+}
+
+
 std::string st::dns::shm::reverse_resolve(uint32_t ip) {
-    std::string val = reverse->get(to_string(ip));
-    if (val.length() > 0) {
-        return val;
+    auto domains = reverse_resolve_all(ip);
+    if (domains.empty() || domains[0].empty()) {
+        return st::utils::ipv4::ip_to_str(ip);
     }
-    return st::utils::ipv4::ip_to_str(ip);
+    return domains[0];
 }
 
 uint16_t get_vport_begin() {

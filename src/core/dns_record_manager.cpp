@@ -15,7 +15,7 @@ void dns_record_manager::add(const string &domain, const vector<uint32_t> &ips, 
     pb.set_expire(expire + time::now() / 1000);
     for (const auto &ip : ips) {
         pb.add_ips(ip);
-        st::dns::shm::share().add_reverse_record(ip, domain, true);
+        st::dns::shm::share().add_reverse_record(ip, domain);
     }
     (*dns_records.mutable_map())[dns_server] = pb;
     db.put(domain, dns_records.SerializeAsString());
@@ -30,7 +30,7 @@ dns_record dns_record_manager::query(const string &domain) {
     auto records = this->get_dns_records_pb(domain);
     return transform(records);
 }
-dns_record dns_record_manager::transform(const st::dns::proto::records &records) const {
+dns_record dns_record_manager::transform(const st::dns::proto::records &records) {
     dns_record record;
     record.domain = records.domain();
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
@@ -125,6 +125,22 @@ void dns_record_manager::query(const string &domain, dns_record &record) {
 
 
 dns_record_manager::dns_record_manager() : db("st-dns-record", 1024 * 1024) {
+    db.list([this](const std::string &key, const std::string &value) {
+        st::dns::proto::records records;
+        records.ParseFromString(value);
+        if (!records.domain().empty()) {
+            for (const auto &record : records.map()) {
+                for (const auto &ip : record.second.ips()) {
+                    st::dns::shm::share().add_reverse_record(ip, records.domain());
+                }
+            }
+        } else {
+            db.erase(key);
+        }
+    });
+    auto stat = stats();
+    logger::INFO << "dns record stats:"
+                 << "\n" + stat.serialize() << END;
 }
 
 

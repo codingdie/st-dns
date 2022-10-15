@@ -32,7 +32,15 @@ void dns_server::config_console() {
     console.impl = [](const vector<string> &commands, const boost::program_options::variables_map &options) {
         auto command = utils::strutils::join(commands, " ");
         std::pair<bool, std::string> result = make_pair(false, "not invalid command");
-        if (command == "dns record get") {
+        if (command == "dns resolve") {
+            if (options.count("domain")) {
+                auto domain = options["domain"].as<string>();
+                if (!domain.empty()) {
+                    auto record = dns_record_manager::uniq().query(domain);
+                    result = make_pair(true, record.serialize());
+                }
+            }
+        } else if (command == "dns record get") {
             if (options.count("domain")) {
                 auto domain = options["domain"].as<string>();
                 if (!domain.empty()) {

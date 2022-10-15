@@ -75,6 +75,10 @@ dns_record dns_record_manager::transform(const st::dns::proto::records &records)
         record.server = ip_records[0].server;
         record.expire = ip_records[0].expire;
     }
+    if (record.ips.size() > 5) {
+        record.ips = vector<uint32_t>(record.ips.begin(), record.ips.begin() + 4);
+    }
+
     return record;
 }
 
@@ -229,5 +233,5 @@ dns_record_stats dns_record_manager::stats() {
 
 string dns_record::serialize() const {
     return server + "\t" + domain + "\t" + to_string(expire_time) + "\t" + to_string(match_area) + "\t" +
-           st::utils::ipv4::ips_to_str(ips);
+           st::utils::ipv4::ips_to_str(ips) + "\t" + to_string(expire) + "\t";
 }

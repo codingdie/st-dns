@@ -341,7 +341,7 @@ void dns_server::sync_dns_record_from_remote(const string &host, const std::func
     dns_multi_area_complete complete_handler = [=](vector<uint32_t> ips, bool loadAll) {
         logger::traceId = traceId;
         if (!ips.empty()) {
-            dns_record_manager::uniq().add(host, ips, server->id(), loadAll ? server->dns_cache_expire : 10);
+            dns_record_manager::uniq().add(host, ips, server->id(), loadAll ? server->dns_cache_expire : server->dns_cache_expire / 2);
         }
         dns_record record;
         dns_record_manager::uniq().query(host, record);

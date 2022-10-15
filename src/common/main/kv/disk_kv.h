@@ -2,9 +2,9 @@
 // Created by codingdie on 10/12/22.
 //
 
-#ifndef ST_DNS_DISK_KV_H
-#define ST_DNS_DISK_KV_H
-#include "kv.h"
+#ifndef ST_DISK_KV_H
+#define ST_DISK_KV_H
+#include "abstract_kv.h"
 #include "proto/kv.pb.h"
 #include "utils/file.h"
 #include <leveldb/db.h>
@@ -32,4 +32,4 @@ namespace st {
     }// namespace kv
 }// namespace st
 
-#endif//ST_DNS_DISK_KV_H
+#endif//ST_DISK_KV_H

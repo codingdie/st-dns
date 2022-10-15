@@ -1,10 +1,10 @@
 //
 // Created by codingdie on 2020/6/27.
 //
-#include <gtest/gtest.h>
 #include "st.h"
-#include <iostream>
 #include <chrono>
+#include <gtest/gtest.h>
+#include <iostream>
 #include <thread>
 #include <vector>
 
@@ -79,7 +79,7 @@ TEST(UnitTests, test_udp_console) {
     console->desc.add_options()("version,v", "print version string")("help", "produce help message");
     console->impl = [](const vector<std::string> &commands, const boost::program_options::variables_map &options) {
         std::this_thread::sleep_for(std::chrono::seconds(3));
-        return "command:" + strutils::join(commands, " ") + " , opts size:" + to_string(options.size());
+        return make_pair(true, "command:" + strutils::join(commands, " ") + " , opts size:" + to_string(options.size()));
     };
     console->start();
     auto begin = time::now();
@@ -95,10 +95,9 @@ TEST(UnitTests, test_udp_console) {
     cost = end - begin;
     ASSERT_TRUE(cost >= 3000);
     cout << newResult << endl;
-    ASSERT_STREQ("command:xx asd , opts size:1", newResult.c_str());
+    ASSERT_STREQ("success\ncommand:xx asd , opts size:1", newResult.c_str());
     delete console;
 }
 
 
-TEST(UnitTests, test_option_console) {
-}
+TEST(UnitTests, test_option_console) {}

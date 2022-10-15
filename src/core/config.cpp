@@ -20,12 +20,7 @@ void st::dns::config::load(const string &base_conf_dir) {
         this->console_port = tree.get("console_port", console_port);
         this->console_ip = tree.get("console_ip", string("127.0.0.1"));
         this->dns_cache_expire = stoi(tree.get("dns_cache_expire", to_string(this->dns_cache_expire)));
-        this->dns_cache_file = tree.get("dns_cache_file", this->dns_cache_file);
         this->area_resolve_optimize = tree.get("area_resolve_optimize", false);
-        if (!file::create_if_not_exits(this->dns_cache_file)) {
-            logger::ERROR << "create dns_cache_file file error!" << this->dns_cache_file << END;
-            exit(1);
-        }
 
         auto servers_nodes = tree.get_child("servers");
         if (!servers_nodes.empty()) {

@@ -103,7 +103,7 @@ public:
     bool has_any_record(const string &domain);
 
     std::string dump();
-    dns_record transform(const st::dns::proto::records &records) const;
+    static dns_record transform(const st::dns::proto::records &records);
 };
 
 #endif//ST_DNS_DNS_RECORD_MANAGER_H

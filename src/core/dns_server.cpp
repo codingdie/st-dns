@@ -44,6 +44,19 @@ void dns_server::config_console() {
             }
         } else if (command == "dns record dump") {
             result = make_pair(true, dns_record_manager::uniq().dump());
+        } else if (command == "dns record remove") {
+            if (options.count("domain")) {
+                auto domain = options["domain"].as<string>();
+                if (!domain.empty()) {
+                    dns_record_manager::uniq().remove(domain);
+                    result = make_pair(true, "");
+                }
+            }
+        } else if (command == "dns record clear") {
+            dns_record_manager::uniq().clear();
+            result = make_pair(true, "");
+        } else if (command == "dns record analyse") {
+            result = make_pair(true, dns_record_manager::uniq().stats().serialize());
         }
         return result;
     };
@@ -65,6 +78,8 @@ void dns_server::shutdown() {
     ic.stop();
     delete iw;
     ss->close();
+    delete ss;
+    apm_logger::disable();
     logger::INFO << "st-dns server stoped, listen at" << config.ip + ":" + to_string(config.port) << END;
 }
 
@@ -148,7 +163,7 @@ void dns_server::end_session(session *session) {
         success &= !session->record.ips.empty();
     }
 
-    session->logger.add_metric("in_querying_domain_count", wating_sessions.size());
+    session->logger.add_metric("in_querying_domain_count", waiting_sessions.size());
     session->logger.add_metric("mem_leak_size", st::mem::leak_size());
     session->logger.add_metric("dns_reverse_shm_free_size", st::dns::shm::share().free_size());
     session->logger.add_dimension("success", to_string(success));
@@ -251,7 +266,7 @@ void dns_server::forward_dns_request(session *session, const std::function<void(
         return;
     }
     remote_dns_server *server = servers[pos];
-    dns_client::INSTANCE.forward_udp(session->request, server->ip, server->port, server->timeout, [=](udp_response *response) {
+    dns_client::uniq().forward_udp(session->request, server->ip, server->port, server->timeout, [=](udp_response *response) {
         if (response == nullptr && pos + 1 < servers.size()) {
             forward_dns_request(session, complete, servers, pos + 1);
         } else {
@@ -263,15 +278,15 @@ bool dns_server::begin_query_remote(const string &host, session *session) {
     bool result = false;
     rLock.lock();
 
-    auto it = wating_sessions.find(host);
-    if (it == wating_sessions.end()) {
+    auto it = waiting_sessions.find(host);
+    if (it == waiting_sessions.end()) {
         unordered_set<st::dns::session *> ses;
-        wating_sessions.emplace(make_pair(host, ses));
+        waiting_sessions.emplace(make_pair(host, ses));
         result = true;
         logger::DEBUG << host << "real begin_query_remote" << END;
     }
     if (session != nullptr) {
-        wating_sessions[host].emplace(session);
+        waiting_sessions[host].emplace(session);
     }
     rLock.unlock();
     logger::DEBUG << host << "begin_query_remote" << END;
@@ -280,8 +295,8 @@ bool dns_server::begin_query_remote(const string &host, session *session) {
 unordered_set<session *> dns_server::end_query_remote(const string &host) {
     unordered_set<session *> result;
     rLock.lock();
-    result = wating_sessions[host];
-    wating_sessions.erase(host);
+    result = waiting_sessions[host];
+    waiting_sessions.erase(host);
     rLock.unlock();
     logger::DEBUG << host << "end_query_remote" << END;
     return result;
@@ -313,7 +328,7 @@ void dns_server::update_dns_record(const string &domain) {
 
 void dns_server::sync_dns_record_from_remote(const string &host, const std::function<void(dns_record record)> &complete,
                                              vector<remote_dns_server *> servers,
-                                             int pos, bool completed) {
+                                             int pos, bool return_resolve_any) {
     if (pos >= servers.size()) {
         logger::ERROR << "not known host" << host << END;
         dns_record record;
@@ -322,31 +337,22 @@ void dns_server::sync_dns_record_from_remote(const string &host, const std::func
         return;
     }
     remote_dns_server *server = servers[pos];
-    string logTag = host + " sync_dns_record_from_remote " + server->id();
     uint64_t traceId = logger::traceId;
-    std::function<void(vector<uint32_t> ips, bool loadAll)> dnsComplete = [=](vector<uint32_t> ips, bool loadAll) {
+    dns_multi_area_complete complete_handler = [=](vector<uint32_t> ips, bool loadAll) {
         logger::traceId = traceId;
-        vector<uint32_t> oriIps = ips;
-        filter_ip_by_area(host, server, ips);
         if (!ips.empty()) {
-            dns_record_manager::uniq().add(host, ips, server->id(),
-                                           loadAll ? server->dns_cache_expire : 60, true);
-        } else {
-            if (!oriIps.empty()) {
-                dns_record_manager::uniq().add(host, oriIps, server->id(), server->dns_cache_expire, false);
-            }
+            dns_record_manager::uniq().add(host, ips, server->id(), loadAll ? server->dns_cache_expire : 10);
         }
         dns_record record;
         dns_record_manager::uniq().query(host, record);
-        logger::DEBUG << logTag << "finished! original" << ipv4::ips_to_str(ips) << " final" << ipv4::ips_to_str(ips) << END;
-        if (!record.ips.empty() && completed) {
+        if (pos + 1 >= servers.size()) {
             complete(record);
-            update_dns_record(record.domain);
         } else {
-            if (ips.empty() && pos + 1 < servers.size()) {
-                sync_dns_record_from_remote(host, complete, servers, pos + 1, completed);
-            } else {
+            if (record.match_area && return_resolve_any) {
                 complete(record);
+                update_dns_record(record.domain);
+            } else {
+                sync_dns_record_from_remote(host, complete, servers, pos + 1, return_resolve_any);
             }
         }
     };
@@ -358,14 +364,13 @@ void dns_server::sync_dns_record_from_remote(const string &host, const std::func
             }
         }
     }
-    logger::DEBUG << logTag << "start!" << END;
     if (server->type == "TCP_SSL") {
-        dns_client::INSTANCE.tcp_tls_dns(host, server->ip, server->port, server->timeout, areas, dnsComplete);
-    } else if (server->type.compare("TCP") == 0) {
-        dns_client::INSTANCE.tcp_dns(host, server->ip, server->port, server->timeout, areas, dnsComplete);
+        dns_client::uniq().tcp_tls_dns(host, server->ip, server->port, server->timeout, areas, complete_handler);
+    } else if (server->type == "TCP") {
+        dns_client::uniq().tcp_dns(host, server->ip, server->port, server->timeout, areas, complete_handler);
     } else if (server->type == "UDP") {
-        dns_client::INSTANCE.udp_dns(host, server->ip, server->port, server->timeout, [=](std::vector<uint32_t> ips) {
-            dnsComplete(ips, true);
+        dns_client::uniq().udp_dns(host, server->ip, server->port, server->timeout, [=](std::vector<uint32_t> ips) {
+            complete_handler(ips, true);
         });
     }
 }

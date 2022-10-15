@@ -2,8 +2,8 @@
 // Created by System Administrator on 2020/10/8.
 //
 
-#ifndef ST_AREAIP_UTILS_H
-#define ST_AREAIP_UTILS_H
+#ifndef ST_AREA_IP_UTILS_H
+#define ST_AREA_IP_UTILS_H
 
 #include "ipv4.h"
 #include "logger.h"
@@ -75,7 +75,7 @@ namespace st {
             mutex default_lock;
             mutex net_lock;
 
-            boost::asio::io_context *ctx;
+            boost::asio::io_context ctx;
             boost::asio::io_context::work *ctx_work = nullptr;
             std::thread *th = nullptr;
             boost::asio::deadline_timer *stat_timer;
@@ -92,4 +92,4 @@ namespace st {
 }// namespace st
 
 
-#endif//ST_AREAIP_UTILS_H
+#endif//ST_AREA_IP_UTILS_H

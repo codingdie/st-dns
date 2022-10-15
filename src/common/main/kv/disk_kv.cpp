@@ -44,6 +44,11 @@ namespace st {
             db->Delete(leveldb::WriteOptions(), key);
         }
         void disk_kv::clear() {
+            leveldb::Iterator *it = db->NewIterator(leveldb::ReadOptions());
+            for (it->SeekToFirst(); it->Valid(); it->Next()) {
+                erase(it->key().ToString());
+            }
+            delete it;
         }
         disk_kv::disk_kv(const std::string &ns, uint32_t max_size) : abstract_kv(ns, max_size) {
             options.create_if_missing = true;

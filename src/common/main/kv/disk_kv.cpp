@@ -3,14 +3,15 @@
 //
 
 #include "disk_kv.h"
-#include <leveldb/cache.h>
 #include "proto/kv.pb.h"
 #include "utils//base64.h"
+#include <leveldb/cache.h>
 static const char *const KV_FOLDER = "/var/lib/st/kv/";
 namespace st {
     namespace kv {
         disk_kv::~disk_kv() {
             delete db;
+            delete options.block_cache;
         }
         std::string disk_kv::get(const std::string &key) {
             string data;
@@ -25,10 +26,10 @@ namespace st {
             }
             return "";
         }
-        bool disk_kv::not_expired(const proto::value &val) { return val.expire() == 0 || val.expire() < utils::time::now() / 1000; }
-        void disk_kv::put(const std::string &key, const std::string &value) {
-            this->put(key, value, 0);
+        bool disk_kv::not_expired(const proto::value &val) {
+            return val.expire() == 0 || val.expire() < utils::time::now() / 1000;
         }
+        void disk_kv::put(const std::string &key, const std::string &value) { this->put(key, value, 0); }
 
         void disk_kv::put(const std::string &key, const std::string &value, uint32_t expire) {
             proto::value val;
@@ -40,9 +41,7 @@ namespace st {
             }
             db->Put(leveldb::WriteOptions(), key, val.SerializeAsString());
         }
-        void disk_kv::erase(const std::string &key) {
-            db->Delete(leveldb::WriteOptions(), key);
-        }
+        void disk_kv::erase(const std::string &key) { db->Delete(leveldb::WriteOptions(), key); }
         void disk_kv::clear() {
             leveldb::Iterator *it = db->NewIterator(leveldb::ReadOptions());
             for (it->SeekToFirst(); it->Valid(); it->Next()) {

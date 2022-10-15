@@ -16,9 +16,7 @@ void st::dns::shm::add_reverse_record(uint32_t ip, std::string domain) {
     }
 }
 
-vector<std::string> shm::reverse_resolve_all(uint32_t ip) {
-    return strutils::split(reverse->get(to_string(ip)), ",");
-}
+vector<std::string> shm::reverse_resolve_all(uint32_t ip) { return strutils::split(reverse->get(to_string(ip)), ","); }
 
 
 std::string st::dns::shm::reverse_resolve(uint32_t ip) {

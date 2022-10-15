@@ -10,7 +10,7 @@ st::dns::shm &st::dns::shm::share() {
 void st::dns::shm::add_reverse_record(uint32_t ip, std::string domain) {
     auto domainStr = reverse->get(to_string(ip));
     auto domains = strutils::split(domainStr, ",");
-    if (find(domains.begin(), domains.end(), domain) != domains.end()) {
+    if (find(domains.begin(), domains.end(), domain) == domains.end()) {
         domains.emplace_back(domain);
         reverse->put(to_string(ip), strutils::join(domains, ","));
     }

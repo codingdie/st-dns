@@ -5,8 +5,8 @@
 #ifndef ST_DNS_DISK_KV_H
 #define ST_DNS_DISK_KV_H
 #include "kv.h"
-#include "utils/file.h"
 #include "proto/kv.pb.h"
+#include "utils/file.h"
 #include <leveldb/db.h>
 namespace st {
     namespace kv {

@@ -13,9 +13,10 @@ void dns_record_manager::add(const string &domain, const vector<uint32_t> &ips, 
     dns_records.set_domain(domain);
     st::dns::proto::record pb;
     pb.set_expire(expire + time::now() / 1000);
+    pb.clear_ips();
     for (const auto &ip : ips) {
         pb.add_ips(ip);
-        st::dns::shm::share().add_reverse_record(ip, domain);
+        add_reverse_record(ip, domain);
     }
     (*dns_records.mutable_map())[dns_server] = pb;
     db.put(domain, dns_records.SerializeAsString());
@@ -26,7 +27,7 @@ bool dns_record_manager::has_any_record(const string &domain) {
     return get_dns_records_pb(domain).map_size() > 0;
 }
 
-dns_record dns_record_manager::query(const string &domain) {
+dns_record dns_record_manager::get_dns_record(const string &domain) {
     auto records = this->get_dns_records_pb(domain);
     return transform(records);
 }
@@ -46,9 +47,9 @@ dns_record dns_record_manager::transform(const st::dns::proto::records &records)
             for (auto ip : ips) {
                 dns_ip_record tmp;
                 tmp.ip = ip;
-                tmp.forbid = proxy::shm::uniq().is_ip_forbid(ip);
+                tmp.forbid = false;
                 tmp.server = serverId;
-                tmp.expire = t_record.expire() * 1000 < time::now();
+                tmp.expire = t_record.expire() < (time::now() / 1000);
                 tmp.match_area = areaip::manager::uniq().is_area_ip(server->areas, ip);
                 tmp.expire_time = t_record.expire();
                 tmp.server_order = server_order;
@@ -57,10 +58,17 @@ dns_record dns_record_manager::transform(const st::dns::proto::records &records)
         }
     }
     sort(ip_records.begin(), ip_records.end(), dns_ip_record::compare);
+    //当有合法记录时，只下发一个来源server的合法记录
+
+    string server;
     for (auto &item : ip_records) {
         if (item.match_area && !item.forbid) {
-            record.ips.emplace_back(item.ip);
             record.trusted_ip_count++;
+            if (!server.empty() && item.server != server) {
+                continue;
+            }
+            record.ips.emplace_back(item.ip);
+            server = item.server;
         }
         record.total_ip_count++;
     }
@@ -69,79 +77,18 @@ dns_record dns_record_manager::transform(const st::dns::proto::records &records)
             record.ips.emplace_back(item.ip);
         }
     }
+
     if (!ip_records.empty()) {
         record.match_area = ip_records[0].match_area;
         record.expire_time = ip_records[0].expire_time;
         record.server = ip_records[0].server;
         record.expire = ip_records[0].expire;
     }
-    if (record.ips.size() > 5) {
-        record.ips = vector<uint32_t>(record.ips.begin(), record.ips.begin() + 4);
-    }
-
     return record;
 }
 
-void dns_record_manager::query(const string &domain, dns_record &record) {
-    unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
-    record.domain = domain;
-    auto records = this->get_dns_records_pb(domain);
-    vector<dns_ip_record> ip_records;
-    uint8_t server_order = 0;
-    for (auto server : st::dns::config::INSTANCE.servers) {
-        auto serverId = server->id();
-        server_order++;
-        if (records.map().contains(serverId)) {
-            st::dns::proto::record t_record = records.map().at(serverId);
-            vector<uint32_t> ips(t_record.ips().begin(), t_record.ips().end());
-            std::shuffle(ips.begin(), ips.end(), std::default_random_engine(seed));
-            for (auto ip : ips) {
-                dns_ip_record tmp;
-                tmp.ip = ip;
-                tmp.forbid = st::proxy::shm::uniq().is_ip_forbid(ip);
-                tmp.server = serverId;
-                tmp.expire = t_record.expire() * 1000 < st::utils::time::now();
-                tmp.match_area = areaip::manager::uniq().is_area_ip(server->areas, ip);
-                tmp.expire_time = t_record.expire();
-                tmp.server_order = server_order;
-                ip_records.emplace_back(tmp);
-            }
-        }
-    }
-    std::sort(ip_records.begin(), ip_records.end(), dns_ip_record::compare);
-    for (auto &item : ip_records) {
-        if (item.match_area && !item.forbid) {
-            record.ips.emplace_back(item.ip);
-        }
-    }
-    if (record.ips.empty()) {
-        for (auto &item : ip_records) {
-            record.ips.emplace_back(item.ip);
-        }
-    }
-    if (!ip_records.empty()) {
-        record.match_area = ip_records[0].match_area;
-        record.expire_time = ip_records[0].expire_time;
-        record.server = ip_records[0].server;
-        record.expire = ip_records[0].expire;
-    }
-}
 
-
-dns_record_manager::dns_record_manager() : db("st-dns-record", 1024 * 1024) {
-    db.list([this](const std::string &key, const std::string &value) {
-        st::dns::proto::records records;
-        records.ParseFromString(value);
-        if (!records.domain().empty()) {
-            for (const auto &record : records.map()) {
-                for (const auto &ip : record.second.ips()) {
-                    st::dns::shm::share().add_reverse_record(ip, records.domain());
-                }
-            }
-        } else {
-            db.erase(key);
-        }
-    });
+dns_record_manager::dns_record_manager() : db("st-dns-record", 2 * 1024 * 1024), reverse("st-dns-reverse-record", 2 * 1024 * 1024) {
     auto stat = stats();
     logger::INFO << "dns record stats:"
                  << "\n" + stat.serialize() << END;
@@ -154,6 +101,7 @@ st::dns::proto::records dns_record_manager::get_dns_records_pb(const string &dom
     if (!data.empty()) {
         record.ParseFromString(data);
     }
+    record.set_domain(domain);
     return record;
 }
 dns_record_manager &dns_record_manager::uniq() {
@@ -234,4 +182,21 @@ dns_record_stats dns_record_manager::stats() {
 string dns_record::serialize() const {
     return server + "\t" + domain + "\t" + to_string(expire_time) + "\t" + to_string(match_area) + "\t" +
            st::utils::ipv4::ips_to_str(ips) + "\t" + to_string(expire) + "\t";
+}
+
+st::dns::proto::reverse_record dns_record_manager::get_reverse_record(uint32_t ip) {
+    string data = reverse.get(to_string(ip));
+    st::dns::proto::reverse_record record;
+    if (!data.empty()) {
+        record.ParseFromString(data);
+    }
+    record.set_ip(ip);
+    return record;
+}
+void dns_record_manager::add_reverse_record(uint32_t ip, std::string domain) {
+    auto record = this->get_reverse_record(ip);
+    if (find(record.domains().begin(), record.domains().end(), domain) == record.domains().end()) {
+        record.add_domains(domain);
+        reverse.put(to_string(ip), record.SerializeAsString());
+    }
 }

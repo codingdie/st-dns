@@ -34,7 +34,11 @@ namespace st {
             inline void trim(std::string &str) {
                 boost::trim(str);
             }
-
+            inline std::string trim(std::string &&str) {
+                std::string result = std::move(str);
+                boost::trim(result);
+                return result;
+            }
             template<typename Collection>
             inline std::string join(const Collection &lists, const char *delimit) {
                 std::string result;

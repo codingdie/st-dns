@@ -14,3 +14,9 @@ message records {
     map<string, record> map = 2;
 }
 
+
+message reverse_record {
+    uint32 ip = 1;
+    repeated string domains = 2;
+}
+

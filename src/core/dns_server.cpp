@@ -28,17 +28,24 @@ dns_server::dns_server(st::dns::config &config) : rid(time::now()), config(confi
     config_console();
 }
 void dns_server::config_console() {
-    console.desc.add_options()("domain", boost::program_options::value<string>()->default_value("baidu.com"), "domain")("help", "produce help message");
+    console.desc.add_options()("domain", boost::program_options::value<string>()->default_value(""), "domain");
+    console.desc.add_options()("ip", boost::program_options::value<string>()->default_value(""), "ip");
     console.impl = [](const vector<string> &commands, const boost::program_options::variables_map &options) {
         auto command = utils::strutils::join(commands, " ");
         std::pair<bool, std::string> result = make_pair(false, "not invalid command");
+        string ip = options["ip"].as<string>();
         if (command == "dns resolve") {
             if (options.count("domain")) {
                 auto domain = options["domain"].as<string>();
                 if (!domain.empty()) {
-                    auto record = dns_record_manager::uniq().query(domain);
+                    auto record = dns_record_manager::uniq().get_dns_record(domain);
                     result = make_pair(true, record.serialize());
                 }
+            }
+        } else if (command == "dns reverse resolve") {
+            if (!ip.empty()) {
+                auto record = dns_record_manager::uniq().get_reverse_record(st::utils::ipv4::str_to_ip(ip));
+                result = make_pair(true, join(record.domains(), ","));
             }
         } else if (command == "dns record get") {
             if (options.count("domain")) {
@@ -65,6 +72,8 @@ void dns_server::config_console() {
             result = make_pair(true, "");
         } else if (command == "dns record analyse") {
             result = make_pair(true, dns_record_manager::uniq().stats().serialize());
+        } else if (command == "date") {
+            result = make_pair(true, to_string(time::now()));
         }
         return result;
     };
@@ -72,6 +81,7 @@ void dns_server::config_console() {
 }
 
 void dns_server::start() {
+    dns_record_manager::uniq();
     iw = new boost::asio::io_context::work(ic);
     logger::INFO << "st-dns start, listen at" << config.ip << config.port << END;
     receive();
@@ -173,7 +183,6 @@ void dns_server::end_session(session *session) {
 
     session->logger.add_metric("in_querying_domain_count", waiting_sessions.size());
     session->logger.add_metric("mem_leak_size", st::mem::leak_size());
-    session->logger.add_metric("dns_reverse_shm_free_size", st::dns::shm::share().free_size());
     session->logger.add_dimension("success", to_string(success));
     auto firstIPArea = session->response != nullptr ? session->response->fist_ip_area() : "";
     auto areas = session->response != nullptr ? session->response->ip_areas() : vector<string>({});
@@ -206,11 +215,11 @@ void dns_server::query_dns_record(session *session, const std::function<void(st:
         session->logger.add_dimension("process_type", "local");
         complete(session);
     } else {
-        dns_record_manager::uniq().query(host, record);
+        record = dns_record_manager::uniq().get_dns_record(host);
         if (record.ips.empty()) {
             string fiDomain = dns_domain::getFIDomain(host);
             if (fiDomain == "LAN") {
-                dns_record_manager::uniq().query(dns_domain::removeFIDomain(host), record);
+                record = dns_record_manager::uniq().get_dns_record(dns_domain::removeFIDomain(host));
                 record.domain = host;
             }
         }
@@ -247,7 +256,7 @@ void dns_server::query_dns_record_from_remote(session *session, const std::funct
                 },
                 servers, 0, dns_record_manager::uniq().has_any_record(host));
     } else {
-        logger::DEBUG << host << "is in query!" << END;
+        logger::DEBUG << host << "is in get_dns_record!" << END;
     }
 }
 void dns_server::forward_dns_request(session *session, const std::function<void(st::dns::session *session)> &complete_handler) {
@@ -310,11 +319,11 @@ unordered_set<session *> dns_server::end_query_remote(const string &host) {
     return result;
 }
 void dns_server::update_dns_record(const string &domain) {
-    logger::DEBUG << "begin update_dns_record !" << domain << END;
+    logger::DEBUG << "begin update dn record !" << domain << END;
 
     vector<remote_dns_server *> servers = remote_dns_server::calculateQueryServer(domain, config.servers);
     if (servers.empty()) {
-        logger::ERROR << domain << "update_dns_record cal_remote_dns_servers empty!" << END;
+        logger::ERROR << domain << "update dns record cal servers empty!" << END;
         return;
     }
     if (begin_query_remote(domain, nullptr)) {
@@ -339,9 +348,7 @@ void dns_server::sync_dns_record_from_remote(const string &host, const std::func
                                              int pos, bool return_resolve_any) {
     if (pos >= servers.size()) {
         logger::ERROR << "not known host" << host << END;
-        dns_record record;
-        dns_record_manager::uniq().query(host, record);
-        complete(record);
+        complete(dns_record_manager::uniq().get_dns_record(host));
         return;
     }
     remote_dns_server *server = servers[pos];
@@ -351,8 +358,7 @@ void dns_server::sync_dns_record_from_remote(const string &host, const std::func
         if (!ips.empty()) {
             dns_record_manager::uniq().add(host, ips, server->id(), loadAll ? server->dns_cache_expire : server->dns_cache_expire / 2);
         }
-        dns_record record;
-        dns_record_manager::uniq().query(host, record);
+        dns_record record = dns_record_manager::uniq().get_dns_record(host);
         if (pos + 1 >= servers.size()) {
             complete(record);
         } else {
@@ -372,6 +378,7 @@ void dns_server::sync_dns_record_from_remote(const string &host, const std::func
             }
         }
     }
+    areas.emplace("");
     if (server->type == "TCP_SSL") {
         dns_client::uniq().tcp_tls_dns(host, server->ip, server->port, server->timeout, areas, complete_handler);
     } else if (server->type == "TCP") {

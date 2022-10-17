@@ -32,6 +32,7 @@ namespace st {
             static kv::shm_kv *create(const std::string &ns, uint32_t max_size);
             static kv::shm_kv *share(const std::string &ns);
             uint64_t free_size();
+            void list(std::function<void(const std::string &, const std::string &)> consumer) override;
 
         private:
             static std::string NAME;

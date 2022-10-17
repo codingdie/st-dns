@@ -81,9 +81,6 @@ void dns_client::udp_dns(const string &domain, const std::string &dns_server, ui
 }
 
 void dns_client::tcp_tls_dns(const string &domain, const std::string &dns_server, uint16_t port, uint64_t timeout, const string &area, const dns_complete &complete_handler) {
-    if (!area.empty()) {
-        port = st::dns::shm::share().set_virtual_port(st::utils::ipv4::str_to_ip(dns_server), port, area);
-    }
     vector<string> domains;
     domains.emplace_back(domain);
     uint64_t beginTime = time::now();
@@ -165,9 +162,6 @@ void dns_client::tcp_tls_dns(const string &domain, const std::string &dns_server
 
 
 void dns_client::tcp_dns(const string &domain, const std::string &dns_server, uint16_t port, uint64_t timeout, const string &area, const dns_complete &complete_handler) {
-    if (!area.empty()) {
-        port = st::dns::shm::share().set_virtual_port(st::utils::ipv4::str_to_ip(dns_server), port, area);
-    }
     vector<string> domains;
     domains.emplace_back(domain);
     uint64_t beginTime = time::now();

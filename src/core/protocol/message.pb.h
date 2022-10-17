@@ -43,7 +43,7 @@ struct TableStruct_message_2eproto {
     PROTOBUF_SECTION_VARIABLE(protodesc_cold);
   static const ::google::protobuf::internal::AuxillaryParseTableField aux[]
     PROTOBUF_SECTION_VARIABLE(protodesc_cold);
-  static const ::google::protobuf::internal::ParseTable schema[3]
+  static const ::google::protobuf::internal::ParseTable schema[4]
     PROTOBUF_SECTION_VARIABLE(protodesc_cold);
   static const ::google::protobuf::internal::FieldMetadata field_metadata[];
   static const ::google::protobuf::internal::SerializationTable serialization_table[];
@@ -61,6 +61,9 @@ extern recordsDefaultTypeInternal _records_default_instance_;
 class records_MapEntry_DoNotUse;
 class records_MapEntry_DoNotUseDefaultTypeInternal;
 extern records_MapEntry_DoNotUseDefaultTypeInternal _records_MapEntry_DoNotUse_default_instance_;
+class reverse_record;
+class reverse_recordDefaultTypeInternal;
+extern reverse_recordDefaultTypeInternal _reverse_record_default_instance_;
 }  // namespace proto
 }  // namespace dns
 }  // namespace st
@@ -69,6 +72,7 @@ namespace protobuf {
 template<> ::st::dns::proto::record* Arena::CreateMaybeMessage<::st::dns::proto::record>(Arena*);
 template<> ::st::dns::proto::records* Arena::CreateMaybeMessage<::st::dns::proto::records>(Arena*);
 template<> ::st::dns::proto::records_MapEntry_DoNotUse* Arena::CreateMaybeMessage<::st::dns::proto::records_MapEntry_DoNotUse>(Arena*);
+template<> ::st::dns::proto::reverse_record* Arena::CreateMaybeMessage<::st::dns::proto::reverse_record>(Arena*);
 }  // namespace protobuf
 }  // namespace google
 namespace st {
@@ -351,6 +355,137 @@ class records :
   mutable ::google::protobuf::internal::CachedSize _cached_size_;
   friend struct ::TableStruct_message_2eproto;
 };
+// -------------------------------------------------------------------
+
+class reverse_record :
+    public ::google::protobuf::MessageLite /* @@protoc_insertion_point(class_definition:st.dns.proto.reverse_record) */ {
+ public:
+  reverse_record();
+  virtual ~reverse_record();
+
+  reverse_record(const reverse_record& from);
+
+  inline reverse_record& operator=(const reverse_record& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  #if LANG_CXX11
+  reverse_record(reverse_record&& from) noexcept
+    : reverse_record() {
+    *this = ::std::move(from);
+  }
+
+  inline reverse_record& operator=(reverse_record&& from) noexcept {
+    if (GetArenaNoVirtual() == from.GetArenaNoVirtual()) {
+      if (this != &from) InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+  #endif
+  static const reverse_record& default_instance();
+
+  static void InitAsDefaultInstance();  // FOR INTERNAL USE ONLY
+  static inline const reverse_record* internal_default_instance() {
+    return reinterpret_cast<const reverse_record*>(
+               &_reverse_record_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    3;
+
+  void Swap(reverse_record* other);
+  friend void swap(reverse_record& a, reverse_record& b) {
+    a.Swap(&b);
+  }
+
+  // implements Message ----------------------------------------------
+
+  inline reverse_record* New() const final {
+    return CreateMaybeMessage<reverse_record>(nullptr);
+  }
+
+  reverse_record* New(::google::protobuf::Arena* arena) const final {
+    return CreateMaybeMessage<reverse_record>(arena);
+  }
+  void CheckTypeAndMergeFrom(const ::google::protobuf::MessageLite& from)
+    final;
+  void CopyFrom(const reverse_record& from);
+  void MergeFrom(const reverse_record& from);
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  size_t ByteSizeLong() const final;
+  #if GOOGLE_PROTOBUF_ENABLE_EXPERIMENTAL_PARSER
+  static const char* _InternalParse(const char* begin, const char* end, void* object, ::google::protobuf::internal::ParseContext* ctx);
+  ::google::protobuf::internal::ParseFunc _ParseFunc() const final { return _InternalParse; }
+  #else
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input) final;
+  #endif  // GOOGLE_PROTOBUF_ENABLE_EXPERIMENTAL_PARSER
+  void SerializeWithCachedSizes(
+      ::google::protobuf::io::CodedOutputStream* output) const final;
+  void DiscardUnknownFields();
+  int GetCachedSize() const final { return _cached_size_.Get(); }
+
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const;
+  void InternalSwap(reverse_record* other);
+  private:
+  inline ::google::protobuf::Arena* GetArenaNoVirtual() const {
+    return nullptr;
+  }
+  inline void* MaybeArenaPtr() const {
+    return nullptr;
+  }
+  public:
+
+  ::std::string GetTypeName() const final;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  // repeated string domains = 2;
+  int domains_size() const;
+  void clear_domains();
+  static const int kDomainsFieldNumber = 2;
+  const ::std::string& domains(int index) const;
+  ::std::string* mutable_domains(int index);
+  void set_domains(int index, const ::std::string& value);
+  #if LANG_CXX11
+  void set_domains(int index, ::std::string&& value);
+  #endif
+  void set_domains(int index, const char* value);
+  void set_domains(int index, const char* value, size_t size);
+  ::std::string* add_domains();
+  void add_domains(const ::std::string& value);
+  #if LANG_CXX11
+  void add_domains(::std::string&& value);
+  #endif
+  void add_domains(const char* value);
+  void add_domains(const char* value, size_t size);
+  const ::google::protobuf::RepeatedPtrField<::std::string>& domains() const;
+  ::google::protobuf::RepeatedPtrField<::std::string>* mutable_domains();
+
+  // uint32 ip = 1;
+  void clear_ip();
+  static const int kIpFieldNumber = 1;
+  ::google::protobuf::uint32 ip() const;
+  void set_ip(::google::protobuf::uint32 value);
+
+  // @@protoc_insertion_point(class_scope:st.dns.proto.reverse_record)
+ private:
+  class HasBitSetters;
+
+  ::google::protobuf::internal::InternalMetadataWithArenaLite _internal_metadata_;
+  ::google::protobuf::RepeatedPtrField<::std::string> domains_;
+  ::google::protobuf::uint32 ip_;
+  mutable ::google::protobuf::internal::CachedSize _cached_size_;
+  friend struct ::TableStruct_message_2eproto;
+};
 // ===================================================================
 
 
@@ -483,9 +618,98 @@ records::mutable_map() {
   return map_.MutableMap();
 }
 
+// -------------------------------------------------------------------
+
+// reverse_record
+
+// uint32 ip = 1;
+inline void reverse_record::clear_ip() {
+  ip_ = 0u;
+}
+inline ::google::protobuf::uint32 reverse_record::ip() const {
+  // @@protoc_insertion_point(field_get:st.dns.proto.reverse_record.ip)
+  return ip_;
+}
+inline void reverse_record::set_ip(::google::protobuf::uint32 value) {
+  
+  ip_ = value;
+  // @@protoc_insertion_point(field_set:st.dns.proto.reverse_record.ip)
+}
+
+// repeated string domains = 2;
+inline int reverse_record::domains_size() const {
+  return domains_.size();
+}
+inline void reverse_record::clear_domains() {
+  domains_.Clear();
+}
+inline const ::std::string& reverse_record::domains(int index) const {
+  // @@protoc_insertion_point(field_get:st.dns.proto.reverse_record.domains)
+  return domains_.Get(index);
+}
+inline ::std::string* reverse_record::mutable_domains(int index) {
+  // @@protoc_insertion_point(field_mutable:st.dns.proto.reverse_record.domains)
+  return domains_.Mutable(index);
+}
+inline void reverse_record::set_domains(int index, const ::std::string& value) {
+  // @@protoc_insertion_point(field_set:st.dns.proto.reverse_record.domains)
+  domains_.Mutable(index)->assign(value);
+}
+#if LANG_CXX11
+inline void reverse_record::set_domains(int index, ::std::string&& value) {
+  // @@protoc_insertion_point(field_set:st.dns.proto.reverse_record.domains)
+  domains_.Mutable(index)->assign(std::move(value));
+}
+#endif
+inline void reverse_record::set_domains(int index, const char* value) {
+  GOOGLE_DCHECK(value != nullptr);
+  domains_.Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set_char:st.dns.proto.reverse_record.domains)
+}
+inline void reverse_record::set_domains(int index, const char* value, size_t size) {
+  domains_.Mutable(index)->assign(
+    reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_set_pointer:st.dns.proto.reverse_record.domains)
+}
+inline ::std::string* reverse_record::add_domains() {
+  // @@protoc_insertion_point(field_add_mutable:st.dns.proto.reverse_record.domains)
+  return domains_.Add();
+}
+inline void reverse_record::add_domains(const ::std::string& value) {
+  domains_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add:st.dns.proto.reverse_record.domains)
+}
+#if LANG_CXX11
+inline void reverse_record::add_domains(::std::string&& value) {
+  domains_.Add(std::move(value));
+  // @@protoc_insertion_point(field_add:st.dns.proto.reverse_record.domains)
+}
+#endif
+inline void reverse_record::add_domains(const char* value) {
+  GOOGLE_DCHECK(value != nullptr);
+  domains_.Add()->assign(value);
+  // @@protoc_insertion_point(field_add_char:st.dns.proto.reverse_record.domains)
+}
+inline void reverse_record::add_domains(const char* value, size_t size) {
+  domains_.Add()->assign(reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_add_pointer:st.dns.proto.reverse_record.domains)
+}
+inline const ::google::protobuf::RepeatedPtrField<::std::string>&
+reverse_record::domains() const {
+  // @@protoc_insertion_point(field_list:st.dns.proto.reverse_record.domains)
+  return domains_;
+}
+inline ::google::protobuf::RepeatedPtrField<::std::string>*
+reverse_record::mutable_domains() {
+  // @@protoc_insertion_point(field_mutable_list:st.dns.proto.reverse_record.domains)
+  return &domains_;
+}
+
 #ifdef __GNUC__
   #pragma GCC diagnostic pop
 #endif  // __GNUC__
+// -------------------------------------------------------------------
+
 // -------------------------------------------------------------------
 
 // -------------------------------------------------------------------

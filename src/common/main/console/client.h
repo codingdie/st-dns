@@ -8,8 +8,7 @@
 namespace st {
     namespace console {
         namespace client {
-            static std::string command(const std::string &ip, uint16_t port, const std::string &command, uint32_t timeout) {
-                uint64_t beginTime = st::utils::time::now();
+            static pair<bool, std::string> command(const std::string &ip, uint16_t port, const std::string &command, uint32_t timeout) {
                 io_context ic;
                 udp::socket socket(ic, udp::endpoint(udp::v4(), 0));
                 deadline_timer timer(ic);
@@ -34,7 +33,17 @@ namespace st {
                             }
                         });
                 ic.run();
-                return res;
+                string result = res;
+                auto splits = utils::strutils::split(result, "\n");
+                if (!splits.empty()) {
+                    if (splits[0] == "success") {
+                        return make_pair(true, utils::strutils::trim(result.substr(7)));
+                    } else {
+                        return make_pair(false, utils::strutils::trim(result.substr(6)));
+                    }
+                } else {
+                    return make_pair(false, "network error!");
+                }
             }
         };// namespace client
 

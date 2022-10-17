@@ -42,6 +42,10 @@ udp_log_server logger::UDP_LOG_SERVER;
 
 
 void logger::do_log() {
+    if (this->level < LEVEL) {
+        this->str.clear();
+        return;
+    }
     std::lock_guard<std::mutex> lg(logMutex);
     string time = time::now_str();
     string::size_type pos = 0L;
@@ -109,7 +113,12 @@ logger &logger::operator<<(const string &string) {
 }
 
 
-void logger::append_str(const string &info) { this->str.append(info).append(SPLIT); }
+void logger::append_str(const string &info) {
+    if (this->level < LEVEL) {
+        return;
+    }
+    this->str.append(info).append(SPLIT);
+}
 
 logger &logger::operator<<(const unordered_set<string> &strs) {
     for (auto str : strs) {
@@ -207,7 +216,17 @@ void apm_logger::perf(const string &name, unordered_map<string, string> &&dimens
     accumulate_metric(STATISTICS[name][id]["count"], count);
     accumulate_metric(STATISTICS[name][id]["cost"], cost);
 }
-void apm_logger::enable(const string udpServerIP, uint16_t udpServerPort) {
+void apm_logger::perf(const string &name, unordered_map<string, int64_t> &&counts) {
+    boost::property_tree::ptree pt;
+    pt.put("name", name);
+    string id = base64::encode(toJson(pt));
+    std::lock_guard<std::mutex> lg(APM_STATISTICS_MUTEX);
+    accumulate_metric(STATISTICS[name][id]["count"], 1);
+    for (const auto &count : counts) {
+        accumulate_metric(STATISTICS[name][id][count.first], count.second);
+    }
+}
+void apm_logger::enable(const string &udpServerIP, uint16_t udpServerPort) {
     UDP_LOG_SERVER.ip = udpServerIP;
     UDP_LOG_SERVER.port = udpServerPort;
     IO_CONTEXT_WORK = new boost::asio::io_context::work(IO_CONTEXT);
@@ -222,7 +241,7 @@ void apm_logger::disable() {
 }
 
 void apm_logger::schedule_log() {
-    LOG_TIMMER.expires_from_now(boost::posix_time::seconds(60));
+    LOG_TIMMER.expires_from_now(boost::posix_time::seconds(30));
     LOG_TIMMER.async_wait([](boost::system::error_code ec) {
         std::lock_guard<std::mutex> lg(APM_STATISTICS_MUTEX);
         for (auto it0 = STATISTICS.begin(); it0 != STATISTICS.end(); it0++) {
@@ -230,7 +249,6 @@ void apm_logger::schedule_log() {
                 boost::property_tree::ptree finalPT;
                 boost::property_tree::ptree dimensions = fromJson(base64::decode(it1->first));
                 finalPT.insert(finalPT.end(), dimensions.begin(), dimensions.end());
-                auto asd = it1->second;
                 long count = it1->second["count"]["sum"];
                 if (count <= 0) {
                     continue;

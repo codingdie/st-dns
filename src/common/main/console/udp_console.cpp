@@ -9,34 +9,29 @@ namespace st {
         udp_console::udp_console(const std::string &ip, uint16_t port)
             : ip(ip), port(port), ic(), iw(new boost::asio::io_context::work(ic)),
               socket(udp::socket(ic, udp::endpoint(boost::asio::ip::make_address_v4(ip), port))) {
-            th = new std::thread([=]() {
-                this->ic.run();
-            });
+            th = new std::thread([=]() { this->ic.run(); });
         }
-        void udp_console::start() {
-            receive();
-        }
+        void udp_console::start() { receive(); }
         void udp_console::receive() {
-            socket.async_receive_from(buffer(command_buffer, 1024), client_endpoint,
-                                      [=](boost::system::error_code code, size_t size) {
-                                          command_buffer[size] = '\0';
-                                          string command = command_buffer;
-                                          logger::INFO << "receive command:" << command << END;
-                                          auto parsed_command = parse_command(command);
-                                          std::pair<bool, std::string> result = impl(parsed_command.first, parsed_command.second);
-                                          if (result.first) {
-                                              send_response("success\n" + result.second + "\n");
-                                          } else {
-                                              send_response("failed\n" + result.second + "\n");
-                                          }
-                                      });
+            socket.async_receive_from(
+                    buffer(command_buffer, 1024), client_endpoint, [=](boost::system::error_code code, size_t size) {
+                        command_buffer[size] = '\0';
+                        string command = command_buffer;
+                        strutils::trim(command);
+                        logger::DEBUG << "receive command:" << command << END;
+                        auto parsed_command = parse_command(command);
+                        std::pair<bool, std::string> result = impl(parsed_command.first, parsed_command.second);
+                        if (result.first) {
+                            send_response("success\n" + result.second + "\n");
+                        } else {
+                            send_response("failed\n" + result.second + "\n");
+                        }
+                    });
         }
         void udp_console::send_response(const string &result) {
             copy(result.c_str(), response_buffer, result.length());
             socket.async_send_to(buffer(response_buffer, result.length()), client_endpoint,
-                                 [=](boost::system::error_code code, size_t size) {
-                                     receive();
-                                 });
+                                 [=](boost::system::error_code code, size_t size) { receive(); });
         }
         udp_console::~udp_console() {
             ic.stop();
@@ -44,7 +39,8 @@ namespace st {
             th->join();
             delete th;
         }
-        pair<vector<std::string>, boost::program_options::variables_map> udp_console::parse_command(const string &command) {
+        pair<vector<std::string>, boost::program_options::variables_map>
+        udp_console::parse_command(const string &command) const {
             namespace po = boost::program_options;
             po::variables_map vm;
             auto splits = utils::strutils::split(command, " ");
@@ -67,8 +63,7 @@ namespace st {
             for (auto i = 1; i < argc; i++) {
                 argv[i] = options[i - 1].c_str();
             }
-            po::parsed_options parsed =
-                    po::command_line_parser(argc, argv).options(desc).allow_unregistered().run();
+            po::parsed_options parsed = po::command_line_parser(argc, argv).options(desc).allow_unregistered().run();
             po::store(parsed, vm);
             po::notify(vm);
             return make_pair(commands, vm);

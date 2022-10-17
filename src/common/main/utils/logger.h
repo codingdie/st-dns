@@ -95,10 +95,12 @@ namespace st {
 #define END st::utils::logger::MASK::ENDL
         class apm_logger {
         public:
-            static void enable(const string udpServerIP, const uint16_t udpServerPort);
+            static void enable(const string &udpServerIP, const uint16_t udpServerPort);
             static void disable();
             static void perf(const string &name, unordered_map<string, string> &&dimensions, uint64_t cost,
                              uint64_t count);
+            static void perf(const string &name, unordered_map<string, int64_t> &&counts);
+
             static void perf(const string &name, unordered_map<string, string> &&dimensions, uint64_t cost);
             apm_logger(const string name);
             void start();

@@ -32,7 +32,7 @@
         "HK",
         "!CN"
       ],
-      "timeout": "20000",
+      "timeout": "10000",
       "dns_cache_expire": 600
     }
   ],

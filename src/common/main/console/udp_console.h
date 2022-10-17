@@ -30,7 +30,7 @@ namespace st {
             boost::asio::ip::udp::endpoint client_endpoint;
 
             void receive();
-            pair<vector<std::string>, boost::program_options::variables_map> parse_command(const string &command);
+            pair<vector<std::string>, boost::program_options::variables_map> parse_command(const string &command) const;
 
             void send_response(const string &result);
         };

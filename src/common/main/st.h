@@ -18,8 +18,6 @@
 #include "utils/moment.h"
 #include "utils/pool.h"
 #include "utils/shell.h"
-#include "utils/shm/dns_shm.h"
-#include "utils/shm/proxy_shm.h"
 #include "utils/string_utils.h"
 #include <random>
 #include <string>

@@ -44,10 +44,6 @@ TEST(UnitTests, testSHM) {
             ASSERT_STREQ((to_string(i) + "baidu.com").c_str(), host.c_str());
         }
     }
-
-    auto testIp = count * 2 + 1;
-    auto host2 = st::dns::shm::share().reverse_resolve(testIp);
-    ASSERT_STREQ(st::utils::ipv4::ip_to_str(testIp).c_str(), host2.c_str());
 }
 
 TEST(UnitTests, testAreaIP) {

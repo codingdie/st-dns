@@ -4,9 +4,11 @@
 
 #include "disk_kv.h"
 #include "proto/kv.pb.h"
-#include "utils//base64.h"
+#include "utils/base64.h"
+#include "utils/logger.h"
 #include <leveldb/cache.h>
 static const char *const KV_FOLDER = "/var/lib/st/kv/";
+using namespace st::utils;
 namespace st {
     namespace kv {
         disk_kv::~disk_kv() {
@@ -14,16 +16,19 @@ namespace st {
             delete options.block_cache;
         }
         std::string disk_kv::get(const std::string &key) {
+            auto begin = time::now();
             string data;
-            leveldb::Status s = db->Get(leveldb::ReadOptions(), key, &data);
+            bool success = db->Get(leveldb::ReadOptions(), key, &data).ok();
             proto::value val;
-            if (s.ok()) {
+            if (success) {
                 val.ParseFromString(data);
                 if (not_expired(val)) {
                     return utils::base64::decode(val.str());
                 }
                 this->erase(key);
             }
+            //            apm_logger::perf("st-dist-kv-get", {{"namespace", this->ns}, {"success", success ? "1" : "0"}},
+            //                             time::now() - begin);
             return "";
         }
         bool disk_kv::not_expired(const proto::value &val) {
@@ -32,6 +37,7 @@ namespace st {
         void disk_kv::put(const std::string &key, const std::string &value) { this->put(key, value, 0); }
 
         void disk_kv::put(const std::string &key, const std::string &value, uint32_t expire) {
+            auto begin = time::now();
             proto::value val;
             val.set_str(utils::base64::encode(value));
             if (expire != 0) {
@@ -39,7 +45,9 @@ namespace st {
             } else {
                 val.set_expire(expire);
             }
-            db->Put(leveldb::WriteOptions(), key, val.SerializeAsString());
+            bool success = db->Put(leveldb::WriteOptions(), key, val.SerializeAsString()).ok();
+            //            apm_logger::perf("st-dist-kv-put", {{"namespace", this->ns}, {"success", success ? "1" : "0"}},
+            //                             time::now() - begin);
         }
         void disk_kv::erase(const std::string &key) { db->Delete(leveldb::WriteOptions(), key); }
         void disk_kv::clear() {

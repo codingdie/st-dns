@@ -51,22 +51,24 @@ void test_dns(const string &domain) {
 
 TEST_F(IntegrationTests, test_dns) {
     for (int i = 0; i < 3; i++) {
-        test_dns("twitter.com");
-        test_dns("google.com");
-        test_dns("youtube.com");
-        test_dns("facebook.com");
-        test_dns("twitter.com");
-        test_dns("baidu.com");
-        string result;
-        shell::exec("dig cname baidu.com @127.0.0.1 -p5353", result);
+        test_dns("www.baidu.com");
     }
 
     string ip = st::dns::config::INSTANCE.console_ip;
     int console_port = st::dns::config::INSTANCE.console_port;
-    auto result = console::client::command(ip, console_port, "dns record get --domain=baidu.com", 1000);
-    ASSERT_TRUE(!result.empty());
-    result = console::client::command(ip, console_port, "dns record dump", 60000);
-    ASSERT_STREQ("success\n/tmp/st-dns-record.txt\n", result.c_str());
+    auto begin = time::now();
+    for (auto i = 0; i < 10000; i++) {
+        auto result = console::client::command(ip, console_port, "dns resolve --domain=www.baidu.com", 1000);
+        ASSERT_TRUE(result.first);
+    }
+    for (auto i = 0; i < 10000; i++) {
+        auto result = console::client::command(ip, console_port, "dns reverse resolve --ip=110.242.68.3", 1000);
+        ASSERT_TRUE(result.first);
+    }
+    logger::INFO << "command avg time" << (time::now() - begin) * 1.0 / 20000 << END;
+
+    auto result = console::client::command(ip, console_port, "dns record dump", 60000);
+    ASSERT_STREQ("/tmp/st-dns-record.txt", result.second.c_str());
     result = console::client::command(ip, console_port, "dns record analyse", 60000);
-    ASSERT_TRUE(result.find("success") != string::npos);
+    ASSERT_TRUE(result.first);
 }

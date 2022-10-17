@@ -30,6 +30,10 @@ class recordsDefaultTypeInternal {
  public:
   ::google::protobuf::internal::ExplicitlyConstructed<records> _instance;
 } _records_default_instance_;
+class reverse_recordDefaultTypeInternal {
+ public:
+  ::google::protobuf::internal::ExplicitlyConstructed<reverse_record> _instance;
+} _reverse_record_default_instance_;
 }  // namespace proto
 }  // namespace dns
 }  // namespace st
@@ -75,6 +79,20 @@ static void InitDefaultsrecords_message_2eproto() {
 ::google::protobuf::internal::SCCInfo<1> scc_info_records_message_2eproto =
     {{ATOMIC_VAR_INIT(::google::protobuf::internal::SCCInfoBase::kUninitialized), 1, InitDefaultsrecords_message_2eproto}, {
       &scc_info_records_MapEntry_DoNotUse_message_2eproto.base,}};
+
+static void InitDefaultsreverse_record_message_2eproto() {
+  GOOGLE_PROTOBUF_VERIFY_VERSION;
+
+  {
+    void* ptr = &::st::dns::proto::_reverse_record_default_instance_;
+    new (ptr) ::st::dns::proto::reverse_record();
+    ::google::protobuf::internal::OnShutdownDestroyMessage(ptr);
+  }
+  ::st::dns::proto::reverse_record::InitAsDefaultInstance();
+}
+
+::google::protobuf::internal::SCCInfo<0> scc_info_reverse_record_message_2eproto =
+    {{ATOMIC_VAR_INIT(::google::protobuf::internal::SCCInfoBase::kUninitialized), 0, InitDefaultsreverse_record_message_2eproto}, {}};
 
 namespace st {
 namespace dns {
@@ -762,6 +780,297 @@ void records::InternalSwap(records* other) {
 }
 
 
+// ===================================================================
+
+void reverse_record::InitAsDefaultInstance() {
+}
+class reverse_record::HasBitSetters {
+ public:
+};
+
+#if !defined(_MSC_VER) || _MSC_VER >= 1900
+const int reverse_record::kIpFieldNumber;
+const int reverse_record::kDomainsFieldNumber;
+#endif  // !defined(_MSC_VER) || _MSC_VER >= 1900
+
+reverse_record::reverse_record()
+  : ::google::protobuf::MessageLite(), _internal_metadata_(nullptr) {
+  SharedCtor();
+  // @@protoc_insertion_point(constructor:st.dns.proto.reverse_record)
+}
+reverse_record::reverse_record(const reverse_record& from)
+  : ::google::protobuf::MessageLite(),
+      _internal_metadata_(nullptr),
+      domains_(from.domains_) {
+  _internal_metadata_.MergeFrom(from._internal_metadata_);
+  ip_ = from.ip_;
+  // @@protoc_insertion_point(copy_constructor:st.dns.proto.reverse_record)
+}
+
+void reverse_record::SharedCtor() {
+  ::google::protobuf::internal::InitSCC(
+      &scc_info_reverse_record_message_2eproto.base);
+  ip_ = 0u;
+}
+
+reverse_record::~reverse_record() {
+  // @@protoc_insertion_point(destructor:st.dns.proto.reverse_record)
+  SharedDtor();
+}
+
+void reverse_record::SharedDtor() {
+}
+
+void reverse_record::SetCachedSize(int size) const {
+  _cached_size_.Set(size);
+}
+const reverse_record& reverse_record::default_instance() {
+  ::google::protobuf::internal::InitSCC(&::scc_info_reverse_record_message_2eproto.base);
+  return *internal_default_instance();
+}
+
+
+void reverse_record::Clear() {
+// @@protoc_insertion_point(message_clear_start:st.dns.proto.reverse_record)
+  ::google::protobuf::uint32 cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  domains_.Clear();
+  ip_ = 0u;
+  _internal_metadata_.Clear();
+}
+
+#if GOOGLE_PROTOBUF_ENABLE_EXPERIMENTAL_PARSER
+const char* reverse_record::_InternalParse(const char* begin, const char* end, void* object,
+                  ::google::protobuf::internal::ParseContext* ctx) {
+  auto msg = static_cast<reverse_record*>(object);
+  ::google::protobuf::int32 size; (void)size;
+  int depth; (void)depth;
+  ::google::protobuf::uint32 tag;
+  ::google::protobuf::internal::ParseFunc parser_till_end; (void)parser_till_end;
+  auto ptr = begin;
+  while (ptr < end) {
+    ptr = ::google::protobuf::io::Parse32(ptr, &tag);
+    GOOGLE_PROTOBUF_PARSER_ASSERT(ptr);
+    switch (tag >> 3) {
+      // uint32 ip = 1;
+      case 1: {
+        if (static_cast<::google::protobuf::uint8>(tag) != 8) goto handle_unusual;
+        msg->set_ip(::google::protobuf::internal::ReadVarint(&ptr));
+        GOOGLE_PROTOBUF_PARSER_ASSERT(ptr);
+        break;
+      }
+      // repeated string domains = 2;
+      case 2: {
+        if (static_cast<::google::protobuf::uint8>(tag) != 18) goto handle_unusual;
+        do {
+          ptr = ::google::protobuf::io::ReadSize(ptr, &size);
+          GOOGLE_PROTOBUF_PARSER_ASSERT(ptr);
+          ctx->extra_parse_data().SetFieldName(nullptr);
+          object = msg->add_domains();
+          if (size > end - ptr + ::google::protobuf::internal::ParseContext::kSlopBytes) {
+            parser_till_end = ::google::protobuf::internal::GreedyStringParserUTF8;
+            goto string_till_end;
+          }
+          GOOGLE_PROTOBUF_PARSER_ASSERT(::google::protobuf::internal::StringCheckUTF8(ptr, size, ctx));
+          ::google::protobuf::internal::InlineGreedyStringParser(object, ptr, size, ctx);
+          ptr += size;
+          if (ptr >= end) break;
+        } while ((::google::protobuf::io::UnalignedLoad<::google::protobuf::uint64>(ptr) & 255) == 18 && (ptr += 1));
+        break;
+      }
+      default: {
+      handle_unusual:
+        if ((tag & 7) == 4 || tag == 0) {
+          ctx->EndGroup(tag);
+          return ptr;
+        }
+        auto res = UnknownFieldParse(tag, {_InternalParse, msg},
+          ptr, end, msg->_internal_metadata_.mutable_unknown_fields(), ctx);
+        ptr = res.first;
+        GOOGLE_PROTOBUF_PARSER_ASSERT(ptr != nullptr);
+        if (res.second) return ptr;
+      }
+    }  // switch
+  }  // while
+  return ptr;
+string_till_end:
+  static_cast<::std::string*>(object)->clear();
+  static_cast<::std::string*>(object)->reserve(size);
+  goto len_delim_till_end;
+len_delim_till_end:
+  return ctx->StoreAndTailCall(ptr, end, {_InternalParse, msg},
+                               {parser_till_end, object}, size);
+}
+#else  // GOOGLE_PROTOBUF_ENABLE_EXPERIMENTAL_PARSER
+bool reverse_record::MergePartialFromCodedStream(
+    ::google::protobuf::io::CodedInputStream* input) {
+#define DO_(EXPRESSION) if (!PROTOBUF_PREDICT_TRUE(EXPRESSION)) goto failure
+  ::google::protobuf::uint32 tag;
+  ::google::protobuf::internal::LiteUnknownFieldSetter unknown_fields_setter(
+      &_internal_metadata_);
+  ::google::protobuf::io::StringOutputStream unknown_fields_output(
+      unknown_fields_setter.buffer());
+  ::google::protobuf::io::CodedOutputStream unknown_fields_stream(
+      &unknown_fields_output, false);
+  // @@protoc_insertion_point(parse_start:st.dns.proto.reverse_record)
+  for (;;) {
+    ::std::pair<::google::protobuf::uint32, bool> p = input->ReadTagWithCutoffNoLastTag(127u);
+    tag = p.first;
+    if (!p.second) goto handle_unusual;
+    switch (::google::protobuf::internal::WireFormatLite::GetTagFieldNumber(tag)) {
+      // uint32 ip = 1;
+      case 1: {
+        if (static_cast< ::google::protobuf::uint8>(tag) == (8 & 0xFF)) {
+
+          DO_((::google::protobuf::internal::WireFormatLite::ReadPrimitive<
+                   ::google::protobuf::uint32, ::google::protobuf::internal::WireFormatLite::TYPE_UINT32>(
+                 input, &ip_)));
+        } else {
+          goto handle_unusual;
+        }
+        break;
+      }
+
+      // repeated string domains = 2;
+      case 2: {
+        if (static_cast< ::google::protobuf::uint8>(tag) == (18 & 0xFF)) {
+          DO_(::google::protobuf::internal::WireFormatLite::ReadString(
+                input, this->add_domains()));
+          DO_(::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+            this->domains(this->domains_size() - 1).data(),
+            static_cast<int>(this->domains(this->domains_size() - 1).length()),
+            ::google::protobuf::internal::WireFormatLite::PARSE,
+            "st.dns.proto.reverse_record.domains"));
+        } else {
+          goto handle_unusual;
+        }
+        break;
+      }
+
+      default: {
+      handle_unusual:
+        if (tag == 0) {
+          goto success;
+        }
+        DO_(::google::protobuf::internal::WireFormatLite::SkipField(
+            input, tag, &unknown_fields_stream));
+        break;
+      }
+    }
+  }
+success:
+  // @@protoc_insertion_point(parse_success:st.dns.proto.reverse_record)
+  return true;
+failure:
+  // @@protoc_insertion_point(parse_failure:st.dns.proto.reverse_record)
+  return false;
+#undef DO_
+}
+#endif  // GOOGLE_PROTOBUF_ENABLE_EXPERIMENTAL_PARSER
+
+void reverse_record::SerializeWithCachedSizes(
+    ::google::protobuf::io::CodedOutputStream* output) const {
+  // @@protoc_insertion_point(serialize_start:st.dns.proto.reverse_record)
+  ::google::protobuf::uint32 cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  // uint32 ip = 1;
+  if (this->ip() != 0) {
+    ::google::protobuf::internal::WireFormatLite::WriteUInt32(1, this->ip(), output);
+  }
+
+  // repeated string domains = 2;
+  for (int i = 0, n = this->domains_size(); i < n; i++) {
+    ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(
+      this->domains(i).data(), static_cast<int>(this->domains(i).length()),
+      ::google::protobuf::internal::WireFormatLite::SERIALIZE,
+      "st.dns.proto.reverse_record.domains");
+    ::google::protobuf::internal::WireFormatLite::WriteString(
+      2, this->domains(i), output);
+  }
+
+  output->WriteRaw(_internal_metadata_.unknown_fields().data(),
+                   static_cast<int>(_internal_metadata_.unknown_fields().size()));
+  // @@protoc_insertion_point(serialize_end:st.dns.proto.reverse_record)
+}
+
+size_t reverse_record::ByteSizeLong() const {
+// @@protoc_insertion_point(message_byte_size_start:st.dns.proto.reverse_record)
+  size_t total_size = 0;
+
+  total_size += _internal_metadata_.unknown_fields().size();
+
+  ::google::protobuf::uint32 cached_has_bits = 0;
+  // Prevent compiler warnings about cached_has_bits being unused
+  (void) cached_has_bits;
+
+  // repeated string domains = 2;
+  total_size += 1 *
+      ::google::protobuf::internal::FromIntSize(this->domains_size());
+  for (int i = 0, n = this->domains_size(); i < n; i++) {
+    total_size += ::google::protobuf::internal::WireFormatLite::StringSize(
+      this->domains(i));
+  }
+
+  // uint32 ip = 1;
+  if (this->ip() != 0) {
+    total_size += 1 +
+      ::google::protobuf::internal::WireFormatLite::UInt32Size(
+        this->ip());
+  }
+
+  int cached_size = ::google::protobuf::internal::ToCachedSize(total_size);
+  SetCachedSize(cached_size);
+  return total_size;
+}
+
+void reverse_record::CheckTypeAndMergeFrom(
+    const ::google::protobuf::MessageLite& from) {
+  MergeFrom(*::google::protobuf::down_cast<const reverse_record*>(&from));
+}
+
+void reverse_record::MergeFrom(const reverse_record& from) {
+// @@protoc_insertion_point(class_specific_merge_from_start:st.dns.proto.reverse_record)
+  GOOGLE_DCHECK_NE(&from, this);
+  _internal_metadata_.MergeFrom(from._internal_metadata_);
+  ::google::protobuf::uint32 cached_has_bits = 0;
+  (void) cached_has_bits;
+
+  domains_.MergeFrom(from.domains_);
+  if (from.ip() != 0) {
+    set_ip(from.ip());
+  }
+}
+
+void reverse_record::CopyFrom(const reverse_record& from) {
+// @@protoc_insertion_point(class_specific_copy_from_start:st.dns.proto.reverse_record)
+  if (&from == this) return;
+  Clear();
+  MergeFrom(from);
+}
+
+bool reverse_record::IsInitialized() const {
+  return true;
+}
+
+void reverse_record::Swap(reverse_record* other) {
+  if (other == this) return;
+  InternalSwap(other);
+}
+void reverse_record::InternalSwap(reverse_record* other) {
+  using std::swap;
+  _internal_metadata_.Swap(&other->_internal_metadata_);
+  domains_.InternalSwap(CastToBase(&other->domains_));
+  swap(ip_, other->ip_);
+}
+
+::std::string reverse_record::GetTypeName() const {
+  return "st.dns.proto.reverse_record";
+}
+
+
 // @@protoc_insertion_point(namespace_scope)
 }  // namespace proto
 }  // namespace dns
@@ -776,6 +1085,9 @@ template<> PROTOBUF_NOINLINE ::st::dns::proto::records_MapEntry_DoNotUse* Arena:
 }
 template<> PROTOBUF_NOINLINE ::st::dns::proto::records* Arena::CreateMaybeMessage< ::st::dns::proto::records >(Arena* arena) {
   return Arena::CreateInternal< ::st::dns::proto::records >(arena);
+}
+template<> PROTOBUF_NOINLINE ::st::dns::proto::reverse_record* Arena::CreateMaybeMessage< ::st::dns::proto::reverse_record >(Arena* arena) {
+  return Arena::CreateInternal< ::st::dns::proto::reverse_record >(arena);
 }
 }  // namespace protobuf
 }  // namespace google

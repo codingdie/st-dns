@@ -6,6 +6,6 @@ option optimize_for = LITE_RUNTIME;
 
 message value {
     uint32 expire = 1;
-    string str = 2;
+    bytes data = 2;
 }
 

@@ -3,6 +3,7 @@
 //
 #include "dns_server.h"
 #include "dns_client.h"
+#include "command/dns_command.h"
 #include <gtest/gtest.h>
 class BaseTest : public ::testing::Test {
 protected:
@@ -50,9 +51,7 @@ void test_dns(const string &domain) {
 
 
 TEST_F(IntegrationTests, test_dns) {
-    for (int i = 0; i < 3; i++) {
-        test_dns("www.baidu.com");
-    }
+    test_dns("www.baidu.com");
 
     string ip = st::dns::config::INSTANCE.console_ip;
     int console_port = st::dns::config::INSTANCE.console_port;
@@ -62,8 +61,8 @@ TEST_F(IntegrationTests, test_dns) {
         ASSERT_TRUE(result.first);
     }
     for (auto i = 0; i < 10000; i++) {
-        auto result = console::client::command(ip, console_port, "dns reverse resolve --ip=110.242.68.3", 1000);
-        ASSERT_TRUE(result.first);
+        const vector<string> &ips = command::dns::reverse_resolve(st::utils::ipv4::str_to_ip("110.242.68.3"));
+        ASSERT_FALSE(ips.empty());
     }
     logger::INFO << "command avg time" << (time::now() - begin) * 1.0 / 20000 << END;
 

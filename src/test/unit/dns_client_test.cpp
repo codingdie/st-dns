@@ -20,9 +20,9 @@ void test_dns(const string &domain, const string &server, const uint32_t port, c
         lock.unlock();
     };
     if (type == "TCP") {
-        dns_client::uniq().tcp_dns(domain, server, port, 5000, areas, complete);
+        dns_client::uniq().tcp_dns(domain, server, port, 10000, areas, complete);
     } else if (type == "TCP_SSL") {
-        dns_client::uniq().tcp_tls_dns(domain, server, port, 30000, areas, complete);
+        dns_client::uniq().tcp_tls_dns(domain, server, port, 10000, areas, complete);
     } else {
         dns_client::uniq().udp_dns(domain, server, port, 200, [=](std::vector<uint32_t> ips) {
             complete(ips, true);
@@ -42,16 +42,29 @@ void testDNS(const string &domain, const string &server, const uint32_t port, co
 
 
 TEST(UnitTests, test_udp_dns) {
-    testDNS("baidu.com", "114.114.114.114", 53, "UDP");
+    auto begin = time::now();
+    for (auto i = 0; i < 10; i++) {
+        testDNS("baidu.com", "114.114.114.114", 53, "UDP");
+    }
+    logger::INFO << "test_udp_dns total cost" << time::now() - begin << END;
 }
 
 
 TEST(UnitTests, test_tcp_dns) {
-    testDNS("baidu.com", "8.8.8.8", 53, "TCP");
+    auto begin = time::now();
+    for (auto i = 0; i < 10; i++) {
+        testDNS("www.google.com", "8.8.8.8", 53, "TCP");
+    }
+    logger::INFO << "test_tcp_dns total cost" << time::now() - begin << END;
 }
 
 TEST(UnitTests, test_tcp_tls_dns) {
-    testDNS("www.google.com", "8.8.8.8", 853, "TCP_SSL");
+    logger::LEVEL = 0;
+    auto begin = time::now();
+    for (auto i = 0; i < 10; i++) {
+        testDNS("www.google.com", "8.8.8.8", 853, "TCP_SSL");
+    }
+    logger::INFO << "test_tcp_dns total cost" << time::now() - begin << END;
 }
 
 

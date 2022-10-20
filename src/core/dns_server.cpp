@@ -254,9 +254,9 @@ void dns_server::query_dns_record_from_remote(session *session, const std::funct
                         complete_handler(se);
                     }
                 },
-                servers, 0, dns_record_manager::uniq().has_any_record(host));
+                servers, 0, !dns_record_manager::uniq().has_any_record(host));
     } else {
-        logger::DEBUG << host << "is in get_dns_record!" << END;
+        logger::DEBUG << host << "is in query!" << END;
     }
 }
 void dns_server::forward_dns_request(session *session, const std::function<void(st::dns::session *session)> &complete_handler) {

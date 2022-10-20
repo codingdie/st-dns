@@ -2,6 +2,7 @@
 // Created by System Administrator on 2020/10/8.
 //
 #include "config.h"
+#include "command/proxy_command.h"
 #include <regex>
 st::dns::config st::dns::config::INSTANCE;
 void st::dns::config::load(const string &base_conf_dir) {
@@ -60,7 +61,7 @@ void st::dns::config::load(const string &base_conf_dir) {
                     }
                 }
                 for (auto it = dns_server->areas.begin(); it != dns_server->areas.end(); it++) {
-                    // st::dns::shm::share().set_virtual_port(st::utils::ipv4::str_to_ip(dns_server->ip), dns_server->port, *it);
+                    st::command::proxy::register_area_port(st::utils::ipv4::str_to_ip(dns_server->ip), port, *it);
                 }
                 servers.emplace_back(dns_server);
             }

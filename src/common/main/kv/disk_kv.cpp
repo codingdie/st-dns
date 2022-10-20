@@ -23,7 +23,7 @@ namespace st {
             if (success) {
                 val.ParseFromString(data);
                 if (not_expired(val)) {
-                    return utils::base64::decode(val.str());
+                    return val.data();
                 }
                 this->erase(key);
             }
@@ -39,7 +39,7 @@ namespace st {
         void disk_kv::put(const std::string &key, const std::string &value, uint32_t expire) {
             auto begin = time::now();
             proto::value val;
-            val.set_str(utils::base64::encode(value));
+            val.set_data(value.c_str());
             if (expire != 0) {
                 val.set_expire(utils::time::now() / 1000 + expire);
             } else {
@@ -70,7 +70,7 @@ namespace st {
                 proto::value val;
                 val.ParseFromString(it->value().ToString());
                 if (not_expired(val)) {
-                    consumer(it->key().ToString(), utils::base64::decode(val.str()));
+                    consumer(it->key().ToString(), val.data());
                 }
             }
             delete it;

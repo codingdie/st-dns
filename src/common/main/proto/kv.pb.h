@@ -28,251 +28,251 @@
 #include <google/protobuf/inlined_string_field.h>
 #include <google/protobuf/metadata_lite.h>
 #include <google/protobuf/message_lite.h>
-#include <google/protobuf/repeated_field.h>// IWYU pragma: export
-#include <google/protobuf/extension_set.h> // IWYU pragma: export
+#include <google/protobuf/repeated_field.h>  // IWYU pragma: export
+#include <google/protobuf/extension_set.h>  // IWYU pragma: export
 // @@protoc_insertion_point(includes)
 #include <google/protobuf/port_def.inc>
 #define PROTOBUF_INTERNAL_EXPORT_kv_2eproto
 
 // Internal implementation detail -- do not use these members.
 struct TableStruct_kv_2eproto {
-    static const ::google::protobuf::internal::ParseTableField entries[] PROTOBUF_SECTION_VARIABLE(protodesc_cold);
-    static const ::google::protobuf::internal::AuxillaryParseTableField aux[] PROTOBUF_SECTION_VARIABLE(protodesc_cold);
-    static const ::google::protobuf::internal::ParseTable schema[1] PROTOBUF_SECTION_VARIABLE(protodesc_cold);
-    static const ::google::protobuf::internal::FieldMetadata field_metadata[];
-    static const ::google::protobuf::internal::SerializationTable serialization_table[];
-    static const ::google::protobuf::uint32 offsets[];
+  static const ::google::protobuf::internal::ParseTableField entries[]
+    PROTOBUF_SECTION_VARIABLE(protodesc_cold);
+  static const ::google::protobuf::internal::AuxillaryParseTableField aux[]
+    PROTOBUF_SECTION_VARIABLE(protodesc_cold);
+  static const ::google::protobuf::internal::ParseTable schema[1]
+    PROTOBUF_SECTION_VARIABLE(protodesc_cold);
+  static const ::google::protobuf::internal::FieldMetadata field_metadata[];
+  static const ::google::protobuf::internal::SerializationTable serialization_table[];
+  static const ::google::protobuf::uint32 offsets[];
 };
 namespace st {
-    namespace kv {
-        namespace proto {
-            class value;
-            class valueDefaultTypeInternal;
-            extern valueDefaultTypeInternal _value_default_instance_;
-        }// namespace proto
-    }    // namespace kv
-}// namespace st
+namespace kv {
+namespace proto {
+class value;
+class valueDefaultTypeInternal;
+extern valueDefaultTypeInternal _value_default_instance_;
+}  // namespace proto
+}  // namespace kv
+}  // namespace st
 namespace google {
-    namespace protobuf {
-        template<>
-        ::st::kv::proto::value *Arena::CreateMaybeMessage<::st::kv::proto::value>(Arena *);
-    }// namespace protobuf
-}// namespace google
+namespace protobuf {
+template<> ::st::kv::proto::value* Arena::CreateMaybeMessage<::st::kv::proto::value>(Arena*);
+}  // namespace protobuf
+}  // namespace google
 namespace st {
-    namespace kv {
-        namespace proto {
+namespace kv {
+namespace proto {
 
-            // ===================================================================
+// ===================================================================
 
-            class value : public ::google::protobuf::MessageLite /* @@protoc_insertion_point(class_definition:st.kv.proto.value) */ {
-            public:
-                value();
-                virtual ~value();
+class value :
+    public ::google::protobuf::MessageLite /* @@protoc_insertion_point(class_definition:st.kv.proto.value) */ {
+ public:
+  value();
+  virtual ~value();
 
-                value(const value &from);
+  value(const value& from);
 
-                inline value &operator=(const value &from) {
-                    CopyFrom(from);
-                    return *this;
-                }
+  inline value& operator=(const value& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  #if LANG_CXX11
+  value(value&& from) noexcept
+    : value() {
+    *this = ::std::move(from);
+  }
+
+  inline value& operator=(value&& from) noexcept {
+    if (GetArenaNoVirtual() == from.GetArenaNoVirtual()) {
+      if (this != &from) InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+  #endif
+  static const value& default_instance();
+
+  static void InitAsDefaultInstance();  // FOR INTERNAL USE ONLY
+  static inline const value* internal_default_instance() {
+    return reinterpret_cast<const value*>(
+               &_value_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    0;
+
+  void Swap(value* other);
+  friend void swap(value& a, value& b) {
+    a.Swap(&b);
+  }
+
+  // implements Message ----------------------------------------------
+
+  inline value* New() const final {
+    return CreateMaybeMessage<value>(nullptr);
+  }
+
+  value* New(::google::protobuf::Arena* arena) const final {
+    return CreateMaybeMessage<value>(arena);
+  }
+  void CheckTypeAndMergeFrom(const ::google::protobuf::MessageLite& from)
+    final;
+  void CopyFrom(const value& from);
+  void MergeFrom(const value& from);
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  size_t ByteSizeLong() const final;
+  #if GOOGLE_PROTOBUF_ENABLE_EXPERIMENTAL_PARSER
+  static const char* _InternalParse(const char* begin, const char* end, void* object, ::google::protobuf::internal::ParseContext* ctx);
+  ::google::protobuf::internal::ParseFunc _ParseFunc() const final { return _InternalParse; }
+  #else
+  bool MergePartialFromCodedStream(
+      ::google::protobuf::io::CodedInputStream* input) final;
+  #endif  // GOOGLE_PROTOBUF_ENABLE_EXPERIMENTAL_PARSER
+  void SerializeWithCachedSizes(
+          ::google::protobuf::io::CodedOutputStream *output) const final;
+  void DiscardUnknownFields();
+  int GetCachedSize() const final { return _cached_size_.Get(); }
+
+  private:
+  void SharedCtor();
+  void SharedDtor();
+  void SetCachedSize(int size) const;
+  void InternalSwap(value *other);
+
+  private:
+  inline ::google::protobuf::Arena *GetArenaNoVirtual() const {
+      return nullptr;
+  }
+  inline void *MaybeArenaPtr() const { return nullptr; }
+
+  public:
+  ::std::string GetTypeName() const final;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  // bytes data = 2;
+  void clear_data();
+  static const int kDataFieldNumber = 2;
+  const ::std::string &data() const;
+  void set_data(const ::std::string &value);
 #if LANG_CXX11
-                value(value &&from) noexcept
-                    : value() {
-                    *this = ::std::move(from);
-                }
-
-                inline value &operator=(value &&from) noexcept {
-                    if (GetArenaNoVirtual() == from.GetArenaNoVirtual()) {
-                        if (this != &from) InternalSwap(&from);
-                    } else {
-                        CopyFrom(from);
-                    }
-                    return *this;
-                }
+  void set_data(::std::string &&value);
 #endif
-                static const value &default_instance();
+  void set_data(const char *value);
+  void set_data(const void *value, size_t size);
+  ::std::string *mutable_data();
+  ::std::string *release_data();
+  void set_allocated_data(::std::string *data);
 
-                static void InitAsDefaultInstance();// FOR INTERNAL USE ONLY
-                static inline const value *internal_default_instance() {
-                    return reinterpret_cast<const value *>(
-                            &_value_default_instance_);
-                }
-                static constexpr int kIndexInFileMessages =
-                        0;
+  // uint32 expire = 1;
+  void clear_expire();
+  static const int kExpireFieldNumber = 1;
+  ::google::protobuf::uint32 expire() const;
+  void set_expire(::google::protobuf::uint32 value);
 
-                void Swap(value *other);
-                friend void swap(value &a, value &b) {
-                    a.Swap(&b);
-                }
+  // @@protoc_insertion_point(class_scope:st.kv.proto.value)
+  private:
+  class HasBitSetters;
 
-                // implements Message ----------------------------------------------
-
-                inline value *New() const final {
-                    return CreateMaybeMessage<value>(nullptr);
-                }
-
-                value *New(::google::protobuf::Arena *arena) const final {
-                    return CreateMaybeMessage<value>(arena);
-                }
-                void CheckTypeAndMergeFrom(const ::google::protobuf::MessageLite &from)
-                        final;
-                void CopyFrom(const value &from);
-                void MergeFrom(const value &from);
-                PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
-                bool IsInitialized() const final;
-
-                size_t ByteSizeLong() const final;
-#if GOOGLE_PROTOBUF_ENABLE_EXPERIMENTAL_PARSER
-                static const char *_InternalParse(const char *begin, const char *end, void *object, ::google::protobuf::internal::ParseContext *ctx);
-                ::google::protobuf::internal::ParseFunc _ParseFunc() const final { return _InternalParse; }
-#else
-                bool MergePartialFromCodedStream(
-                        ::google::protobuf::io::CodedInputStream *input) final;
-#endif// GOOGLE_PROTOBUF_ENABLE_EXPERIMENTAL_PARSER
-                void SerializeWithCachedSizes(
-                        ::google::protobuf::io::CodedOutputStream *output) const final;
-                void DiscardUnknownFields();
-                int GetCachedSize() const final { return _cached_size_.Get(); }
-
-            private:
-                void SharedCtor();
-                void SharedDtor();
-                void SetCachedSize(int size) const;
-                void InternalSwap(value *other);
-
-            private:
-                inline ::google::protobuf::Arena *GetArenaNoVirtual() const {
-                    return nullptr;
-                }
-                inline void *MaybeArenaPtr() const {
-                    return nullptr;
-                }
-
-            public:
-                ::std::string GetTypeName() const final;
-
-                // nested types ----------------------------------------------------
-
-                // accessors -------------------------------------------------------
-
-                // string str = 2;
-                void clear_str();
-                static const int kStrFieldNumber = 2;
-                const ::std::string &str() const;
-                void set_str(const ::std::string &value);
-#if LANG_CXX11
-                void set_str(::std::string &&value);
-#endif
-                void set_str(const char *value);
-                void set_str(const char *value, size_t size);
-                ::std::string *mutable_str();
-                ::std::string *release_str();
-                void set_allocated_str(::std::string *str);
-
-                // uint32 expire = 1;
-                void clear_expire();
-                static const int kExpireFieldNumber = 1;
-                ::google::protobuf::uint32 expire() const;
-                void set_expire(::google::protobuf::uint32 value);
-
-                // @@protoc_insertion_point(class_scope:st.kv.proto.value)
-            private:
-                class HasBitSetters;
-
-                ::google::protobuf::internal::InternalMetadataWithArenaLite _internal_metadata_;
-                ::google::protobuf::internal::ArenaStringPtr str_;
-                ::google::protobuf::uint32 expire_;
-                mutable ::google::protobuf::internal::CachedSize _cached_size_;
-                friend struct ::TableStruct_kv_2eproto;
-            };
-            // ===================================================================
+  ::google::protobuf::internal::InternalMetadataWithArenaLite _internal_metadata_;
+  ::google::protobuf::internal::ArenaStringPtr data_;
+  ::google::protobuf::uint32 expire_;
+  mutable ::google::protobuf::internal::CachedSize _cached_size_;
+  friend struct ::TableStruct_kv_2eproto;
+};
+// ===================================================================
 
 
-            // ===================================================================
+// ===================================================================
 
 #ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
-#endif// __GNUC__
-            // value
+  #pragma GCC diagnostic push
+  #pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#endif  // __GNUC__
+// value
 
-            // uint32 expire = 1;
-            inline void value::clear_expire() {
-                expire_ = 0u;
-            }
-            inline ::google::protobuf::uint32 value::expire() const {
-                // @@protoc_insertion_point(field_get:st.kv.proto.value.expire)
-                return expire_;
-            }
-            inline void value::set_expire(::google::protobuf::uint32 value) {
+// uint32 expire = 1;
+inline void value::clear_expire() {
+  expire_ = 0u;
+}
+inline ::google::protobuf::uint32 value::expire() const {
+  // @@protoc_insertion_point(field_get:st.kv.proto.value.expire)
+  return expire_;
+}
+inline void value::set_expire(::google::protobuf::uint32 value) {
+  
+  expire_ = value;
+  // @@protoc_insertion_point(field_set:st.kv.proto.value.expire)
+}
 
-                expire_ = value;
-                // @@protoc_insertion_point(field_set:st.kv.proto.value.expire)
-            }
+// bytes data = 2;
+inline void value::clear_data() {
+    data_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline const ::std::string &value::data() const {
+    // @@protoc_insertion_point(field_get:st.kv.proto.value.data)
+    return data_.GetNoArena();
+}
+inline void value::set_data(const ::std::string &value) {
 
-            // string str = 2;
-            inline void value::clear_str() {
-                str_.ClearToEmptyNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
-            }
-            inline const ::std::string &value::str() const {
-                // @@protoc_insertion_point(field_get:st.kv.proto.value.str)
-                return str_.GetNoArena();
-            }
-            inline void value::set_str(const ::std::string &value) {
-
-                str_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
-                // @@protoc_insertion_point(field_set:st.kv.proto.value.str)
-            }
+    data_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), value);
+    // @@protoc_insertion_point(field_set:st.kv.proto.value.data)
+}
 #if LANG_CXX11
-            inline void value::set_str(::std::string &&value) {
+inline void value::set_data(::std::string &&value) {
 
-                str_.SetNoArena(
-                        &::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::move(value));
-                // @@protoc_insertion_point(field_set_rvalue:st.kv.proto.value.str)
-            }
+    data_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::move(value));
+    // @@protoc_insertion_point(field_set_rvalue:st.kv.proto.value.data)
+}
 #endif
-            inline void value::set_str(const char *value) {
-                GOOGLE_DCHECK(value != nullptr);
+inline void value::set_data(const char *value) {
+    GOOGLE_DCHECK(value != nullptr);
 
-                str_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
-                // @@protoc_insertion_point(field_set_char:st.kv.proto.value.str)
-            }
-            inline void value::set_str(const char *value, size_t size) {
+    data_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), ::std::string(value));
+    // @@protoc_insertion_point(field_set_char:st.kv.proto.value.data)
+}
+inline void value::set_data(const void *value, size_t size) {
 
-                str_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
-                                ::std::string(reinterpret_cast<const char *>(value), size));
-                // @@protoc_insertion_point(field_set_pointer:st.kv.proto.value.str)
-            }
-            inline ::std::string *value::mutable_str() {
+    data_.SetNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(),
+                     ::std::string(reinterpret_cast<const char *>(value), size));
+    // @@protoc_insertion_point(field_set_pointer:st.kv.proto.value.data)
+}
+inline ::std::string *value::mutable_data() {
 
-                // @@protoc_insertion_point(field_mutable:st.kv.proto.value.str)
-                return str_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
-            }
-            inline ::std::string *value::release_str() {
-                // @@protoc_insertion_point(field_release:st.kv.proto.value.str)
+    // @@protoc_insertion_point(field_mutable:st.kv.proto.value.data)
+    return data_.MutableNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline ::std::string *value::release_data() {
+    // @@protoc_insertion_point(field_release:st.kv.proto.value.data)
 
-                return str_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
-            }
-            inline void value::set_allocated_str(::std::string *str) {
-                if (str != nullptr) {
+    return data_.ReleaseNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited());
+}
+inline void value::set_allocated_data(::std::string *data) {
+    if (data != nullptr) {
 
-                } else {
-                }
-                str_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), str);
-                // @@protoc_insertion_point(field_set_allocated:st.kv.proto.value.str)
-            }
+    } else {
+    }
+    data_.SetAllocatedNoArena(&::google::protobuf::internal::GetEmptyStringAlreadyInited(), data);
+    // @@protoc_insertion_point(field_set_allocated:st.kv.proto.value.data)
+}
 
 #ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif// __GNUC__
+  #pragma GCC diagnostic pop
+#endif  // __GNUC__
 
-            // @@protoc_insertion_point(namespace_scope)
+// @@protoc_insertion_point(namespace_scope)
 
-        }// namespace proto
-    }    // namespace kv
-}// namespace st
+}  // namespace proto
+}  // namespace kv
+}  // namespace st
 
 // @@protoc_insertion_point(global_scope)
 
 #include <google/protobuf/port_undef.inc>
-#endif// PROTOBUF_INCLUDED_kv_2eproto
+#endif  // PROTOBUF_INCLUDED_kv_2eproto

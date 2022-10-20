@@ -22,16 +22,16 @@ namespace st {
     namespace utils {
         class udp_log_server {
         public:
-            string ip = "";
+            string ip;
             uint16_t port = 0;
-            bool is_valid();
+            bool is_valid() const;
         };
         class udp_logger {
         public:
             static udp_logger INSTANCE;
             udp_logger();
             ~udp_logger();
-            void log(const udp_log_server &server, const string str);
+            void log(const udp_log_server &server, const string &str);
 
         private:
             boost::asio::io_context ctx;
@@ -40,10 +40,10 @@ namespace st {
         };
         class std_logger {
         public:
-            string tag = "";
+            string tag;
             static std_logger INSTANCE;
             std_logger();
-            void log(const string str, ostream *st);
+            static void log(const string &str, ostream *st);
         };
         class logger {
         private:
@@ -95,29 +95,29 @@ namespace st {
 #define END st::utils::logger::MASK::ENDL
         class apm_logger {
         public:
-            static void enable(const string &udpServerIP, const uint16_t udpServerPort);
+            static void enable(const string &udpServerIP, uint16_t udpServerPort);
             static void disable();
             static void perf(const string &name, unordered_map<string, string> &&dimensions, uint64_t cost,
                              uint64_t count);
-            static void perf(const string &name, unordered_map<string, int64_t> &&counts);
+            static void perf(const string &name, unordered_map<string, string> &&dimensions,
+                             unordered_map<string, int64_t> &&counts);
 
             static void perf(const string &name, unordered_map<string, string> &&dimensions, uint64_t cost);
-            apm_logger(const string name);
+            apm_logger(const string &name);
             void start();
-            void step(const string step);
+            void step(const string &step);
             void end();
             template<class V>
             void add_dimension(const string name, const V &value) {
                 this->dimensions.put<V>(name, value);
             }
-            void add_metric(const string name, const long &value) { this->metrics.put<long>(name, value); }
+            void add_metric(const string &name, const long &value) { this->metrics.put<long>(name, value); }
 
         private:
             static unordered_map<string, unordered_map<string, unordered_map<string, unordered_map<string, long>>>>
                     STATISTICS;
-            static std::mutex APM_STATISTICS_MUTEX;
             static udp_log_server UDP_LOG_SERVER;
-            static boost::asio::deadline_timer LOG_TIMMER;
+            static boost::asio::deadline_timer LOG_TIMER;
             static boost::asio::io_context IO_CONTEXT;
             static boost::asio::io_context::work *IO_CONTEXT_WORK;
             static std::thread *LOG_THREAD;

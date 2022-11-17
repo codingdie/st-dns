@@ -87,7 +87,7 @@ remote_dns_server *st::dns::config::get_dns_server_by_id(string serverId) {
 }
 
 vector<remote_dns_server *>
-remote_dns_server::calculateQueryServer(const string &domain, const vector<remote_dns_server *> &servers) {
+remote_dns_server::select_servers(const string &domain, const vector<remote_dns_server *> &servers) {
     vector<remote_dns_server *> result;
     string fiDomain = st::dns::protocol::dns_domain::getFIDomain(domain);
     for (auto it = servers.begin(); it != servers.end(); it++) {

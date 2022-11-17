@@ -38,7 +38,7 @@ public:
         return generate_server_id(ip, port);
     };
 
-    static vector<remote_dns_server *> calculateQueryServer(const string &domain, const vector<remote_dns_server *> &servers);
+    static vector<remote_dns_server *> select_servers(const string &domain, const vector<remote_dns_server *> &servers);
 };
 
 namespace st {

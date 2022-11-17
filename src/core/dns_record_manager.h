@@ -80,9 +80,15 @@ class dns_record_manager {
 private:
     st::kv::disk_kv db;
     st::kv::disk_kv reverse;
+    io_context ic;
+    boost::asio::io_context::work *iw;
+    std::thread *th;
+    boost::asio::deadline_timer schedule_timer;
 
 public:
     dns_record_manager();
+
+    virtual ~dns_record_manager();
 
     static dns_record_manager &uniq();
 
@@ -92,9 +98,9 @@ public:
 
     st::dns::proto::records get_dns_records_pb(const string &domain);
 
-    st::dns::proto::reverse_record get_reverse_record(uint32_t ip);
+    st::dns::proto::reverse_record reverse_resolve(uint32_t ip);
 
-    dns_record get_dns_record(const string &domain);
+    dns_record resolve(const string &domain);
 
     void remove(const string &domain);
 
@@ -108,6 +114,8 @@ public:
 
 
 private:
+    void schedule_stats();
+
     void add_reverse_record(uint32_t ip, std::string domain);
 
     static dns_record transform(const st::dns::proto::records &records);

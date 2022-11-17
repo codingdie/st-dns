@@ -38,13 +38,13 @@ void dns_server::config_console() {
             if (options.count("domain")) {
                 auto domain = options["domain"].as<string>();
                 if (!domain.empty()) {
-                    auto record = dns_record_manager::uniq().get_dns_record(domain);
+                    auto record = dns_record_manager::uniq().resolve(domain);
                     result = make_pair(true, record.serialize());
                 }
             }
         } else if (command == "dns reverse resolve") {
             if (!ip.empty()) {
-                auto record = dns_record_manager::uniq().get_reverse_record(st::utils::ipv4::str_to_ip(ip));
+                auto record = dns_record_manager::uniq().reverse_resolve(st::utils::ipv4::str_to_ip(ip));
                 result = make_pair(true, join(record.domains(), ","));
             }
         } else if (command == "dns record get") {
@@ -215,11 +215,11 @@ void dns_server::query_dns_record(session *session, const std::function<void(st:
         session->logger.add_dimension("process_type", "local");
         complete(session);
     } else {
-        record = dns_record_manager::uniq().get_dns_record(host);
+        record = dns_record_manager::uniq().resolve(host);
         if (record.ips.empty()) {
             string fiDomain = dns_domain::getFIDomain(host);
             if (fiDomain == "LAN") {
-                record = dns_record_manager::uniq().get_dns_record(dns_domain::removeFIDomain(host));
+                record = dns_record_manager::uniq().resolve(dns_domain::removeFIDomain(host));
                 record.domain = host;
             }
         }
@@ -239,7 +239,7 @@ void dns_server::query_dns_record(session *session, const std::function<void(st:
 void dns_server::query_dns_record_from_remote(session *session, const std::function<void(st::dns::session *session)> &complete_handler) {
     auto record = session->record;
     auto host = record.domain;
-    vector<remote_dns_server *> servers = remote_dns_server::calculateQueryServer(host, config.servers);
+    vector<remote_dns_server *> servers = remote_dns_server::select_servers(host, config.servers);
     if (servers.empty()) {
         logger::ERROR << host << "query_dns_record_from_remote cal_remote_dns_servers empty!" << END;
         complete_handler(session);
@@ -321,7 +321,7 @@ unordered_set<session *> dns_server::end_query_remote(const string &host) {
 void dns_server::update_dns_record(const string &domain) {
     logger::DEBUG << "begin update dn record !" << domain << END;
 
-    vector<remote_dns_server *> servers = remote_dns_server::calculateQueryServer(domain, config.servers);
+    vector<remote_dns_server *> servers = remote_dns_server::select_servers(domain, config.servers);
     if (servers.empty()) {
         logger::ERROR << domain << "update dns record cal servers empty!" << END;
         return;
@@ -348,7 +348,7 @@ void dns_server::sync_dns_record_from_remote(const string &host, const std::func
                                              int pos, bool return_resolve_any) {
     if (pos >= servers.size()) {
         logger::ERROR << "not known host" << host << END;
-        complete(dns_record_manager::uniq().get_dns_record(host));
+        complete(dns_record_manager::uniq().resolve(host));
         return;
     }
     remote_dns_server *server = servers[pos];
@@ -358,7 +358,7 @@ void dns_server::sync_dns_record_from_remote(const string &host, const std::func
         if (!ips.empty()) {
             dns_record_manager::uniq().add(host, ips, server->id(), loadAll ? server->dns_cache_expire : server->dns_cache_expire / 2);
         }
-        dns_record record = dns_record_manager::uniq().get_dns_record(host);
+        dns_record record = dns_record_manager::uniq().resolve(host);
         if (pos + 1 >= servers.size()) {
             complete(record);
         } else {

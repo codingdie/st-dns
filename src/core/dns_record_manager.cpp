@@ -27,7 +27,7 @@ bool dns_record_manager::has_any_record(const string &domain) {
     return get_dns_records_pb(domain).map_size() > 0;
 }
 
-dns_record dns_record_manager::get_dns_record(const string &domain) {
+dns_record dns_record_manager::resolve(const string &domain) {
     auto records = this->get_dns_records_pb(domain);
     return transform(records);
 }
@@ -88,10 +88,15 @@ dns_record dns_record_manager::transform(const st::dns::proto::records &records)
 }
 
 
-dns_record_manager::dns_record_manager() : db("st-dns-record", 2 * 1024 * 1024), reverse("st-dns-reverse-record", 2 * 1024 * 1024) {
-    auto stat = stats();
-    logger::INFO << "dns record stats:"
-                 << "\n" + stat.serialize() << END;
+dns_record_manager::dns_record_manager() : db("st-dns-record", 2 * 1024 * 1024), reverse("st-dns-reverse-record", 2 * 1024 * 1024),
+                                           ic(),
+                                           iw(new boost::asio::io_context::work(ic)),
+                                           th(new std::thread([this]() {
+                                               ic.run();
+                                           })),
+                                           schedule_timer(ic) {
+
+    schedule_stats();
 }
 
 
@@ -163,7 +168,7 @@ void dns_record_manager::clear() {
 }
 dns_record_stats dns_record_manager::stats() {
     dns_record_stats stats;
-    db.list([this, &stats](const std::string &key, const std::string &value) {
+    db.list([&stats](const std::string &key, const std::string &value) {
         st::dns::proto::records records;
         records.ParseFromString(value);
         if (!records.domain().empty()) {
@@ -184,7 +189,7 @@ string dns_record::serialize() const {
            st::utils::ipv4::ips_to_str(ips) + "\t" + to_string(expire) + "\t";
 }
 
-st::dns::proto::reverse_record dns_record_manager::get_reverse_record(uint32_t ip) {
+st::dns::proto::reverse_record dns_record_manager::reverse_resolve(uint32_t ip) {
     string data = reverse.get(to_string(ip));
     st::dns::proto::reverse_record record;
     if (!data.empty()) {
@@ -194,9 +199,25 @@ st::dns::proto::reverse_record dns_record_manager::get_reverse_record(uint32_t i
     return record;
 }
 void dns_record_manager::add_reverse_record(uint32_t ip, std::string domain) {
-    auto record = this->get_reverse_record(ip);
+    auto record = this->reverse_resolve(ip);
     if (find(record.domains().begin(), record.domains().end(), domain) == record.domains().end()) {
         record.add_domains(domain);
         reverse.put(to_string(ip), record.SerializeAsString());
     }
+}
+dns_record_manager::~dns_record_manager() {
+    delete iw;
+    ic.stop();
+    th->join();
+    delete th;
+}
+void dns_record_manager::schedule_stats() {
+    ic.post([this]() {
+        auto stat = stats();
+        logger::INFO << "dns record stats:"
+                     << "\n" + stat.serialize() << END;
+        st::utils::apm_logger::perf("st-dns-stats", {}, {{"trusted_domain_count", stat.trusted_domain}, {"total_domain_count", stat.total_domain}});
+    });
+    schedule_timer.expires_from_now(boost::posix_time::seconds(60));
+    schedule_timer.async_wait([this](error_code ec) { schedule_stats(); });
 }

@@ -70,10 +70,10 @@ namespace st {
 
         bool manager::load_area_ips(const string &area_code) {
             string areaCode = get_area_code(area_code);
+            std::lock_guard<std::mutex> lg(default_lock);
             if (default_caches.find(areaCode) != default_caches.end()) {
                 return true;
             }
-            std::lock_guard<std::mutex> lg(default_lock);
             if (default_caches.find(areaCode) == default_caches.end()) {
                 string dataPath = download_area_ips(areaCode);
                 if (dataPath.empty()) {
@@ -166,7 +166,8 @@ namespace st {
                                     std::lock_guard<std::mutex> lg(net_lock);
                                     this->net_caches[ip] = area;
                                     fs << st::utils::ipv4::ip_to_str(ip) << "\t" << area << "\n";
-                                    logger::INFO << "async load ip info" << st::utils::ipv4::ip_to_str(ip) << area << END;
+                                    logger::INFO << "async load ip info" << st::utils::ipv4::ip_to_str(ip) << area
+                                                 << END;
                                     fs.flush();
                                 }
                                 load_area_ips(area);
@@ -234,9 +235,15 @@ namespace st {
         string manager::get_area(const uint32_t &ip, bool async_load_net) {
             string area;
             if (ip != 0) {
-                area = get_area(ip, net_caches);
+                {
+                    std::lock_guard<std::mutex> lg(net_lock);
+                    area = get_area(ip, net_caches);
+                }
                 if (area.empty()) {
-                    area = get_area(ip, default_caches);
+                    {
+                        std::lock_guard<std::mutex> lg(default_lock);
+                        area = get_area(ip, default_caches);
+                    }
                     if (area != "LAN" && async_load_net) {
                         async_load_ip_info_from_net(ip);
                     }
@@ -245,9 +252,7 @@ namespace st {
             return area.empty() ? "default" : area;
         }
 
-        string manager::get_area(const uint32_t &ip) {
-            return get_area(ip, true);
-        }
+        string manager::get_area(const uint32_t &ip) { return get_area(ip, true); }
 
         pair<string, vector<area_ip_range>> manager::load_ip_info(const uint32_t &ip) {
             vector<area_ip_range> ip_ranges;

@@ -175,10 +175,12 @@ void apm_logger::start() {
 }
 
 void apm_logger::end() {
-    IO_CONTEXT.post([=]() {
-        uint64_t cost = time::now() - this->start_time;
-        this->add_metric("cost", cost);
-        this->add_metric("count", 1);
+    uint64_t cost = time::now() - this->start_time;
+    this->add_metric("cost", cost);
+    this->add_metric("count", 1);
+    boost::property_tree::ptree &dimensions = this->dimensions;
+    boost::property_tree::ptree &metrics = this->metrics;
+    IO_CONTEXT.post([dimensions, metrics]() {
         string name = dimensions.get<string>("name");
         string dimensionsId = base64::encode(to_json(dimensions));
         for (auto it = metrics.begin(); it != metrics.end(); it++) {

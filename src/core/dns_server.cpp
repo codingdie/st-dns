@@ -72,8 +72,8 @@ void dns_server::config_console() {
             result = make_pair(true, "");
         } else if (command == "dns record analyse") {
             result = make_pair(true, dns_record_manager::uniq().stats().serialize());
-        } else if (command == "date") {
-            result = make_pair(true, to_string(time::now()));
+        } else if (command == "ip area") {
+            result = make_pair(true, areaip::manager::uniq().get_area(st::utils::ipv4::str_to_ip(ip)));
         }
         return result;
     };

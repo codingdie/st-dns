@@ -60,33 +60,35 @@ namespace st {
         public:
             manager();
             ~manager();
-            bool load_area_ips(const string &areaCode);
+            bool load_area_ips(const string &area_code);
             bool is_area_ip(const string &areaReg, const uint32_t &ip);
             bool is_area_ip(const vector<string> &areas, const uint32_t &ip);
             bool is_area_ip(const string &areaReg, const string &ip);
             string get_area(const uint32_t &ip);
-            pair<string, vector<area_ip_range>> load_ip_info(const uint32_t &ip);
+            string get_area(const uint32_t &ip, bool async_load_net);
             static manager &uniq();
+            void async_load_ip_info_from_net(const uint32_t &ip);
 
         private:
             const string IP_NET_AREA_FILE = "/etc/area-ips/IP_NET_AREA";
             unordered_map<string, vector<area_ip_range>> default_caches;
             unordered_map<uint32_t, string> net_caches;
+            unordered_set<uint32_t> ips;
             mutex default_lock;
             mutex net_lock;
-
+            std::atomic_uint64_t load_ip_time;
             boost::asio::io_context ctx;
             boost::asio::io_context::work *ctx_work = nullptr;
             std::thread *th = nullptr;
             boost::asio::deadline_timer *stat_timer;
             static bool is_area_ip(const string &areaCode, const uint32_t &ip,
                                    const unordered_map<string, vector<area_ip_range>> &caches);
-            string get_area(const uint32_t &ip, const unordered_map<string, vector<area_ip_range>> &caches);
-            string get_area(const uint32_t &ip, const unordered_map<uint32_t, string> &caches);
-            string get_area_code(const string &areaReg);
-            string download_area_ips(const string &areaCode);
-            void async_load_ip_info(const uint32_t &ip);
+            static string get_area(const uint32_t &ip, const unordered_map<string, vector<area_ip_range>> &caches);
+            static string get_area(const uint32_t &ip, const unordered_map<uint32_t, string> &caches);
+            static string get_area_code(const string &areaReg);
+            static string download_area_ips(const string &areaCode);
             void sync_net_area_ip();
+            static pair<string, vector<area_ip_range>> load_ip_info(const uint32_t &ip);
         };
     }// namespace areaip
 }// namespace st

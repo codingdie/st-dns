@@ -389,18 +389,3 @@ void dns_server::sync_dns_record_from_remote(const string &host, const std::func
         });
     }
 }
-
-void dns_server::filter_ip_by_area(const string &host, remote_dns_server *server, vector<uint32_t> &ips) {
-    if (!ips.empty() && server->whitelist.find(host) == server->whitelist.end() && !server->areas.empty()) {
-        for (auto it = ips.begin(); it != ips.end();) {
-            auto ip = *it;
-            if (!st::areaip::manager::uniq().is_area_ip(server->areas, ip)) {
-                it = ips.erase(it);
-                logger::DEBUG << host << "remove not area ip" << st::utils::ipv4::ip_to_str(ip) << "from" << server->ip
-                              << st::utils::join(server->areas, "/") << END;
-            } else {
-                it++;
-            }
-        }
-    }
-}

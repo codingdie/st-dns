@@ -16,6 +16,7 @@ void dns_record_manager::add(const string &domain, const vector<uint32_t> &ips, 
     pb.clear_ips();
     for (const auto &ip : ips) {
         pb.add_ips(ip);
+        areaip::manager::uniq().async_load_ip_info_from_net(ip);
         add_reverse_record(ip, domain);
     }
     (*dns_records.mutable_map())[dns_server] = pb;

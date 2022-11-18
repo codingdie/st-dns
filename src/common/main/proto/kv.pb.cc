@@ -196,12 +196,12 @@ bool value::MergePartialFromCodedStream(
 
       // bytes data = 2;
       case 2: {
-          if (static_cast<::google::protobuf::uint8>(tag) == (18 & 0xFF)) {
+        if (static_cast< ::google::protobuf::uint8>(tag) == (18 & 0xFF)) {
               DO_(::google::protobuf::internal::WireFormatLite::ReadBytes(input, this->mutable_data()));
           } else {
-              goto handle_unusual;
-          }
-          break;
+          goto handle_unusual;
+        }
+        break;
       }
 
       default: {
@@ -266,9 +266,9 @@ size_t value::ByteSizeLong() const {
         total_size += 1 + ::google::protobuf::internal::WireFormatLite::UInt32Size(this->expire());
     }
 
-    int cached_size = ::google::protobuf::internal::ToCachedSize(total_size);
-    SetCachedSize(cached_size);
-    return total_size;
+  int cached_size = ::google::protobuf::internal::ToCachedSize(total_size);
+  SetCachedSize(cached_size);
+  return total_size;
 }
 
 void value::CheckTypeAndMergeFrom(

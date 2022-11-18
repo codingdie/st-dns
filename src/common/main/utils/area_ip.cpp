@@ -218,7 +218,9 @@ namespace st {
                 area = get_area(ip, net_caches);
                 if (area.empty()) {
                     area = get_area(ip, default_caches);
-                    async_load_ip_info(ip);
+                    if (area != "LAN") {
+                        async_load_ip_info(ip);
+                    }
                 }
             }
             return area.empty() ? "default" : area;

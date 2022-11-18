@@ -133,7 +133,7 @@ class value :
       ::google::protobuf::io::CodedInputStream* input) final;
   #endif  // GOOGLE_PROTOBUF_ENABLE_EXPERIMENTAL_PARSER
   void SerializeWithCachedSizes(
-          ::google::protobuf::io::CodedOutputStream *output) const final;
+      ::google::protobuf::io::CodedOutputStream* output) const final;
   void DiscardUnknownFields();
   int GetCachedSize() const final { return _cached_size_.Get(); }
 
@@ -141,13 +141,12 @@ class value :
   void SharedCtor();
   void SharedDtor();
   void SetCachedSize(int size) const;
-  void InternalSwap(value *other);
-
+  void InternalSwap(value* other);
   private:
-  inline ::google::protobuf::Arena *GetArenaNoVirtual() const {
-      return nullptr;
+  inline ::google::protobuf::Arena* GetArenaNoVirtual() const {
+    return nullptr;
   }
-  inline void *MaybeArenaPtr() const { return nullptr; }
+  inline void* MaybeArenaPtr() const { return nullptr; }
 
   public:
   ::std::string GetTypeName() const final;

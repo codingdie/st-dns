@@ -218,6 +218,6 @@ void dns_record_manager::schedule_stats() {
                      << "\n" + stat.serialize() << END;
         st::utils::apm_logger::perf("st-dns-stats", {}, {{"trusted_domain_count", stat.trusted_domain}, {"total_domain_count", stat.total_domain}});
     });
-    schedule_timer.expires_from_now(boost::posix_time::seconds(60));
+    schedule_timer.expires_from_now(boost::posix_time::minutes(5));
     schedule_timer.async_wait([this](error_code ec) { schedule_stats(); });
 }

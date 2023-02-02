@@ -22,7 +22,7 @@ using namespace st::dns;
 
 class dns_server {
 public:
-    dns_server(st::dns::config &config);
+    explicit dns_server(st::dns::config &config);
 
     void start();
 
@@ -65,7 +65,7 @@ private:
 
     uint32_t cal_expire(dns_record &record) const;
 
-    void config_console();
+    void start_console();
 };
 
 

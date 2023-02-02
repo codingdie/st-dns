@@ -46,7 +46,7 @@ void dns_client::udp_dns(const string &domain, const std::string &dns_server, ui
     std::function<void(std::vector<uint32_t> ips)> complete = [=](std::vector<uint32_t> ips) {
         delete timeoutTimer;
         if (!ips.empty()) {
-            logger::INFO << logTag << "cost" << time::now() - beginTime << "resolve ips" << st::utils::ipv4::ips_to_str(ips) << END;
+            logger::DEBUG << logTag << "cost" << time::now() - beginTime << "resolve ips" << st::utils::ipv4::ips_to_str(ips) << END;
         }
         complete_handler(ips);
     };
@@ -113,7 +113,7 @@ void dns_client::tcp_tls_dns(const string &domain, const std::string &dns_server
                 timer->cancel();
                 delete timer;
                 if (!ips.empty()) {
-                    logger::INFO << log_tag << "cost" << time::now() - beginTime << "resolve ips" << st::utils::ipv4::ips_to_str(ips) << END;
+                    logger::DEBUG << log_tag << "cost" << time::now() - beginTime << "resolve ips" << st::utils::ipv4::ips_to_str(ips) << END;
                 }
                 complete_handler(ips);
             };
@@ -211,7 +211,7 @@ void dns_client::tcp_dns(const string &domain, const std::string &dns_server, ui
             [=](const std::vector<uint32_t> &ips) {
                 delete timer;
                 if (!ips.empty()) {
-                    logger::INFO << logTag << "cost" << time::now() - begin << "resolve ips" << st::utils::ipv4::ips_to_str(ips) << END;
+                    logger::DEBUG << logTag << "cost" << time::now() - begin << "resolve ips" << st::utils::ipv4::ips_to_str(ips) << END;
                 }
                 complete_handler(ips);
             };

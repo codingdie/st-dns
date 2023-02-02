@@ -25,9 +25,9 @@ dns_server::dns_server(st::dns::config &config) : rid(time::now()), config(confi
         logger::ERROR << "bind address error" << config.ip << config.port << e.what() << END;
         exit(1);
     }
-    config_console();
+    start_console();
 }
-void dns_server::config_console() {
+void dns_server::start_console() {
     console.desc.add_options()("domain", boost::program_options::value<string>()->default_value(""), "domain");
     console.desc.add_options()("ip", boost::program_options::value<string>()->default_value(""), "ip");
     console.impl = [](const vector<string> &commands, const boost::program_options::variables_map &options) {
@@ -109,7 +109,7 @@ void dns_server::wait_start() {
 void dns_server::receive() {
     uint64_t id = rid.fetch_add(1);
     logger::traceId = id;
-    session *session = new st::dns::session(id);
+    auto *session = new st::dns::session(id);
     ss->async_receive_from(buffer(session->request.data, session->request.len),
                            session->client_endpoint,
                            [=](boost::system::error_code errorCode, std::size_t size) {
@@ -247,7 +247,7 @@ void dns_server::query_dns_record_from_remote(session *session, const std::funct
     }
     if (begin_query_remote(host, session)) {
         sync_dns_record_from_remote(
-                host, [=](dns_record record) {
+                host, [=](const dns_record& record) {
                     auto sessions = end_query_remote(host);
                     for (auto se : sessions) {
                         se->record = record;
@@ -353,7 +353,7 @@ void dns_server::sync_dns_record_from_remote(const string &host, const std::func
     }
     remote_dns_server *server = servers[pos];
     uint64_t traceId = logger::traceId;
-    dns_multi_area_complete complete_handler = [=](vector<uint32_t> ips, bool loadAll) {
+    dns_multi_area_complete complete_handler = [=](const vector<uint32_t> &ips, bool loadAll) {
         logger::traceId = traceId;
         if (!ips.empty()) {
             dns_record_manager::uniq().add(host, ips, server->id(), loadAll ? server->dns_cache_expire : server->dns_cache_expire / 2);
@@ -384,7 +384,7 @@ void dns_server::sync_dns_record_from_remote(const string &host, const std::func
     } else if (server->type == "TCP") {
         dns_client::uniq().tcp_dns(host, server->ip, server->port, server->timeout, areas, complete_handler);
     } else if (server->type == "UDP") {
-        dns_client::uniq().udp_dns(host, server->ip, server->port, server->timeout, [=](std::vector<uint32_t> ips) {
+        dns_client::uniq().udp_dns(host, server->ip, server->port, server->timeout, [=](const std::vector<uint32_t> &ips) {
             complete_handler(ips, true);
         });
     }

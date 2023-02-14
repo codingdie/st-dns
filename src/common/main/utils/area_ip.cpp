@@ -259,8 +259,8 @@ namespace st {
             string result;
             string area;
             string command =
-                    "curl -s -m 10 --location --request GET \"https://ipinfo.io/widget/" + ipv4::ip_to_str(ip) +
-                    "?token=" + to_string(time::now()) +
+                    "curl --connect-timeout 3 -s -m 10 --location --request GET \"https://ipinfo.io/widget/" +
+                    ipv4::ip_to_str(ip) + "?token=" + to_string(time::now()) +
                     R"(" --header "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.75 Safari/537.3" --header "Referer: https://ipinfo.io/")";
             if (shell::exec(command, result)) {
                 ptree tree;

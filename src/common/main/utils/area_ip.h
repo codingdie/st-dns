@@ -88,7 +88,9 @@ namespace st {
             static string get_area_code(const string &areaReg);
             static string download_area_ips(const string &areaCode);
             void sync_net_area_ip();
-            static pair<string, vector<area_ip_range>> load_ip_info(const uint32_t &ip);
+            static string load_ip_info(const uint32_t &ip);
+            static string load_ip_info_from_ipinfo_io(const uint32_t &ip);
+            static string load_ip_info_from_baidu(const uint32_t &ip);
         };
     }// namespace areaip
 }// namespace st

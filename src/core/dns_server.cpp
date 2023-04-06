@@ -82,11 +82,20 @@ void dns_server::start_console() {
 
 void dns_server::start() {
     dns_record_manager::uniq();
+    vector<thread> threads;
+    unsigned int cpu_count = std::thread::hardware_concurrency();
     iw = new boost::asio::io_context::work(ic);
+    for (auto i = 0; i < cpu_count; i++) {
+        threads.emplace_back([this]() {
+            this->ic.run();
+        });
+    }
     logger::INFO << "st-dns start, listen at" << config.ip << config.port << END;
     receive();
     state++;
-    ic.run();
+    for (auto &th : threads) {
+        th.join();
+    }
     logger::INFO << "st-dns end" << END;
 }
 
@@ -98,7 +107,7 @@ void dns_server::shutdown() {
     ss->close();
     delete ss;
     apm_logger::disable();
-    logger::INFO << "st-dns server stoped, listen at" << config.ip + ":" + to_string(config.port) << END;
+    logger::INFO << "st-dns server stopped, listen at" << config.ip + ":" + to_string(config.port) << END;
 }
 
 void dns_server::wait_start() {
@@ -119,7 +128,7 @@ void dns_server::receive() {
                                session->logger.start();
                                if (!errorCode && size > 0) {
                                    bool parsed = session->request.parse(size);
-                                   session->logger.step("parseRequest");
+                                   session->logger.step("parse_request");
                                    if (parsed) {
                                        process_session(session);
                                    } else {
@@ -247,7 +256,7 @@ void dns_server::query_dns_record_from_remote(session *session, const std::funct
     }
     if (begin_query_remote(host, session)) {
         sync_dns_record_from_remote(
-                host, [=](const dns_record& record) {
+                host, [=](const dns_record &record) {
                     auto sessions = end_query_remote(host);
                     for (auto se : sessions) {
                         se->record = record;
@@ -362,7 +371,7 @@ void dns_server::sync_dns_record_from_remote(const string &host, const std::func
         if (pos + 1 >= servers.size()) {
             complete(record);
         } else {
-            if (record.match_area && return_resolve_any) {
+            if (!record.ips.empty() && record.match_area && return_resolve_any) {
                 complete(record);
                 update_dns_record(record.domain);
             } else {

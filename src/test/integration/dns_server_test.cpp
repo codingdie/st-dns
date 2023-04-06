@@ -49,10 +49,7 @@ void test_dns(const string &domain) {
     lock.unlock();
 }
 
-
-TEST_F(IntegrationTests, test_dns) {
-    test_dns("www.baidu.com");
-
+void test_console() {
     string ip = st::dns::config::INSTANCE.console_ip;
     int console_port = st::dns::config::INSTANCE.console_port;
     auto begin = time::now();
@@ -70,4 +67,12 @@ TEST_F(IntegrationTests, test_dns) {
     ASSERT_STREQ("/tmp/st-dns-record.txt", result.second.c_str());
     result = console::client::command(ip, console_port, "dns record analyse", 60000);
     ASSERT_TRUE(result.first);
+}
+
+
+TEST_F(IntegrationTests, test_dns) {
+    for (auto i = 0; i < 1000; i++) {
+        test_dns("www.baidu.com");
+    }
+    test_console()
 }

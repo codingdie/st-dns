@@ -11,7 +11,7 @@
 using namespace boost::property_tree;
 
 
-const int NET_QPS = 1;
+const int NET_QPS = 3;
 namespace st {
     namespace areaip {
 
@@ -105,7 +105,7 @@ namespace st {
                     return false;
                 }
             }
-            auto ipArea = get_area(ip, false);
+            auto ipArea = get_area(ip, true);
             if (ipArea == "default") {
                 return false;
             }
@@ -154,23 +154,17 @@ namespace st {
             ctx.post([this, ip]() {
                 if (ips.emplace(ip).second) {
                     std::function<void(const uint32_t &ip)> do_load_ip_info = [this](const uint32_t &ip) {
-                        uint64_t begin = st::utils::time::now();
                         if (get_area(ip, net_caches).empty()) {
-                            auto ipInfos = load_ip_info(ip);
-                            apm_logger::perf("load-net-ip-info", {{"success", to_string(!ipInfos.first.empty())}},
-                                             st::utils::time::now() - begin);
-                            if (!ipInfos.first.empty()) {
-                                auto area = ipInfos.first;
+                            auto area_code = load_ip_info(ip);
+                            if (!area_code.empty()) {
                                 ofstream fs(IP_NET_AREA_FILE, std::ios_base::out | std::ios_base::app);
                                 if (fs.is_open()) {
                                     std::lock_guard<std::mutex> lg(net_lock);
-                                    this->net_caches[ip] = area;
-                                    fs << st::utils::ipv4::ip_to_str(ip) << "\t" << area << "\n";
-                                    logger::INFO << "async load ip info" << st::utils::ipv4::ip_to_str(ip) << area
-                                                 << END;
+                                    this->net_caches[ip] = area_code;
+                                    fs << st::utils::ipv4::ip_to_str(ip) << "\t" << area_code << "\n";
                                     fs.flush();
                                 }
-                                load_area_ips(area);
+                                load_area_ips(area_code);
                             } else {
                                 logger::ERROR << "async load ip info failed!" << st::utils::ipv4::ip_to_str(ip) << END;
                             }
@@ -254,52 +248,76 @@ namespace st {
 
         string manager::get_area(const uint32_t &ip) { return get_area(ip, true); }
 
-        pair<string, vector<area_ip_range>> manager::load_ip_info(const uint32_t &ip) {
-            vector<area_ip_range> ip_ranges;
+        string manager::load_ip_info(const uint32_t &ip) {
+            uint64_t begin = st::utils::time::now();
+            string area = load_ip_info_from_baidu(ip);
+            apm_logger::perf("load-net-ip-info", {{"success", to_string(!area.empty())}, {"source", "baidu.com"}},
+                             st::utils::time::now() - begin);
+            if (area.empty()) {
+                begin = st::utils::time::now();
+                area = load_ip_info_from_ipinfo_io(ip);
+                apm_logger::perf("load-net-ip-info", {{"success", to_string(!area.empty())}, {"source", "ipinfo.io"}},
+                                 st::utils::time::now() - begin);
+                logger::INFO << "async load ip info from ipinfo.io" << st::utils::ipv4::ip_to_str(ip) << area << END;
+            } else {
+                logger::INFO << "async load ip info from baidu" << st::utils::ipv4::ip_to_str(ip) << area << END;
+            }
+            return area;
+        }
+        string manager::load_ip_info_from_ipinfo_io(const uint32_t &ip) {
             string result;
             string area;
             string command =
-                    "curl --connect-timeout 3 -s -m 10 --location --request GET \"https://ipinfo.io/widget/" +
+                    "curl --connect-timeout 3 -s -m 5 --location --request GET \"https://ipinfo.io/widget/" +
                     ipv4::ip_to_str(ip) + "?token=" + to_string(time::now()) +
                     R"(" --header "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.75 Safari/537.3" --header "Referer: https://ipinfo.io/")";
             if (shell::exec(command, result)) {
                 ptree tree;
                 try {
-                    std::stringstream ss(result);
+                    stringstream ss(result);
                     read_json(ss, tree);
                     area = tree.get("country", "");
                     auto abuse = tree.get_child_optional("abuse");
                     if (area.empty() && abuse.is_initialized()) {
                         area = abuse.get().get("country", "");
                     }
-                    if (!area.empty() && area.size() == 2) {
-                        auto asn = tree.get_child_optional("asn");
-                        if (asn.is_initialized()) {
-                            auto route = asn.get().get("route", "");
-                            if (!route.empty()) {
-                                ip_ranges.emplace_back(area_ip_range::parse(route, area));
-                            }
-                        } else {
-                            if (abuse.is_initialized()) {
-                                auto route = abuse.get().get("network", "");
-                                if (!route.empty()) {
-                                    ip_ranges.emplace_back(area_ip_range::parse(route, area));
-                                }
-                            }
-                        }
-                    } else {
+                    if (area.empty() || area.size() != 2) {
                         area = "";
                     }
                 } catch (exception &e) {
                 }
             } else {
-                logger::ERROR << "load_ip_info curl failed!" << command << result << END;
+                logger::ERROR << "load_ip_info_from_ipinfo_io curl failed!" << command << result << END;
             }
-            if (ip_ranges.empty()) {
-                logger::ERROR << "load_ip_info failed!" << result << END;
-            }
-            return make_pair(area, ip_ranges);
+            return area;
         }
+
+        string manager::load_ip_info_from_baidu(const uint32_t &ip) {
+            string result;
+            string area;
+            string command =
+                    "curl --connect-timeout 3 -s -m 5 --location --request GET \"https://gwgp-cekvddtwkob.n.bdcloudapi.com/ip/geo/v1/district?ip=" +
+                    ipv4::ip_to_str(ip) + R"(" --header "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.75 Safari/537.3" --header "Referer: https://ipinfo.io/")";
+            if (shell::exec(command, result)) {
+                ptree tree;
+                try {
+                    stringstream ss(result);
+                    read_json(ss, tree);
+                    string code = tree.get("code", "");
+                    if ("Success" == code) {
+                        auto data = tree.get_child_optional("data");
+                        if (data.is_initialized()) {
+                            area = data.get().get("areacode", "");
+                        }
+                    }
+                } catch (exception &e) {
+                }
+            } else {
+                logger::ERROR << "load_ip_info_from_baidu curl failed!" << command << result << END;
+            }
+            return area;
+        }
+
         void manager::sync_net_area_ip() {
             lock_guard<mutex> lockGuard(net_lock);
             unordered_set<string> finalRecord;

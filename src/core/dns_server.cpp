@@ -236,11 +236,11 @@ void dns_server::query_dns_record(session *session, const std::function<void(st:
             session->logger.add_dimension("process_type", "remote");
             query_dns_record_from_remote(session, complete);
         } else {
+            complete(session);
             session->logger.add_dimension("process_type", "cache");
             if (record.expire || !record.match_area) {
                 update_dns_record(record.domain);
             }
-            complete(session);
         }
     }
 }
@@ -307,7 +307,7 @@ bool dns_server::begin_query_remote(const string &host, session *session) {
     auto it = waiting_sessions.find(host);
     if (it == waiting_sessions.end()) {
         unordered_set<st::dns::session *> ses;
-        waiting_sessions.emplace(make_pair(host, ses));
+        waiting_sessions.emplace(host, ses);
         result = true;
         logger::DEBUG << host << "real begin_query_remote" << END;
     }
@@ -348,7 +348,7 @@ void dns_server::update_dns_record(const string &domain) {
             end_query_remote(domain);
         }
     } else {
-        logger::DEBUG << "update_dns_record inQuerying" << domain << END;
+        logger::DEBUG << "update_dns_record in querying" << domain << END;
     }
 }
 

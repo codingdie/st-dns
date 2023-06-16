@@ -236,8 +236,8 @@ void dns_server::query_dns_record(session *session, const std::function<void(st:
             session->logger.add_dimension("process_type", "remote");
             query_dns_record_from_remote(session, complete);
         } else {
-            complete(session);
             session->logger.add_dimension("process_type", "cache");
+            complete(session);
             if (record.expire || !record.match_area) {
                 update_dns_record(record.domain);
             }

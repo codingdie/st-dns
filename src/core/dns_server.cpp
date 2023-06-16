@@ -216,15 +216,15 @@ void dns_server::query_dns_record(session *session, const std::function<void(st:
         complete_handler(se);
     };
     auto host = session->get_host();
-    dns_record &record = session->record;
     if (host == "localhost") {
+        dns_record &record = session->record;
         record.server = "st-dns";
         record.domain = host;
         record.expire_time = std::numeric_limits<uint64_t>::max();
         session->logger.add_dimension("process_type", "local");
         complete(session);
     } else {
-        record = dns_record_manager::uniq().resolve(host);
+        auto record = dns_record_manager::uniq().resolve(host);
         if (record.ips.empty()) {
             string fiDomain = dns_domain::getFIDomain(host);
             if (fiDomain == "LAN") {
@@ -236,8 +236,9 @@ void dns_server::query_dns_record(session *session, const std::function<void(st:
             session->logger.add_dimension("process_type", "remote");
             query_dns_record_from_remote(session, complete);
         } else {
-            complete(session);
             session->logger.add_dimension("process_type", "cache");
+            session->record = record;
+            complete(session);
             if (record.expire || !record.match_area) {
                 update_dns_record(record.domain);
             }

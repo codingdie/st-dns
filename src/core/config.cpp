@@ -2,6 +2,8 @@
 // Created by System Administrator on 2020/10/8.
 //
 #include "config.h"
+#include "utils/area_ip.h"
+
 #include "command/proxy_command.h"
 #include <regex>
 st::dns::config st::dns::config::INSTANCE;
@@ -71,6 +73,11 @@ void st::dns::config::load(const string &base_conf_dir) {
             exit(1);
         }
         logger::init(tree);
+        auto area_ip_config_node = tree.get_child_optional("area_ip_config");
+        if (area_ip_config_node.is_initialized()) {
+            this->area_ip_config.load(area_ip_config_node.get());
+            areaip::manager::uniq().config(this->area_ip_config);
+        }
     } else {
         logger::ERROR << "st-dns config file not exit！" << config_path << END;
         exit(1);

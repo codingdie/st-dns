@@ -74,5 +74,5 @@ TEST_F(IntegrationTests, test_dns) {
     for (auto i = 0; i < 1000; i++) {
         test_dns("www.baidu.com");
     }
-    test_console()
+    test_console();
 }

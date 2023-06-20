@@ -50,5 +50,17 @@
       "ip": "192.168.31.10",
       "port": 30501
     }
+  },
+  "area_ip_config": {
+    "interfaces": [
+      {
+        "url": "http://ip.taobao.com/outGetIpInfo?ip={IP}&accessKey=alibaba-inc",
+        "area_json_path": "data.country_id"
+      },
+      {
+        "url": "http://ip-api.com/json/{IP}?lang=zh-CN",
+        "area_json_path": "countryCode"
+      }
+    ]
   }
 }

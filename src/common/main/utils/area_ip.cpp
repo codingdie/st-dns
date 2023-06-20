@@ -346,6 +346,7 @@ namespace st {
         void area_ip_config::load(const boost::property_tree::ptree &tree) {
             auto interfaces_node = tree.get_child("interfaces");
             if (!interfaces_node.empty()) {
+                this->interfaces.clear();
                 for (auto it = interfaces_node.begin(); it != interfaces_node.end(); it++) {
                     auto interface_node = it->second;
                     area_ip_net_interface in;
@@ -354,7 +355,6 @@ namespace st {
                     if (in.url.empty() || in.area_json_path.empty()) {
                         continue;
                     }
-                    this->interfaces.clear();
                     this->interfaces.emplace_back(in);
                 }
             }

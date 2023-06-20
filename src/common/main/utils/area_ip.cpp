@@ -314,25 +314,24 @@ namespace st {
             }
             if (ori_size != finalRecord.size()) {
                 string tmp = IP_NET_AREA_FILE + "." + to_string(time::now()) + "." + to_string(random_engine()) + ".tmp";
-                ofstream fileStream(tmp);
+                ofstream fs(tmp);
                 auto tmp_crate_time = time::now() / 1000;
-                unordered_map<uint32_t, string> newCaches;
+                unordered_map<uint32_t, string> new_caches;
                 for (const auto &it : finalRecord) {
                     auto splits = st::utils::strutils::split(it, "\t");
                     if (splits.size() == 2) {
-                        fileStream << it << "\n";
-                        newCaches[st::utils::ipv4::str_to_ip(splits[0])] = splits[1];
+                        fs << it << "\n";
+                        new_caches[st::utils::ipv4::str_to_ip(splits[0])] = splits[1];
                     }
                 }
-                fileStream.flush();
-                fileStream.close();
+                fs.flush();
+                fs.close();
 
-                this->net_caches = newCaches;
+                this->net_caches = new_caches;
                 auto last_write_time = boost::filesystem::last_write_time(IP_NET_AREA_FILE);
                 if (last_write_time < tmp_crate_time) {
                     boost::filesystem::rename(tmp, IP_NET_AREA_FILE);
-                    logger::INFO << "sync net area ips success! before:" << this->net_caches.size()
-                                 << "after:" << newCaches.size() << END;
+                    logger::INFO << "sync net area ips success! before:" << ori_size << "after:" << new_caches.size() << END;
                 } else {
                     logger::DEBUG << "sync net area ips skip! update conflict" << last_write_time << tmp_crate_time << END;
                     boost::filesystem::remove(tmp);

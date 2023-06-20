@@ -15,6 +15,7 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <random>
 
 using namespace std;
 
@@ -86,6 +87,7 @@ namespace st {
         private:
             const string IP_NET_AREA_FILE = "/etc/area-ips/IP_NET_AREA";
             area_ip_config conf;
+            std::default_random_engine random_engine;
             unordered_map<string, vector<area_ip_range>> default_caches;
             unordered_map<uint32_t, string> net_caches;
             unordered_set<uint32_t> ips;

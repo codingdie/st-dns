@@ -21,7 +21,7 @@ namespace st {
             static manager instance;
             return instance;
         }
-        manager::manager() : load_ip_time(time::now()), ctx() {
+        manager::manager() : load_ip_time(time::now()), ctx(), random_engine(time::now()) {
             ctx_work = new boost::asio::io_context::work(ctx);
             stat_timer = new boost::asio::deadline_timer(ctx);
             th = new thread([this]() { this->ctx.run(); });
@@ -287,7 +287,7 @@ namespace st {
 
         string manager::load_ip_info(const uint32_t &ip) {
             auto interfaces = this->conf.interfaces;
-            std::shuffle(interfaces.begin(), interfaces.end(), std::default_random_engine(time::now()));
+            std::shuffle(interfaces.begin(), interfaces.end(), random_engine);
             for (auto &interface : interfaces) {
                 string area = load_ip_info(ip, interface);
                 if (!area.empty()) {
@@ -316,10 +316,11 @@ namespace st {
                 auto area = net_cache.second;
                 finalRecord.emplace(st::utils::ipv4::ip_to_str(ip) + "\t" + area);
             }
-            ofstream fileStream(IP_NET_AREA_FILE);
+            string tmp = IP_NET_AREA_FILE + "." + to_string(time::now()) + "." + to_string(random_engine()) + ".tmp";
+            ofstream fileStream(tmp);
+            auto tmp_crate_time = time::now() / 1000;
             if (fileStream.is_open()) {
                 unordered_map<uint32_t, string> newCaches;
-
                 for (const auto &it : finalRecord) {
                     auto splits = st::utils::strutils::split(it, "\t");
                     if (splits.size() == 2) {
@@ -329,11 +330,19 @@ namespace st {
                 }
                 fileStream.flush();
                 fileStream.close();
-                logger::INFO << "sync net area ips success! before:" << this->net_caches.size()
-                             << "after:" << newCaches.size() << END;
+
                 this->net_caches = newCaches;
+                auto last_write_time = boost::filesystem::last_write_time(IP_NET_AREA_FILE);
+                if (last_write_time < tmp_crate_time) {
+                    boost::filesystem::rename(tmp, IP_NET_AREA_FILE);
+                    logger::INFO << "sync net area ips success! before:" << this->net_caches.size()
+                                 << "after:" << newCaches.size() << END;
+                } else {
+                    logger::INFO << "sync net area ips skip!" << last_write_time << tmp_crate_time << END;
+                    boost::filesystem::remove(tmp);
+                }
             }
-            stat_timer->expires_from_now(boost::posix_time::seconds(30));
+            stat_timer->expires_from_now(boost::posix_time::seconds(3 + random_engine() % 2));
             stat_timer->async_wait([=](boost::system::error_code ec) {
                 if (!ec) {
                     this->sync_net_area_ip();

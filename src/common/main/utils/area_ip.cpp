@@ -311,15 +311,16 @@ namespace st {
                 }
             }
             in.close();
+            auto ori_size = finalRecord.size();
             for (auto &net_cache : net_caches) {
                 auto ip = net_cache.first;
                 auto area = net_cache.second;
                 finalRecord.emplace(st::utils::ipv4::ip_to_str(ip) + "\t" + area);
             }
-            string tmp = IP_NET_AREA_FILE + "." + to_string(time::now()) + "." + to_string(random_engine()) + ".tmp";
-            ofstream fileStream(tmp);
-            auto tmp_crate_time = time::now() / 1000;
-            if (fileStream.is_open()) {
+            if (ori_size != finalRecord.size()) {
+                string tmp = IP_NET_AREA_FILE + "." + to_string(time::now()) + "." + to_string(random_engine()) + ".tmp";
+                ofstream fileStream(tmp);
+                auto tmp_crate_time = time::now() / 1000;
                 unordered_map<uint32_t, string> newCaches;
                 for (const auto &it : finalRecord) {
                     auto splits = st::utils::strutils::split(it, "\t");
@@ -338,9 +339,11 @@ namespace st {
                     logger::INFO << "sync net area ips success! before:" << this->net_caches.size()
                                  << "after:" << newCaches.size() << END;
                 } else {
-                    logger::INFO << "sync net area ips skip!" << last_write_time << tmp_crate_time << END;
+                    logger::DEBUG << "sync net area ips skip! update conflict" << last_write_time << tmp_crate_time << END;
                     boost::filesystem::remove(tmp);
                 }
+            } else {
+                logger::DEBUG << "sync net area ips skip! record not change" << END;
             }
             stat_timer->expires_from_now(boost::posix_time::seconds(3 + random_engine() % 2));
             stat_timer->async_wait([=](boost::system::error_code ec) {

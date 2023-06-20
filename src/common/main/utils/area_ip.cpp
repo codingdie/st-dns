@@ -354,6 +354,7 @@ namespace st {
                     if (in.url.empty() || in.area_json_path.empty()) {
                         continue;
                     }
+                    this->interfaces.clear();
                     this->interfaces.emplace_back(in);
                 }
             }

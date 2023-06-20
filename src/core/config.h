@@ -56,6 +56,7 @@ namespace st {
             string base_conf_dir = "/usr/local/etc/st/dns";
             vector<remote_dns_server *> servers;
             bool area_resolve_optimize = false;
+            st::areaip::area_ip_config area_ip_config;
 
             config() = default;
             void load(const string &base_conf_dir);

@@ -8,6 +8,7 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <iostream>
 #include <queue>
+#include "http.h"
 using namespace boost::property_tree;
 
 
@@ -247,75 +248,53 @@ namespace st {
         }
 
         string manager::get_area(const uint32_t &ip) { return get_area(ip, true); }
-
-        string manager::load_ip_info(const uint32_t &ip) {
-            uint64_t begin = st::utils::time::now();
-            string area = load_ip_info_from_baidu(ip);
-            apm_logger::perf("load-net-ip-info", {{"success", to_string(!area.empty())}, {"source", "baidu.com"}},
-                             st::utils::time::now() - begin);
-            if (area.empty()) {
-                begin = st::utils::time::now();
-                area = load_ip_info_from_ipinfo_io(ip);
-                apm_logger::perf("load-net-ip-info", {{"success", to_string(!area.empty())}, {"source", "ipinfo.io"}},
-                                 st::utils::time::now() - begin);
-                logger::INFO << "async load ip info from ipinfo.io" << st::utils::ipv4::ip_to_str(ip) << area << END;
-            } else {
-                logger::INFO << "async load ip info from baidu" << st::utils::ipv4::ip_to_str(ip) << area << END;
-            }
-            return area;
-        }
-        string manager::load_ip_info_from_ipinfo_io(const uint32_t &ip) {
-            string result;
+        string manager::load_ip_info(const uint32_t &ip, const area_ip_net_interface &interface) {
+            auto begin = time::now();
+            auto splits = utils::strutils::split(interface.url, "/", interface.url.find_first_of("://") + 3, 1);
+            auto host = splits[0];
             string area;
-            string command =
-                    "curl --connect-timeout 3 -s -m 5 --location --request GET \"https://ipinfo.io/widget/" +
-                    ipv4::ip_to_str(ip) + "?token=" + to_string(time::now()) +
-                    R"(" --header "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.75 Safari/537.3" --header "Referer: https://ipinfo.io/")";
-            if (shell::exec(command, result)) {
+            auto uri = "/" + splits[1].replace(splits[1].find("{IP}"), 4, ipv4::ip_to_str(ip));
+            auto result = st::utils::http::get(splits[0], uri, {{"User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.75 Safari/537.3"}, {"Referer", host}});
+            if (result.first == 200 && !result.second.empty()) {
                 ptree tree;
                 try {
-                    stringstream ss(result);
+                    stringstream ss(result.second);
                     read_json(ss, tree);
-                    area = tree.get("country", "");
-                    auto abuse = tree.get_child_optional("abuse");
-                    if (area.empty() && abuse.is_initialized()) {
-                        area = abuse.get().get("country", "");
-                    }
-                    if (area.empty() || area.size() != 2) {
-                        area = "";
-                    }
-                } catch (exception &e) {
-                }
-            } else {
-                logger::ERROR << "load_ip_info_from_ipinfo_io curl failed!" << command << result << END;
-            }
-            return area;
-        }
-
-        string manager::load_ip_info_from_baidu(const uint32_t &ip) {
-            string result;
-            string area;
-            string command =
-                    "curl --connect-timeout 3 -s -m 5 --location --request GET \"https://gwgp-cekvddtwkob.n.bdcloudapi.com/ip/geo/v1/district?ip=" +
-                    ipv4::ip_to_str(ip) + R"(" --header "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.75 Safari/537.3" --header "Referer: https://ipinfo.io/")";
-            if (shell::exec(command, result)) {
-                ptree tree;
-                try {
-                    stringstream ss(result);
-                    read_json(ss, tree);
-                    string code = tree.get("code", "");
-                    if ("Success" == code) {
-                        auto data = tree.get_child_optional("data");
-                        if (data.is_initialized()) {
-                            area = data.get().get("areacode", "");
+                    auto paths = strutils::split(interface.area_json_path, ".");
+                    for (int i = 0; i < paths.size(); i++) {
+                        if (i != paths.size() - 1) {
+                            auto node = tree.get_child_optional(paths[i]);
+                            if (node.is_initialized()) {
+                                tree = node.get();
+                            }
+                        } else {
+                            area = tree.get(paths[i], "");
                         }
                     }
                 } catch (exception &e) {
                 }
+            }
+            transform(area.begin(), area.end(), area.begin(), ::toupper);
+            apm_logger::perf("load-net-ip-info", {{"success", to_string(!area.empty())}, {"url", interface.url}},
+                             st::utils::time::now() - begin);
+            if (!area.empty()) {
+                logger::INFO << "load_ip_info from" << host + uri << " success!" << area << END;
             } else {
-                logger::ERROR << "load_ip_info_from_baidu curl failed!" << command << result << END;
+                logger::ERROR << "load_ip_info from" << host + uri << " failed!" << result.first << result.second << END;
             }
             return area;
+        }
+
+        string manager::load_ip_info(const uint32_t &ip) {
+            auto interfaces = this->conf.interfaces;
+            std::shuffle(interfaces.begin(), interfaces.end(), std::default_random_engine(time::now()));
+            for (auto &interface : interfaces) {
+                string area = load_ip_info(ip, interface);
+                if (!area.empty()) {
+                    return area;
+                }
+            }
+            return "";
         }
 
         void manager::sync_net_area_ip() {
@@ -361,7 +340,41 @@ namespace st {
                 }
             });
         }
+        void manager::config(const area_ip_config &config) {
+            this->conf = config;
+        }
+        void area_ip_config::load(const boost::property_tree::ptree &tree) {
+            auto interfaces_node = tree.get_child("interfaces");
+            if (!interfaces_node.empty()) {
+                for (auto it = interfaces_node.begin(); it != interfaces_node.end(); it++) {
+                    auto interface_node = it->second;
+                    area_ip_net_interface in;
+                    in.area_json_path = interface_node.get("area_json_path", "");
+                    in.url = interface_node.get("url", "");
+                    if (in.url.empty() || in.area_json_path.empty()) {
+                        continue;
+                    }
+                    this->interfaces.emplace_back(in);
+                }
+            }
+        }
 
 
+        void area_ip_config::load(const string &json) {
+            ptree tree;
+            std::stringstream ss(json);
+            try {
+                read_json(ss, tree);
+                this->load(tree);
+            } catch (json_parser_error &e) {
+                logger::ERROR << " parse json" << json << "error!" << e.message() << END;
+            }
+        }
+        area_ip_config::area_ip_config() {
+            this->load(R"({"interfaces":[
+                {"url":"http://ip.taobao.com/outGetIpInfo?ip={IP}&accessKey=alibaba-inc","area_json_path":"data.country_id"},
+                {"url":"http://ip-api.com/json/{IP}?lang=zh-CN","area_json_path":"countryCode"}
+            ]})");
+        }
     }// namespace areaip
 }// namespace st

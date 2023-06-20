@@ -158,13 +158,8 @@ namespace st {
                         if (get_area(ip, net_caches).empty()) {
                             auto area_code = load_ip_info(ip);
                             if (!area_code.empty()) {
-                                ofstream fs(IP_NET_AREA_FILE, std::ios_base::out | std::ios_base::app);
-                                if (fs.is_open()) {
-                                    std::lock_guard<std::mutex> lg(net_lock);
-                                    this->net_caches[ip] = area_code;
-                                    fs << st::utils::ipv4::ip_to_str(ip) << "\t" << area_code << "\n";
-                                    fs.flush();
-                                }
+                                std::lock_guard<std::mutex> lg(net_lock);
+                                this->net_caches[ip] = area_code;
                                 load_area_ips(area_code);
                             } else {
                                 logger::ERROR << "async load ip info failed!" << st::utils::ipv4::ip_to_str(ip) << END;

@@ -21,25 +21,32 @@ namespace st {
             static manager instance;
             return instance;
         }
-        manager::manager() : load_ip_time(time::now()), ctx(), random_engine(time::now()) {
+        manager::manager() : last_load_ip_info_time(time::now()), last_load_area_ips_time(time::now()), ctx(), sche_ctx(), random_engine(time::now()) {
             ctx_work = new boost::asio::io_context::work(ctx);
-            stat_timer = new boost::asio::deadline_timer(ctx);
+            sche_ctx_work = new boost::asio::io_context::work(sche_ctx);
             th = new thread([this]() { this->ctx.run(); });
+            sche_th = new thread([this]() { this->sche_ctx.run(); });
+            sync_timer = new boost::asio::deadline_timer(sche_ctx);
             vector<area_ip_range> ip_ranges;
             ip_ranges.emplace_back(area_ip_range::parse("192.168.0.0/16", "LAN"));
             ip_ranges.emplace_back(area_ip_range::parse("10.0.0.0/8", "LAN"));
             ip_ranges.emplace_back(area_ip_range::parse("172.16.0.0/16", "LAN"));
             ip_ranges.emplace_back(area_ip_range::parse("0.0.0.0/8", "LAN"));
             default_caches.emplace("LAN", ip_ranges);
+            file::create_if_not_exits(IP_NET_AREA_FILE);
             sync_net_area_ip();
         }
         manager::~manager() {
-            stat_timer->cancel();
+            sync_timer->cancel();
             ctx.stop();
+            sche_ctx.stop();
+            delete sche_ctx_work;
             delete ctx_work;
             th->join();
+            sche_th->join();
             delete th;
-            delete stat_timer;
+            delete sync_timer;
+            delete sche_th;
         }
 
         string manager::get_area_code(const string &areaReg) {
@@ -50,19 +57,20 @@ namespace st {
             transform(areaCode.begin(), areaCode.end(), areaCode.begin(), ::toupper);
             return areaCode;
         }
-        string manager::download_area_ips(const string &areaCode) {
-            string areaCodeLow = areaCode;
+        string manager::download_area_ips(const string &area_code) {
+            string areaCodeLow = area_code;
             transform(areaCodeLow.begin(), areaCodeLow.end(), areaCodeLow.begin(), ::tolower);
-            string filePath = "/etc/area-ips/" + areaCode;
-            if (!file::exit(filePath)) {
-                file::create_if_not_exits(filePath);
-                string url = "https://raw.githubusercontent.com/herrbischoff/country-ip-blocks/master/ipv4/" +
-                             areaCodeLow + ".cidr";
-                if (shell::exec("wget -q " + url + " -O " + filePath)) {
-                    return filePath;
+            string filePath = "/etc/area-ips/" + area_code;
+            if (!file::exists(filePath)) {
+                auto result = utils::http::get("https://raw.githubusercontent.com", "/herrbischoff/country-ip-blocks/master/ipv4/" + areaCodeLow + ".cidr", {});
+                if (result.first == 200 && !result.second.empty()) {
+                    file::create_if_not_exits(filePath);
+                    ofstream fs(filePath);
+                    fs << result.second;
+                    fs.flush();
+                    fs.close();
                 } else {
-                    logger::ERROR << areaCode << "ips file downloadn failed!" << url << END;
-                    file::del(filePath);
+                    logger::ERROR << area_code << "ips file download failed!" << area_code << END;
                     return "";
                 }
             }
@@ -72,39 +80,50 @@ namespace st {
         bool manager::load_area_ips(const string &area_code) {
             string areaCode = get_area_code(area_code);
             std::lock_guard<std::mutex> lg(default_lock);
-            if (default_caches.find(areaCode) != default_caches.end()) {
+            if (has_load_area_ips(areaCode)) {
                 return true;
-            }
-            if (default_caches.find(areaCode) == default_caches.end()) {
-                string dataPath = download_area_ips(areaCode);
-                if (dataPath.empty()) {
+            } else {
+                string path = download_area_ips(areaCode);
+                if (path.empty()) {
                     return false;
                 }
-                ifstream in(dataPath);
+                ifstream in(path);
                 string line;
                 vector<area_ip_range> &ip_ranges = default_caches[areaCode];
+                ip_ranges.clear();
                 if (in) {
                     while (getline(in, line)) {
                         if (!line.empty()) {
                             ip_ranges.emplace_back(area_ip_range::parse(line, areaCode));
                         }
                     }
-                    logger::INFO << "load area" << areaCode << "ips" << ip_ranges.size() << "from" << dataPath << END;
+                    logger::INFO << "load area" << areaCode << "ips" << ip_ranges.size() << "from" << path << END;
+                }
+                if (ip_ranges.empty()) {
+                    default_caches.erase(areaCode);
+                    file::del(path);
                 }
             }
             return true;
         }
+        bool manager::has_load_area_ips(const string &areaCode) { return default_caches.find(areaCode) != default_caches.end(); }
 
+        bool manager::async_load_area_ips(const string &area_code) {
+            if (!has_load_area_ips(area_code) && time::now() - last_load_area_ips_time.load() > 1000) {
+                last_load_area_ips_time = time::now();
+                ctx.post([this, area_code]() {
+                    this->load_area_ips(area_code);
+                });
+            }
+        }
 
         bool manager::is_area_ip(const std::vector<string> &areas, const uint32_t &ip) {
             if (areas.empty()) {
                 return true;
             }
-            for (const auto &areaReg : areas) {
-                string areaCode = get_area_code(areaReg);
-                if (!load_area_ips(areaCode)) {
-                    return false;
-                }
+            for (const auto &area_reg : areas) {
+                string area_code = get_area_code(area_reg);
+                async_load_area_ips(area_reg);
             }
             auto ipArea = get_area(ip, true);
             if (ipArea == "default") {
@@ -158,14 +177,9 @@ namespace st {
                         if (get_area(ip, net_caches).empty()) {
                             auto area_code = load_ip_info(ip);
                             if (!area_code.empty()) {
-                                ofstream fs(IP_NET_AREA_FILE, std::ios_base::out | std::ios_base::app);
-                                if (fs.is_open()) {
-                                    std::lock_guard<std::mutex> lg(net_lock);
-                                    this->net_caches[ip] = area_code;
-                                    fs << st::utils::ipv4::ip_to_str(ip) << "\t" << area_code << "\n";
-                                    fs.flush();
-                                }
-                                load_area_ips(area_code);
+                                std::lock_guard<std::mutex> lg(net_lock);
+                                this->net_caches[ip] = area_code;
+                                async_load_area_ips(area_code);
                             } else {
                                 logger::ERROR << "async load ip info failed!" << st::utils::ipv4::ip_to_str(ip) << END;
                             }
@@ -176,14 +190,14 @@ namespace st {
                         ips.erase(ip);
                     };
                     uint64_t now_time = time::now();
-                    if (load_ip_time.load() <= now_time) {
-                        load_ip_time = now_time + 1000L / NET_QPS;
+                    if (last_load_ip_info_time.load() <= now_time) {
+                        last_load_ip_info_time = now_time + 1000L / NET_QPS;
                     } else {
-                        load_ip_time.fetch_add(1000L / NET_QPS);
+                        last_load_ip_info_time.fetch_add(1000L / NET_QPS);
                     }
-                    if (load_ip_time.load() > now_time) {
+                    if (last_load_ip_info_time.load() > now_time) {
                         auto *delay = new boost::asio::deadline_timer(ctx);
-                        delay->expires_from_now(boost::posix_time::milliseconds(load_ip_time.load() - now_time));
+                        delay->expires_from_now(boost::posix_time::milliseconds(last_load_ip_info_time.load() - now_time));
                         delay->async_wait([=](boost::system::error_code ec) {
                             ctx.post(boost::bind(do_load_ip_info, ip));
                             delete delay;
@@ -299,57 +313,60 @@ namespace st {
 
         void manager::sync_net_area_ip() {
             lock_guard<mutex> lockGuard(net_lock);
-            unordered_set<string> finalRecord;
+            unordered_set<string> final_record;
             ifstream in(IP_NET_AREA_FILE);
-            if (!in) {
-                return;
-            }
-            string line;
-            while (getline(in, line)) {
-                if (!line.empty()) {
-                    finalRecord.emplace(line);
-                }
-            }
-            in.close();
-            auto ori_size = finalRecord.size();
-            for (auto &net_cache : net_caches) {
-                auto ip = net_cache.first;
-                auto area = net_cache.second;
-                finalRecord.emplace(st::utils::ipv4::ip_to_str(ip) + "\t" + area);
-            }
-            if (ori_size != finalRecord.size()) {
-                string tmp = IP_NET_AREA_FILE + "." + to_string(time::now()) + "." + to_string(random_engine()) + ".tmp";
-                ofstream fileStream(tmp);
-                auto tmp_crate_time = time::now() / 1000;
-                unordered_map<uint32_t, string> newCaches;
-                for (const auto &it : finalRecord) {
-                    auto splits = st::utils::strutils::split(it, "\t");
-                    if (splits.size() == 2) {
-                        fileStream << it << "\n";
-                        newCaches[st::utils::ipv4::str_to_ip(splits[0])] = splits[1];
+            if (in) {
+                string line;
+                while (getline(in, line)) {
+                    if (!line.empty()) {
+                        final_record.emplace(line);
                     }
                 }
-                fileStream.flush();
-                fileStream.close();
-
-                this->net_caches = newCaches;
-                auto last_write_time = boost::filesystem::last_write_time(IP_NET_AREA_FILE);
-                if (last_write_time < tmp_crate_time) {
-                    boost::filesystem::rename(tmp, IP_NET_AREA_FILE);
-                    logger::INFO << "sync net area ips success! before:" << this->net_caches.size()
-                                 << "after:" << newCaches.size() << END;
+                in.close();
+                auto ori_size = final_record.size();
+                for (auto &net_cache : net_caches) {
+                    auto ip = net_cache.first;
+                    auto area = net_cache.second;
+                    final_record.emplace(st::utils::ipv4::ip_to_str(ip) + "\t" + area);
+                }
+                auto merged_size = final_record.size();
+                if (ori_size != merged_size) {
+                    string tmp = IP_NET_AREA_FILE + "." + to_string(time::now()) + "." + to_string(random_engine()) + ".tmp";
+                    ofstream fs(tmp);
+                    auto tmp_crate_time = time::now() / 1000;
+                    unordered_map<uint32_t, string> new_caches;
+                    for (const auto &it : final_record) {
+                        auto splits = st::utils::strutils::split(it, "\t");
+                        uint32_t uip = st::utils::ipv4::str_to_ip(splits[0]);
+                        auto area = splits[1];
+                        if (splits.size() == 2 && uip != 9 && !area.empty()) {
+                            fs << it << "\n";
+                            new_caches[uip] = area;
+                        } else {
+                            logger::WARN << "invalid net ip record" << it << END;
+                        }
+                    }
+                    fs.flush();
+                    fs.close();
+                    this->net_caches = new_caches;
+                    auto last_write_time = boost::filesystem::last_write_time(IP_NET_AREA_FILE);
+                    if (last_write_time < tmp_crate_time) {
+                        boost::filesystem::rename(tmp, IP_NET_AREA_FILE);
+                        logger::INFO << "sync net area ips success! before:" << ori_size << "after:" << merged_size << "valid:" << new_caches.size() << END;
+                    } else {
+                        logger::DEBUG << "sync net area ips skip! update conflict" << last_write_time << tmp_crate_time << END;
+                        boost::filesystem::remove(tmp);
+                    }
                 } else {
-                    logger::DEBUG << "sync net area ips skip! update conflict" << last_write_time << tmp_crate_time << END;
-                    boost::filesystem::remove(tmp);
+                    logger::DEBUG << "sync net area ips skip! record not change" << END;
                 }
             } else {
-                logger::DEBUG << "sync net area ips skip! record not change" << END;
+                file::create_if_not_exits(IP_NET_AREA_FILE);
+                logger::ERROR << "sync net area ips skip! file not exits" << END;
             }
-            stat_timer->expires_from_now(boost::posix_time::seconds(3 + random_engine() % 2));
-            stat_timer->async_wait([=](boost::system::error_code ec) {
-                if (!ec) {
-                    this->sync_net_area_ip();
-                }
+            sync_timer->expires_from_now(boost::posix_time::seconds(3 + random_engine() % 2));
+            sync_timer->async_wait([=](boost::system::error_code ec) {
+                this->sync_net_area_ip();
             });
         }
         void manager::config(const area_ip_config &config) {

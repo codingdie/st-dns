@@ -10,7 +10,7 @@ st::dns::config st::dns::config::INSTANCE;
 void st::dns::config::load(const string &base_conf_dir) {
     this->base_conf_dir = base_conf_dir;
     string config_path = base_conf_dir + "/config.json";
-    if (st::utils::file::exit(config_path)) {
+    if (st::utils::file::exists(config_path)) {
         ptree tree;
         try {
             read_json(config_path, tree);
@@ -55,9 +55,7 @@ void st::dns::config::load(const string &base_conf_dir) {
                     for (boost::property_tree::ptree::value_type &v : areas_arr) {
                         string area = v.second.get_value<string>();
                         if (!area.empty()) {
-                            if (!st::areaip::manager::uniq().load_area_ips(area)) {
-                                exit(1);
-                            }
+                            st::areaip::manager::uniq().load_area_ips(area);
                             dns_server->areas.emplace_back(area);
                         }
                     }

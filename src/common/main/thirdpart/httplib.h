@@ -8265,7 +8265,7 @@ namespace httplib {
                         detail::load_system_certs_on_windows(SSL_CTX_get_cert_store(ctx_));
 #elif defined(CPPHTTPLIB_USE_CERTS_FROM_MACOSX_KEYCHAIN) && defined(__APPLE__)
 #if TARGET_OS_OSX
-      loaded = detail::load_system_certs_on_macos(SSL_CTX_get_cert_store(ctx_));
+                        loaded = detail::load_system_certs_on_macos(SSL_CTX_get_cert_store(ctx_));
 #endif// TARGET_OS_OSX
 #endif// _WIN32
                 if (!loaded) { SSL_CTX_set_default_verify_paths(ctx_); }

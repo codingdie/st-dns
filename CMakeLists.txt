@@ -5,7 +5,10 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lpthread -latomic -Wall -g")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Os")
 
-file(DOWNLOAD "https://raw.githubusercontent.com/yhirose/cpp-httplib/v0.12.6/httplib.h" ${PROJECT_SOURCE_DIR}/src/common/main/thirdpart/httplib.h)
+if (EXISTS ${PROJECT_SOURCE_DIR}/src/common/main/thirdpart/httplib.h)
+    file(DOWNLOAD "https://raw.githubusercontent.com/yhirose/cpp-httplib/v0.12.6/httplib.h" ${PROJECT_SOURCE_DIR}/src/common/main/thirdpart/httplib.h)
+endif ()
+
 find_package(OpenSSL 1.0.2 REQUIRED)
 find_package(Boost 1.66.0 REQUIRED COMPONENTS system filesystem thread program_options)
 find_package(leveldb REQUIRED)

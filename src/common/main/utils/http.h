@@ -19,6 +19,9 @@ namespace st {
             inline std::pair<int, std::string> get(const std::string &host, const std::string &path, const httplib::Headers &headers) {
                 try {
                     httplib::Client cli(host);
+                    cli.set_connection_timeout(1, 0);
+                    cli.set_read_timeout(3, 0);
+                    cli.set_write_timeout(3, 0);
                     cli.enable_server_certificate_verification(false);
                     cli.set_follow_location(true);
                     auto result = cli.Get(path, headers);

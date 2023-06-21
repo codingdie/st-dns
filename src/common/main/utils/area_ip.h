@@ -94,7 +94,8 @@ namespace st {
             unordered_set<uint32_t> ips;
             mutex default_lock;
             mutex net_lock;
-            std::atomic_uint64_t load_ip_time;
+            std::atomic_uint64_t last_load_ip_info_time;
+            std::atomic_uint64_t last_load_area_ips_time;
             boost::asio::io_context ctx;
             boost::asio::io_context::work *ctx_work = nullptr;
             std::thread *th = nullptr;

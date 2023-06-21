@@ -353,10 +353,10 @@ namespace st {
                 }
                 stat_timer->expires_from_now(boost::posix_time::seconds(3 + random_engine() % 2));
                 stat_timer->async_wait([=](boost::system::error_code ec) {
-                    if (!ec) {
-                        this->sync_net_area_ip();
-                    }
+                    this->sync_net_area_ip();
                 });
+            } else {
+                logger::ERROR << "sync net area ips skip! file not exits" << END;
             }
         }
         void manager::config(const area_ip_config &config) {

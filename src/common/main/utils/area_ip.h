@@ -109,7 +109,7 @@ namespace st {
             string get_area(const uint32_t &ip, const unordered_map<string, vector<area_ip_range>> &caches);
             string get_area(const uint32_t &ip, const unordered_map<uint32_t, string> &caches);
             string get_area_code(const string &areaReg);
-            string download_area_ips(const string &areaCode);
+            string download_area_ips(const string &area_code);
             void sync_net_area_ip();
             string load_ip_info(const uint32_t &ip);
             string load_ip_info(const uint32_t &ip, const area_ip_net_interface &interface);

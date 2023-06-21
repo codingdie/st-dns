@@ -55,7 +55,7 @@ namespace st {
             string areaCodeLow = areaCode;
             transform(areaCodeLow.begin(), areaCodeLow.end(), areaCodeLow.begin(), ::tolower);
             string filePath = "/etc/area-ips/" + areaCode;
-            if (!file::exit(filePath)) {
+            if (!file::exists(filePath)) {
                 file::create_if_not_exits(filePath);
                 string url = "https://raw.githubusercontent.com/herrbischoff/country-ip-blocks/master/ipv4/" +
                              areaCodeLow + ".cidr";

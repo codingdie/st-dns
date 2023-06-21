@@ -99,7 +99,11 @@ namespace st {
             boost::asio::io_context ctx;
             boost::asio::io_context::work *ctx_work = nullptr;
             std::thread *th = nullptr;
-            boost::asio::deadline_timer *stat_timer;
+
+            boost::asio::io_context sche_ctx;
+            boost::asio::io_context::work *sche_ctx_work = nullptr;
+            std::thread *sche_th = nullptr;
+            boost::asio::deadline_timer *sync_timer;
             bool is_area_ip(const string &areaCode, const uint32_t &ip,
                             const unordered_map<string, vector<area_ip_range>> &caches);
             string get_area(const uint32_t &ip, const unordered_map<string, vector<area_ip_range>> &caches);

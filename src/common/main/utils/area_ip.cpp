@@ -73,10 +73,9 @@ namespace st {
         bool manager::load_area_ips(const string &area_code) {
             string areaCode = get_area_code(area_code);
             std::lock_guard<std::mutex> lg(default_lock);
-            if (default_caches.find(areaCode) != default_caches.end()) {
+            if (has_load_area_ips(areaCode)) {
                 return true;
-            }
-            if (default_caches.find(areaCode) == default_caches.end()) {
+            } else {
                 string dataPath = download_area_ips(areaCode);
                 if (dataPath.empty()) {
                     return false;
@@ -95,17 +94,23 @@ namespace st {
             }
             return true;
         }
+        bool manager::has_load_area_ips(const string &areaCode) { return default_caches.find(areaCode) != default_caches.end(); }
 
+        bool manager::async_load_area_ips(const string &area_code) {
+            if (!has_load_area_ips(area_code)) {
+                ctx.post([this, area_code]() {
+                    this->load_area_ips(area_code);
+                });
+            }
+        }
 
         bool manager::is_area_ip(const std::vector<string> &areas, const uint32_t &ip) {
             if (areas.empty()) {
                 return true;
             }
-            for (const auto &areaReg : areas) {
-                string areaCode = get_area_code(areaReg);
-                if (!load_area_ips(areaCode)) {
-                    return false;
-                }
+            for (const auto &area_reg : areas) {
+                string area_code = get_area_code(area_reg);
+                async_load_area_ips(area_reg);
             }
             auto ipArea = get_area(ip, true);
             if (ipArea == "default") {

@@ -358,13 +358,13 @@ namespace st {
                 } else {
                     logger::DEBUG << "sync net area ips skip! record not change" << END;
                 }
-                sync_timer->expires_from_now(boost::posix_time::seconds(3 + random_engine() % 2));
-                sync_timer->async_wait([=](boost::system::error_code ec) {
-                    this->sync_net_area_ip();
-                });
             } else {
                 logger::ERROR << "sync net area ips skip! file not exits" << END;
             }
+            sync_timer->expires_from_now(boost::posix_time::seconds(3 + random_engine() % 2));
+            sync_timer->async_wait([=](boost::system::error_code ec) {
+                this->sync_net_area_ip();
+            });
         }
         void manager::config(const area_ip_config &config) {
             this->conf = config;

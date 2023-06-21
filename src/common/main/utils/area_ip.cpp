@@ -21,10 +21,12 @@ namespace st {
             static manager instance;
             return instance;
         }
-        manager::manager() : last_load_ip_info_time(time::now()), last_load_area_ips_time(time::now()), ctx(), random_engine(time::now()) {
+        manager::manager() : last_load_ip_info_time(time::now()), last_load_area_ips_time(time::now()), ctx(), sche_ctx(), random_engine(time::now()) {
             ctx_work = new boost::asio::io_context::work(ctx);
-            stat_timer = new boost::asio::deadline_timer(ctx);
+            sche_ctx_work = new boost::asio::io_context::work(sche_ctx);
             th = new thread([this]() { this->ctx.run(); });
+            sche_th = new thread([this]() { this->sche_ctx.run(); });
+            sync_timer = new boost::asio::deadline_timer(sche_ctx);
             vector<area_ip_range> ip_ranges;
             ip_ranges.emplace_back(area_ip_range::parse("192.168.0.0/16", "LAN"));
             ip_ranges.emplace_back(area_ip_range::parse("10.0.0.0/8", "LAN"));
@@ -35,12 +37,16 @@ namespace st {
             sync_net_area_ip();
         }
         manager::~manager() {
-            stat_timer->cancel();
+            sync_timer->cancel();
             ctx.stop();
+            sche_ctx.stop();
+            delete sche_ctx_work;
             delete ctx_work;
             th->join();
+            sche_th->join();
             delete th;
-            delete stat_timer;
+            delete sync_timer;
+            delete sche_th;
         }
 
         string manager::get_area_code(const string &areaReg) {
@@ -351,8 +357,8 @@ namespace st {
                 } else {
                     logger::DEBUG << "sync net area ips skip! record not change" << END;
                 }
-                stat_timer->expires_from_now(boost::posix_time::seconds(3 + random_engine() % 2));
-                stat_timer->async_wait([=](boost::system::error_code ec) {
+                sync_timer->expires_from_now(boost::posix_time::seconds(3 + random_engine() % 2));
+                sync_timer->async_wait([=](boost::system::error_code ec) {
                     this->sync_net_area_ip();
                 });
             } else {

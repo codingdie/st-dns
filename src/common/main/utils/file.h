@@ -27,15 +27,8 @@ namespace st {
                 return false;
             }
 
-            inline bool exit(const string &path) {
-                bool exits = false;
-                fstream fileStream;
-                fileStream.open(path, ios::in);
-                if (fileStream) {
-                    exits = true;
-                }
-                fileStream.close();
-                return exits;
+            inline bool exists(const string &path) {
+                return boost::filesystem::is_regular_file(path);
             }
             inline void del(const string &path) {
                 boost::filesystem::path bpath(path);
@@ -66,7 +59,7 @@ namespace st {
                             return false;
                         }
                     }
-                    if (!exit(path)) {
+                    if (!exists(path)) {
                         ofstream fout;
                         fout.open(path, ios::app);
                         if (fout.is_open()) {

@@ -27,7 +27,7 @@ int main(int argc, char *argv[]) {
         inputConfigPath = true;
     } else {
         for (const auto &path : availablePaths) {
-            if (st::utils::file::exit(path + "/config.json")) {
+            if (st::utils::file::exists(path + "/config.json")) {
                 confPath = path;
                 break;
             }

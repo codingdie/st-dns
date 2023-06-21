@@ -10,7 +10,7 @@ st::dns::config st::dns::config::INSTANCE;
 void st::dns::config::load(const string &base_conf_dir) {
     this->base_conf_dir = base_conf_dir;
     string config_path = base_conf_dir + "/config.json";
-    if (st::utils::file::exit(config_path)) {
+    if (st::utils::file::exists(config_path)) {
         ptree tree;
         try {
             read_json(config_path, tree);

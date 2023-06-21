@@ -74,6 +74,7 @@ namespace st {
             manager();
             ~manager();
             bool load_area_ips(const string &area_code);
+            bool async_load_area_ips(const string &area_code);
             bool is_area_ip(const string &areaReg, const uint32_t &ip);
             bool is_area_ip(const vector<string> &areas, const uint32_t &ip);
             bool is_area_ip(const string &areaReg, const string &ip);
@@ -107,6 +108,7 @@ namespace st {
             void sync_net_area_ip();
             string load_ip_info(const uint32_t &ip);
             string load_ip_info(const uint32_t &ip, const area_ip_net_interface &interface);
+            bool has_load_area_ips(const string &areaCode);
         };
     }// namespace areaip
 }// namespace st

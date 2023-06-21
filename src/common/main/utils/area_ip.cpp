@@ -21,7 +21,7 @@ namespace st {
             static manager instance;
             return instance;
         }
-        manager::manager() : load_ip_time(time::now()), ctx(), random_engine(time::now()) {
+        manager::manager() : last_load_ip_info_time(time::now()), last_load_area_ips_time(time::now()), ctx(), random_engine(time::now()) {
             ctx_work = new boost::asio::io_context::work(ctx);
             stat_timer = new boost::asio::deadline_timer(ctx);
             th = new thread([this]() { this->ctx.run(); });
@@ -97,7 +97,8 @@ namespace st {
         bool manager::has_load_area_ips(const string &areaCode) { return default_caches.find(areaCode) != default_caches.end(); }
 
         bool manager::async_load_area_ips(const string &area_code) {
-            if (!has_load_area_ips(area_code)) {
+            if (!has_load_area_ips(area_code) && time::now() - last_load_area_ips_time.load() > 1000) {
+                last_load_area_ips_time = time::now();
                 ctx.post([this, area_code]() {
                     this->load_area_ips(area_code);
                 });
@@ -177,14 +178,14 @@ namespace st {
                         ips.erase(ip);
                     };
                     uint64_t now_time = time::now();
-                    if (load_ip_time.load() <= now_time) {
-                        load_ip_time = now_time + 1000L / NET_QPS;
+                    if (last_load_ip_info_time.load() <= now_time) {
+                        last_load_ip_info_time = now_time + 1000L / NET_QPS;
                     } else {
-                        load_ip_time.fetch_add(1000L / NET_QPS);
+                        last_load_ip_info_time.fetch_add(1000L / NET_QPS);
                     }
-                    if (load_ip_time.load() > now_time) {
+                    if (last_load_ip_info_time.load() > now_time) {
                         auto *delay = new boost::asio::deadline_timer(ctx);
-                        delay->expires_from_now(boost::posix_time::milliseconds(load_ip_time.load() - now_time));
+                        delay->expires_from_now(boost::posix_time::milliseconds(last_load_ip_info_time.load() - now_time));
                         delay->async_wait([=](boost::system::error_code ec) {
                             ctx.post(boost::bind(do_load_ip_info, ip));
                             delete delay;

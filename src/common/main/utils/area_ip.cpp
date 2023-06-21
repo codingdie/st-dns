@@ -359,6 +359,7 @@ namespace st {
                     logger::DEBUG << "sync net area ips skip! record not change" << END;
                 }
             } else {
+                file::create_if_not_exits(IP_NET_AREA_FILE);
                 logger::ERROR << "sync net area ips skip! file not exits" << END;
             }
             sync_timer->expires_from_now(boost::posix_time::seconds(3 + random_engine() % 2));

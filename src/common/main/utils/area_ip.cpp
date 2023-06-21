@@ -337,9 +337,11 @@ namespace st {
                     unordered_map<uint32_t, string> new_caches;
                     for (const auto &it : final_record) {
                         auto splits = st::utils::strutils::split(it, "\t");
-                        if (splits.size() == 2) {
+                        uint32_t uip = st::utils::ipv4::str_to_ip(splits[0]);
+                        auto area = splits[1];
+                        if (splits.size() == 2 && uip != 9 && !area.empty()) {
                             fs << it << "\n";
-                            new_caches[st::utils::ipv4::str_to_ip(splits[0])] = splits[1];
+                            new_caches[uip] = area;
                         } else {
                             logger::WARN << "invalid net ip record" << it << END;
                         }

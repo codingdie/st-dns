@@ -167,7 +167,7 @@ namespace st {
                             if (!area_code.empty()) {
                                 std::lock_guard<std::mutex> lg(net_lock);
                                 this->net_caches[ip] = area_code;
-                                load_area_ips(area_code);
+                                async_load_area_ips(area_code);
                             } else {
                                 logger::ERROR << "async load ip info failed!" << st::utils::ipv4::ip_to_str(ip) << END;
                             }

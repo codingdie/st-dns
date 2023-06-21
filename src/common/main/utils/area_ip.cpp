@@ -31,6 +31,7 @@ namespace st {
             ip_ranges.emplace_back(area_ip_range::parse("172.16.0.0/16", "LAN"));
             ip_ranges.emplace_back(area_ip_range::parse("0.0.0.0/8", "LAN"));
             default_caches.emplace("LAN", ip_ranges);
+            file::create_if_not_exits(IP_NET_AREA_FILE);
             sync_net_area_ip();
         }
         manager::~manager() {
@@ -296,55 +297,54 @@ namespace st {
             lock_guard<mutex> lockGuard(net_lock);
             unordered_set<string> finalRecord;
             ifstream in(IP_NET_AREA_FILE);
-            if (!in) {
-                return;
-            }
-            string line;
-            while (getline(in, line)) {
-                if (!line.empty()) {
-                    finalRecord.emplace(line);
-                }
-            }
-            in.close();
-            auto ori_size = finalRecord.size();
-            for (auto &net_cache : net_caches) {
-                auto ip = net_cache.first;
-                auto area = net_cache.second;
-                finalRecord.emplace(st::utils::ipv4::ip_to_str(ip) + "\t" + area);
-            }
-            if (ori_size != finalRecord.size()) {
-                string tmp = IP_NET_AREA_FILE + "." + to_string(time::now()) + "." + to_string(random_engine()) + ".tmp";
-                ofstream fs(tmp);
-                auto tmp_crate_time = time::now() / 1000;
-                unordered_map<uint32_t, string> new_caches;
-                for (const auto &it : finalRecord) {
-                    auto splits = st::utils::strutils::split(it, "\t");
-                    if (splits.size() == 2) {
-                        fs << it << "\n";
-                        new_caches[st::utils::ipv4::str_to_ip(splits[0])] = splits[1];
+            if (in) {
+                string line;
+                while (getline(in, line)) {
+                    if (!line.empty()) {
+                        finalRecord.emplace(line);
                     }
                 }
-                fs.flush();
-                fs.close();
+                in.close();
+                auto ori_size = finalRecord.size();
+                for (auto &net_cache : net_caches) {
+                    auto ip = net_cache.first;
+                    auto area = net_cache.second;
+                    finalRecord.emplace(st::utils::ipv4::ip_to_str(ip) + "\t" + area);
+                }
+                if (ori_size != finalRecord.size()) {
+                    string tmp = IP_NET_AREA_FILE + "." + to_string(time::now()) + "." + to_string(random_engine()) + ".tmp";
+                    ofstream fs(tmp);
+                    auto tmp_crate_time = time::now() / 1000;
+                    unordered_map<uint32_t, string> new_caches;
+                    for (const auto &it : finalRecord) {
+                        auto splits = st::utils::strutils::split(it, "\t");
+                        if (splits.size() == 2) {
+                            fs << it << "\n";
+                            new_caches[st::utils::ipv4::str_to_ip(splits[0])] = splits[1];
+                        }
+                    }
+                    fs.flush();
+                    fs.close();
 
-                this->net_caches = new_caches;
-                auto last_write_time = boost::filesystem::last_write_time(IP_NET_AREA_FILE);
-                if (last_write_time < tmp_crate_time) {
-                    boost::filesystem::rename(tmp, IP_NET_AREA_FILE);
-                    logger::INFO << "sync net area ips success! before:" << ori_size << "after:" << new_caches.size() << END;
+                    this->net_caches = new_caches;
+                    auto last_write_time = boost::filesystem::last_write_time(IP_NET_AREA_FILE);
+                    if (last_write_time < tmp_crate_time) {
+                        boost::filesystem::rename(tmp, IP_NET_AREA_FILE);
+                        logger::INFO << "sync net area ips success! before:" << ori_size << "after:" << new_caches.size() << END;
+                    } else {
+                        logger::DEBUG << "sync net area ips skip! update conflict" << last_write_time << tmp_crate_time << END;
+                        boost::filesystem::remove(tmp);
+                    }
                 } else {
-                    logger::DEBUG << "sync net area ips skip! update conflict" << last_write_time << tmp_crate_time << END;
-                    boost::filesystem::remove(tmp);
+                    logger::DEBUG << "sync net area ips skip! record not change" << END;
                 }
-            } else {
-                logger::DEBUG << "sync net area ips skip! record not change" << END;
+                stat_timer->expires_from_now(boost::posix_time::seconds(3 + random_engine() % 2));
+                stat_timer->async_wait([=](boost::system::error_code ec) {
+                    if (!ec) {
+                        this->sync_net_area_ip();
+                    }
+                });
             }
-            stat_timer->expires_from_now(boost::posix_time::seconds(3 + random_engine() % 2));
-            stat_timer->async_wait([=](boost::system::error_code ec) {
-                if (!ec) {
-                    this->sync_net_area_ip();
-                }
-            });
         }
         void manager::config(const area_ip_config &config) {
             this->conf = config;

@@ -57,19 +57,20 @@ namespace st {
             transform(areaCode.begin(), areaCode.end(), areaCode.begin(), ::toupper);
             return areaCode;
         }
-        string manager::download_area_ips(const string &areaCode) {
-            string areaCodeLow = areaCode;
+        string manager::download_area_ips(const string &area_code) {
+            string areaCodeLow = area_code;
             transform(areaCodeLow.begin(), areaCodeLow.end(), areaCodeLow.begin(), ::tolower);
-            string filePath = "/etc/area-ips/" + areaCode;
+            string filePath = "/etc/area-ips/" + area_code;
             if (!file::exists(filePath)) {
-                file::create_if_not_exits(filePath);
-                string url = "https://raw.githubusercontent.com/herrbischoff/country-ip-blocks/master/ipv4/" +
-                             areaCodeLow + ".cidr";
-                if (shell::exec("wget -q " + url + " -O " + filePath)) {
-                    return filePath;
+                auto result = utils::http::get("https://raw.githubusercontent.com", "/herrbischoff/country-ip-blocks/master/ipv4/" + areaCodeLow + ".cidr", {});
+                if (result.first == 200 && !result.second.empty()) {
+                    file::create_if_not_exits(filePath);
+                    ofstream fs(filePath);
+                    fs << result.second;
+                    fs.flush();
+                    fs.close();
                 } else {
-                    logger::ERROR << areaCode << "ips file downloadn failed!" << url << END;
-                    file::del(filePath);
+                    logger::ERROR << area_code << "ips file download failed!" << area_code << END;
                     return "";
                 }
             }

@@ -76,20 +76,25 @@ namespace st {
             if (has_load_area_ips(areaCode)) {
                 return true;
             } else {
-                string dataPath = download_area_ips(areaCode);
-                if (dataPath.empty()) {
+                string path = download_area_ips(areaCode);
+                if (path.empty()) {
                     return false;
                 }
-                ifstream in(dataPath);
+                ifstream in(path);
                 string line;
                 vector<area_ip_range> &ip_ranges = default_caches[areaCode];
+                ip_ranges.clear();
                 if (in) {
                     while (getline(in, line)) {
                         if (!line.empty()) {
                             ip_ranges.emplace_back(area_ip_range::parse(line, areaCode));
                         }
                     }
-                    logger::INFO << "load area" << areaCode << "ips" << ip_ranges.size() << "from" << dataPath << END;
+                    logger::INFO << "load area" << areaCode << "ips" << ip_ranges.size() << "from" << path << END;
+                }
+                if (ip_ranges.empty()) {
+                    default_caches.erase(areaCode);
+                    file::del(path);
                 }
             }
             return true;

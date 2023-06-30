@@ -363,10 +363,10 @@ void dns_server::sync_dns_record_from_remote(const string &host, const std::func
     }
     remote_dns_server *server = servers[pos];
     uint64_t traceId = logger::traceId;
-    dns_multi_area_complete complete_handler = [=](const vector<uint32_t> &ips, bool loadAll) {
+    dns_complete dns_complete_handler = [=](const vector<uint32_t> &ips) {
         logger::traceId = traceId;
         if (!ips.empty()) {
-            dns_record_manager::uniq().add(host, ips, server->id(), loadAll ? server->dns_cache_expire : server->dns_cache_expire / 2);
+            dns_record_manager::uniq().add(host, ips, server->id(), server->dns_cache_expire);
         }
         dns_record record = dns_record_manager::uniq().resolve(host);
         if (pos + 1 >= servers.size()) {
@@ -379,23 +379,43 @@ void dns_server::sync_dns_record_from_remote(const string &host, const std::func
                 sync_dns_record_from_remote(host, complete, servers, pos + 1, return_resolve_any);
             }
         }
+
+        if (!ips.empty()) {
+            dns_record_manager::uniq().add(host, ips, server->id(), server->dns_cache_expire);
+        }
     };
-    unordered_set<string> areas;
-    if (config.area_resolve_optimize) {
-        for (auto area : server->areas) {
-            if (area[0] != '!') {
-                areas.emplace(area);
+    dns_multi_area_complete multi_area_complete_handler = [=](const vector<uint32_t> &ips, bool loadAll) {
+        if (!ips.empty()) {
+            dns_record_manager::uniq().add(host, ips, server->id(), loadAll ? server->dns_cache_expire : server->dns_cache_expire / 2);
+        }
+    };
+
+    if (!return_resolve_any) {
+        //resolve all area ip
+        unordered_set<string> areas;
+        if (config.area_resolve_optimize) {
+            for (auto area : server->areas) {
+                if (area[0] != '!') {
+                    areas.emplace(area);
+                }
             }
         }
-    }
-    areas.emplace("");
-    if (server->type == "TCP_SSL") {
-        dns_client::uniq().tcp_tls_dns(host, server->ip, server->port, server->timeout, areas, complete_handler);
-    } else if (server->type == "TCP") {
-        dns_client::uniq().tcp_dns(host, server->ip, server->port, server->timeout, areas, complete_handler);
-    } else if (server->type == "UDP") {
-        dns_client::uniq().udp_dns(host, server->ip, server->port, server->timeout, [=](const std::vector<uint32_t> &ips) {
-            complete_handler(ips, true);
-        });
+        if (server->type == "TCP_SSL") {
+            dns_client::uniq().tcp_tls_dns(host, server->ip, server->port, server->timeout, areas, multi_area_complete_handler);
+        } else if (server->type == "TCP") {
+            dns_client::uniq().tcp_dns(host, server->ip, server->port, server->timeout, areas, multi_area_complete_handler);
+        } else if (server->type == "UDP") {
+            dns_client::uniq().udp_dns(host, server->ip, server->port, server->timeout, [=](const std::vector<uint32_t> &ips) {
+                multi_area_complete_handler(ips, true);
+            });
+        }
+    } else {
+        if (server->type == "TCP_SSL") {
+            dns_client::uniq().tcp_tls_dns(host, server->ip, server->port, server->timeout, dns_complete_handler);
+        } else if (server->type == "TCP") {
+            dns_client::uniq().tcp_dns(host, server->ip, server->port, server->timeout, dns_complete_handler);
+        } else if (server->type == "UDP") {
+            dns_client::uniq().udp_dns(host, server->ip, server->port, server->timeout, dns_complete_handler);
+        }
     }
 }

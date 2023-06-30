@@ -363,34 +363,18 @@ void dns_server::sync_dns_record_from_remote(const string &host, const std::func
     }
     remote_dns_server *server = servers[pos];
     uint64_t traceId = logger::traceId;
-    dns_complete dns_complete_handler = [=](const vector<uint32_t> &ips) {
-        logger::traceId = traceId;
-        if (!ips.empty()) {
-            dns_record_manager::uniq().add(host, ips, server->id(), server->dns_cache_expire);
-        }
-        dns_record record = dns_record_manager::uniq().resolve(host);
-        if (pos + 1 >= servers.size()) {
-            complete(record);
-        } else {
-            if (!record.ips.empty() && record.match_area && return_resolve_any) {
+    if (!return_resolve_any) {
+        dns_multi_area_complete multi_area_complete_handler = [=](const vector<uint32_t> &ips, bool loadAll) {
+            if (!ips.empty()) {
+                dns_record_manager::uniq().add(host, ips, server->id(), loadAll ? server->dns_cache_expire : server->dns_cache_expire / 2);
+            }
+            dns_record record = dns_record_manager::uniq().resolve(host);
+            if (pos + 1 >= servers.size()) {
                 complete(record);
-                update_dns_record(record.domain);
             } else {
                 sync_dns_record_from_remote(host, complete, servers, pos + 1, return_resolve_any);
             }
-        }
-
-        if (!ips.empty()) {
-            dns_record_manager::uniq().add(host, ips, server->id(), server->dns_cache_expire);
-        }
-    };
-    dns_multi_area_complete multi_area_complete_handler = [=](const vector<uint32_t> &ips, bool loadAll) {
-        if (!ips.empty()) {
-            dns_record_manager::uniq().add(host, ips, server->id(), loadAll ? server->dns_cache_expire : server->dns_cache_expire / 2);
-        }
-    };
-
-    if (!return_resolve_any) {
+        };
         //resolve all area ip
         unordered_set<string> areas;
         if (config.area_resolve_optimize) {
@@ -410,6 +394,23 @@ void dns_server::sync_dns_record_from_remote(const string &host, const std::func
             });
         }
     } else {
+        dns_complete dns_complete_handler = [=](const vector<uint32_t> &ips) {
+            logger::traceId = traceId;
+            if (!ips.empty()) {
+                dns_record_manager::uniq().add(host, ips, server->id(), server->dns_cache_expire);
+            }
+            dns_record record = dns_record_manager::uniq().resolve(host);
+            if (pos + 1 >= servers.size()) {
+                complete(record);
+            } else {
+                if (!record.ips.empty() && record.match_area && return_resolve_any) {
+                    complete(record);
+                    update_dns_record(record.domain);
+                } else {
+                    sync_dns_record_from_remote(host, complete, servers, pos + 1, return_resolve_any);
+                }
+            }
+        };
         if (server->type == "TCP_SSL") {
             dns_client::uniq().tcp_tls_dns(host, server->ip, server->port, server->timeout, dns_complete_handler);
         } else if (server->type == "TCP") {

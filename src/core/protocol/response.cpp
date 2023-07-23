@@ -128,7 +128,11 @@ udp_response::udp_response(uint8_t *data, uint64_t len) : basic_data(data, len) 
 
 udp_response::udp_response(udp_request &request, dns_record &record, uint32_t expire) : basic_data(1024) {
     int finalLen = 0;
-    vector<uint32_t> &ips = record.ips;
+    vector<uint32_t> ips = record.ips;
+    if (ips.size() >= 5) {
+        ips.assign(record.ips.begin(), record.ips.begin() + 5);
+    }
+
     auto curData = this->data;
     bool hasRecord = !ips.empty();
 

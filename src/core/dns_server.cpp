@@ -345,7 +345,7 @@ void dns_server::update_dns_record(const string &domain) {
                     },
                     servers, 0, false);
         } else {
-            logger::ERROR << "update_dns_record servers empty!" << END;
+            logger::ERROR << "update_dns_record servers empty!" << domain << END;
             end_query_remote(domain);
         }
     } else {

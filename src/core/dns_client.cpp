@@ -94,7 +94,7 @@ void dns_client::tcp_tls_dns(const string &domain, const std::string &dns_server
     tcp::endpoint server_endpoint(make_address_v4(dns_server), port);
     auto *dns_request = new tcp_request(domains);
     uint16_t dnsId = dns_request->header->id;
-    string log_tag = to_string(dnsId) + " " + dns_server + " tcp_tls_dns " + domains[0] + ":" + to_string(port) + (!area.empty() ? " " + area : "");
+    string log_tag = to_string(dnsId) + " " + dns_server + " tcp_tls_dns " + domains[0] + ":" + to_string(port) + (!area.empty() ? " " + area : "") + "\tarea_port:" + to_string(port);
     auto *socket = new boost::asio::ssl::stream<tcp::socket>(ic, ssl_ctx);
     socket->set_verify_mode(ssl::verify_none);
     boost::system::error_code ec;

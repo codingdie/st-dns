@@ -194,7 +194,7 @@ void dns_client::tcp_dns(const string &domain, const std::string &dns_server, ui
     tcp::endpoint server_endpoint(make_address_v4(dns_server), port);
     auto *dns_request = new tcp_request(domains);
     uint16_t dnsId = dns_request->header->id;
-    string logTag = to_string(dnsId) + " tcp_dns " + dns_server + " " + domains[0];
+    string logTag = to_string(dnsId) + " tcp_dns " + dns_server + " " + domains[0] + ":" + to_string(port);
     auto *socket = new tcp::socket(ic);
     boost::system::error_code ec;
     socket->open(server_endpoint.protocol(), ec);

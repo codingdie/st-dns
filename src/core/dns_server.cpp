@@ -341,7 +341,7 @@ void dns_server::update_dns_record(const string &domain) {
             sync_dns_record_from_remote(
                     domain, [=](const dns_record &record) {
                         end_query_remote(domain);
-                        logger::DEBUG << "update_dns_record finished!" << END;
+                        logger::DEBUG << "update_dns_record finished!" << domain << END;
                     },
                     servers, 0, false);
         } else {

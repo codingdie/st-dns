@@ -41,7 +41,6 @@ file(GLOB_RECURSE SOURCE_ST_UNIT_TEST_FILES src/common/test/*.cpp)
 
 add_executable(st-dns src/server/main.cpp ${SOURCE_FILES} ${SOURCE_COMMON_FILES})
 set(OTHER_LIBRARIES "rt" "leveldb::leveldb" "libprotobuf-lite.a")
-message(${Boost_LIBRARIES})
 target_link_libraries(st-dns ${Boost_LIBRARIES} ${OPENSSL_LIBRARIES} ${OTHER_LIBRARIES})
 
 

@@ -58,10 +58,10 @@ namespace st {
             delete it;
         }
         disk_kv::disk_kv(const std::string &ns, uint32_t max_size) : abstract_kv(ns, max_size) {
-            options.create_if_missing = true;
             st::utils::file::mkdirs(KV_FOLDER);
-            leveldb::Status status = leveldb::DB::Open(options, KV_FOLDER + ns, &db);
+            options.create_if_missing = true;
             options.block_cache = leveldb::NewLRUCache(max_size);
+            leveldb::Status status = leveldb::DB::Open(options, KV_FOLDER + ns, &db);
             assert(status.ok());
         }
         void disk_kv::list(std::function<void(const std::string &, const std::string &)> consumer) {

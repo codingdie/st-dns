@@ -82,8 +82,10 @@ void dns_client::udp_dns(const string &domain, const std::string &dns_server, ui
 }
 
 void dns_client::tcp_tls_dns(const string &domain, const std::string &dns_server, uint16_t port, uint64_t timeout, const string &area, const dns_complete &complete_handler) {
+    auto area_port = 0;
+    auto o_port = port;
     if (!area.empty()) {
-        auto area_port = st::command::proxy::register_area_port(st::utils::ipv4::str_to_ip(dns_server), port, area);
+        area_port = st::command::proxy::register_area_port(st::utils::ipv4::str_to_ip(dns_server), port, area);
         if (area_port != 0) {
             port = area_port;
         }
@@ -94,7 +96,8 @@ void dns_client::tcp_tls_dns(const string &domain, const std::string &dns_server
     tcp::endpoint server_endpoint(make_address_v4(dns_server), port);
     auto *dns_request = new tcp_request(domains);
     uint16_t dnsId = dns_request->header->id;
-    string log_tag = to_string(dnsId) + " " + dns_server + " tcp_tls_dns " + domains[0] + ":" + to_string(port) + (!area.empty() ? " " + area : "") + "\tarea_port:" + to_string(port);
+    string log_tag = to_string(dnsId) + " tcp_tls_dns " + dns_server + ":" + to_string(o_port) + " " + domains[0] + (area_port == 0 ? "" : " " + area + "/" + to_string(area_port));
+
     auto *socket = new boost::asio::ssl::stream<tcp::socket>(ic, ssl_ctx);
     socket->set_verify_mode(ssl::verify_none);
     boost::system::error_code ec;
@@ -182,8 +185,10 @@ void dns_client::tcp_tls_dns(const string &domain, const std::string &dns_server
 
 
 void dns_client::tcp_dns(const string &domain, const std::string &dns_server, uint16_t port, uint64_t timeout, const string &area, const dns_complete &complete_handler) {
+    auto area_port = 0;
+    auto o_port = port;
     if (!area.empty()) {
-        auto area_port = st::command::proxy::register_area_port(st::utils::ipv4::str_to_ip(dns_server), port, area);
+        area_port = st::command::proxy::register_area_port(st::utils::ipv4::str_to_ip(dns_server), port, area);
         if (area_port != 0) {
             port = area_port;
         }
@@ -194,7 +199,7 @@ void dns_client::tcp_dns(const string &domain, const std::string &dns_server, ui
     tcp::endpoint server_endpoint(make_address_v4(dns_server), port);
     auto *dns_request = new tcp_request(domains);
     uint16_t dnsId = dns_request->header->id;
-    string logTag = to_string(dnsId) + " tcp_dns " + dns_server + " " + domains[0] + ":" + to_string(port);
+    string logTag = to_string(dnsId) + " tcp_dns " + dns_server + ":" + to_string(o_port) + " " + domains[0] + (area_port == 0 ? "" : " " + area + "/" + to_string(area_port));
     auto *socket = new tcp::socket(ic);
     boost::system::error_code ec;
     socket->open(server_endpoint.protocol(), ec);

@@ -137,7 +137,7 @@ namespace st {
                         head->len = DEFAULT_LEN;
                         head->qr = (*(data + 2) & (0b10000000));
                         head->opcode = ((*(data + 2) & (0b01111000)) >> 3);
-                        head->responseCode = (*(data + 3) & 0x01F);
+                        head->responseCode = (*(data + 3) & 0b1111);
                         st::utils::read(data + 4, head->questionCount);
                         st::utils::read(data + 6, head->answerCount);
                         return head;

@@ -64,10 +64,13 @@ dns_record dns_record_manager::transform(const st::dns::proto::records &records)
     string server;
     for (auto &item : ip_records) {
         if (item.match_area && !item.forbid) {
-            record.trusted_ip_count++;
             if (!server.empty() && item.server != server) {
                 continue;
             }
+            if (std::find(record.ips.begin(), record.ips.end(), item.ip) != record.ips.end()) {
+                continue;
+            }
+            record.trusted_ip_count++;
             record.ips.emplace_back(item.ip);
             server = item.server;
         }
@@ -75,6 +78,9 @@ dns_record dns_record_manager::transform(const st::dns::proto::records &records)
     }
     if (record.ips.empty()) {
         for (auto &item : ip_records) {
+            if (std::find(record.ips.begin(), record.ips.end(), item.ip) != record.ips.end()) {
+                continue;
+            }
             record.ips.emplace_back(item.ip);
         }
     }

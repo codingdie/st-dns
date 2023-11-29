@@ -142,6 +142,7 @@ vector<dns_record> dns_record::transform(const st::dns::proto::records &records)
                         break;
                     }
                 }
+                record.expire = item.expire() < (time::now() / 1000);
                 result.emplace_back(record);
             }
         }

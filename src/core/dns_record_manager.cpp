@@ -193,7 +193,7 @@ dns_record_stats dns_record_manager::stats() {
 
 string dns_record::serialize() const {
     return server + "\t" + domain + "\t" + to_string(expire_time) + "\t" + to_string(match_area) + "\t" +
-           st::utils::ipv4::ips_to_str(ips) + "\t" + to_string(expire) + "\t";
+           st::utils::ipv4::ips_to_str(ips) + "\t" + to_string(expire);
 }
 
 st::dns::proto::reverse_record dns_record_manager::reverse_resolve(uint32_t ip) {

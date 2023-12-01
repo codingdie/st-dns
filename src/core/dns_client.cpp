@@ -318,17 +318,18 @@ void dns_client::tcp_dns(const string &domain, const std::string &dns_server, ui
     } else {
         auto *load_all = new atomic_bool(true);
         auto *counter = new atomic_uint16_t(0);
-        auto *result = new std::vector<uint32_t>();
+        auto *result = new std::set<uint32_t>();
         std::function<void(std::vector<uint32_t> ips)> each_handler = [=](const std::vector<uint32_t> &ips) {
             counter->fetch_add(1);
             for (auto ip : ips) {
-                result->emplace_back(ip);
+                result->emplace(ip);
             }
             if (ips.size() == 0) {
                 *load_all = false;
             }
             if (counter->load() == areas.size()) {
-                complete_handler(*result, load_all->load());
+                vector<uint32_t> ips(result->begin(), result->end());
+                complete_handler(ips, load_all->load());
                 delete result;
                 delete counter;
                 delete load_all;

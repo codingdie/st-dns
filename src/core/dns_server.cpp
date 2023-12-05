@@ -251,6 +251,7 @@ void dns_server::query_dns_record(session *session, const std::function<void(st:
                 dns_record record = query_record_from_cache(host);
                 session->record = record;
                 complete(session);
+                delete timer;
             });
 
         } else {

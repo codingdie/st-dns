@@ -2,6 +2,7 @@
 // Created by codingdie on 2020/6/27.
 //
 #include "st.h"
+#include "taskquque/task_queue.h"
 #include <chrono>
 #include <gtest/gtest.h>
 #include <iostream>
@@ -131,4 +132,39 @@ TEST(unit_tests, test_disk_kv) {
     ASSERT_TRUE(st::utils::ipv4::str_to_ip("1.1.1.1.1") == 0);
     ASSERT_TRUE(st::utils::ipv4::str_to_ip(".1.1.1.1") == 0);
     ASSERT_TRUE(st::utils::ipv4::str_to_ip("baidu.com") == 0);
+}
+
+TEST(unit_tests, test_task_queue) {
+    using namespace st::task;
+    int total = 5;
+    vector<string> result;
+    st::task::queue<string> que("st-unit-test", 1, 1, [&result, &que](const priority_task<string> &task) {
+        result.emplace_back(task.get_input());
+        que.complete(task);
+    });
+    for (int i = 0; i < total; ++i) {
+        priority_task<string> task(to_string(i), i, "" + i);
+        ASSERT_TRUE(que.submit(task));
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds((1 + total) * 1000));
+    ASSERT_EQ(5, result.size());
+    ASSERT_TRUE(result[0] == to_string(total - 1));
+
+    result.clear();
+    for (int i = 0; i < total; ++i) {
+        priority_task<string> task(to_string(i), 0, "" + i);
+        ASSERT_TRUE(que.submit(task));
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds((1 + total) * 1000));
+    ASSERT_EQ(5, result.size());
+    ASSERT_TRUE(result[0] == "0");
+
+
+    result.clear();
+    priority_task<string> task("0", 0, "123");
+    ASSERT_TRUE(que.submit(task));
+    ASSERT_FALSE(que.submit(task));
+    std::this_thread::sleep_for(std::chrono::milliseconds((1 + total) * 1000));
+    ASSERT_EQ(1, result.size());
+    ASSERT_TRUE(result[0] == "0");
 }

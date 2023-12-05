@@ -249,10 +249,13 @@ void apm_logger::enable(const string &udpServerIP, uint16_t udpServerPort) {
     schedule_log();
 }
 void apm_logger::disable() {
-    IO_CONTEXT.stop();
-    delete IO_CONTEXT_WORK;
-    LOG_THREAD->join();
-    delete LOG_THREAD;
+    if (IO_CONTEXT_WORK != nullptr) {
+        IO_CONTEXT.stop();
+        delete IO_CONTEXT_WORK;
+        IO_CONTEXT_WORK = nullptr;
+        LOG_THREAD->join();
+        delete LOG_THREAD;
+    }
 }
 
 void apm_logger::schedule_log() {
@@ -288,6 +291,7 @@ void apm_logger::schedule_log() {
         schedule_log();
     });
 }
+apm_logger::~apm_logger() { disable(); }
 
 void logger::init(boost::property_tree::ptree &tree) {
     auto logConfig = tree.get_child_optional("log");

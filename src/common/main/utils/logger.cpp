@@ -291,7 +291,7 @@ void apm_logger::schedule_log() {
         schedule_log();
     });
 }
-apm_logger::~apm_logger() { disable(); }
+apm_logger::~apm_logger() {}
 
 void logger::init(boost::property_tree::ptree &tree) {
     auto logConfig = tree.get_child_optional("log");

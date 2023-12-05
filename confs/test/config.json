@@ -4,7 +4,7 @@
   "servers": [
     {
       "type": "UDP",
-      "ip": "192.168.31.1",
+      "ip": "114.114.114.114",
       "port": "53",
       "dns_cache_expire": 30,
       "timeout": 500,
@@ -62,7 +62,7 @@
   "console_port": 5757,
   "console_ip": "0.0.0.0",
   "log": {
-    "level": 1,
+    "level": 0,
     "raw_log_server": {
       "ip": "192.168.31.20",
       "port": "30500",

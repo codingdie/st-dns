@@ -103,7 +103,8 @@ namespace st {
                              unordered_map<string, int64_t> &&counts);
 
             static void perf(const string &name, unordered_map<string, string> &&dimensions, uint64_t cost);
-            apm_logger(const string &name);
+            explicit apm_logger(const string &name);
+            virtual ~apm_logger();
             void start();
             void step(const string &step);
             void end();

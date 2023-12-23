@@ -139,6 +139,7 @@ void dns_server::receive() {
     ss->async_receive_from(buffer(session->request.data, session->request.len),
                            session->client_endpoint,
                            [=](boost::system::error_code errorCode, std::size_t size) {
+                               receive();
                                logger::traceId = session->get_id();
                                logger::DEBUG << "dns request" << ++counter << "received!" << END;
                                session->set_time(time::now());
@@ -155,7 +156,6 @@ void dns_server::receive() {
                                } else {
                                    end_session(session);
                                }
-                               receive();
                            });
 }
 

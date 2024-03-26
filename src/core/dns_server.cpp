@@ -253,7 +253,6 @@ void dns_server::query_dns_record(session *session, const std::function<void(st:
                 complete(session);
                 delete timer;
             });
-
         } else {
             session->logger.add_dimension("process_type", "cache");
             session->record = record;
@@ -266,14 +265,16 @@ void dns_server::query_dns_record(session *session, const std::function<void(st:
     }
 }
 dns_record dns_server::query_record_from_cache(const string &host) const {
+    auto begin = time::now();
     auto record = dns_record_manager::uniq().resolve(host);
     if (record.ips.empty()) {
         string fiDomain = dns_domain::getFIDomain(host);
-        if (fiDomain == "LAN") {
+        if (fiDomain == "LAN" || fiDomain == "lan") {
             record = dns_record_manager::uniq().resolve(dns_domain::removeFIDomain(host));
             record.domain = host;
         }
     }
+    apm_logger::perf("st-dns-query-record-from-cache", {}, st::utils::time::now() - begin);
     return record;
 }
 
@@ -319,7 +320,6 @@ void dns_server::sync_dns_record_from_remote(const string &host, const std::func
         return;
     }
     remote_dns_server *server = servers[pos];
-    uint64_t traceId = logger::traceId;
     dns_multi_area_complete multi_area_complete_handler = [=](const vector<uint32_t> &ips, bool loadAll) {
         if (!ips.empty()) {
             dns_record_manager::uniq().add(host, ips, server->id(), loadAll ? server->dns_cache_expire : server->dns_cache_expire / 2);

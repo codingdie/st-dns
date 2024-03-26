@@ -20,16 +20,18 @@ namespace st {
             string data;
             bool success = db->Get(leveldb::ReadOptions(), key, &data).ok();
             proto::value val;
+            string result = "";
             if (success) {
                 val.ParseFromString(data);
                 if (not_expired(val)) {
-                    return val.data();
+                    result = val.data();
+                } else {
+                    this->erase(key);
                 }
-                this->erase(key);
             }
-            //            apm_logger::perf("st-dist-kv-get", {{"namespace", this->ns}, {"success", success ? "1" : "0"}},
-            //                             time::now() - begin);
-            return "";
+            apm_logger::perf("st-dist-kv-get", {{"namespace", this->ns}, {"success", success ? "1" : "0"}},
+                             time::now() - begin);
+            return result;
         }
         bool disk_kv::not_expired(const proto::value &val) {
             return val.expire() == 0 || val.expire() < utils::time::now() / 1000;

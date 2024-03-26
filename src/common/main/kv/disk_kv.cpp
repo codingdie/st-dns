@@ -48,8 +48,8 @@ namespace st {
                 val.set_expire(expire);
             }
             bool success = db->Put(leveldb::WriteOptions(), key, val.SerializeAsString()).ok();
-            //            apm_logger::perf("st-dist-kv-put", {{"namespace", this->ns}, {"success", success ? "1" : "0"}},
-            //                             time::now() - begin);
+            apm_logger::perf("st-dist-kv-put", {{"namespace", this->ns}, {"success", success ? "1" : "0"}},
+                             time::now() - begin);
         }
         void disk_kv::erase(const std::string &key) { db->Delete(leveldb::WriteOptions(), key); }
         void disk_kv::clear() {

@@ -33,6 +33,7 @@ dns_record dns_record_manager::resolve(const string &domain) {
     return transform(records);
 }
 dns_record dns_record_manager::transform(const st::dns::proto::records &records) {
+    auto begin = time::now();
     dns_record record;
     record.domain = records.domain();
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
@@ -91,6 +92,7 @@ dns_record dns_record_manager::transform(const st::dns::proto::records &records)
         record.server = ip_records[0].server;
         record.expire = ip_records[0].expire;
     }
+    apm_logger::perf("st-dns-record-transform", {}, time::now() - begin);
     return record;
 }
 
@@ -108,12 +110,15 @@ dns_record_manager::dns_record_manager() : db("st-dns-record", 2 * 1024 * 1024),
 
 
 st::dns::proto::records dns_record_manager::get_dns_records_pb(const string &domain) {
+    auto begin = time::now();
     string data = db.get(domain);
     st::dns::proto::records record;
     if (!data.empty()) {
         record.ParseFromString(data);
     }
     record.set_domain(domain);
+    apm_logger::perf("st-dns-get-pb-record", {}, time::now() - begin);
+
     return record;
 }
 dns_record_manager &dns_record_manager::uniq() {

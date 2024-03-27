@@ -29,8 +29,10 @@ bool dns_record_manager::has_any_record(const string &domain) {
 }
 
 dns_record dns_record_manager::resolve(const string &domain) {
-    auto records = this->get_dns_records_pb(domain);
-    return transform(records);
+    auto begin = time::now();
+    const dns_record &record = transform(this->get_dns_records_pb(domain));
+    apm_logger::perf("st-dns-resolve-from-cache", {}, st::utils::time::now() - begin);
+    return record;
 }
 dns_record dns_record_manager::transform(const st::dns::proto::records &records) {
     auto begin = time::now();

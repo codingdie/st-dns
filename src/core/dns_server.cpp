@@ -274,7 +274,6 @@ dns_record dns_server::query_record_from_cache(const string &host) const {
             record.domain = host;
         }
     }
-    apm_logger::perf("st-dns-query-record-from-cache", {}, st::utils::time::now() - begin);
     return record;
 }
 

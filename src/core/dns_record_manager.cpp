@@ -59,6 +59,7 @@ dns_record dns_record_manager::transform(const st::dns::proto::records &records)
     }
     sort(ip_records.begin(), ip_records.end(), dns_ip_record::compare);
     //当有合法记录时，只下发一个来源server的合法记录
+    apm_logger::perf("st-dns-record-transform-01", {}, time::now() - begin);
 
     string server;
     for (auto &item : ip_records) {

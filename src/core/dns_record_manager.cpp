@@ -44,9 +44,7 @@ dns_record dns_record_manager::transform(const st::dns::proto::records &records)
         server_order++;
         if (records.map().contains(serverId)) {
             st::dns::proto::record t_record = records.map().at(serverId);
-            vector<uint32_t> ips(t_record.ips().begin(), t_record.ips().end());
-            shuffle(ips.begin(), ips.end(), default_random_engine(seed));
-            for (auto ip : ips) {
+            for (auto ip : t_record.ips()) {
                 dns_ip_record tmp;
                 tmp.ip = ip;
                 tmp.forbid = false;
@@ -85,6 +83,7 @@ dns_record dns_record_manager::transform(const st::dns::proto::records &records)
             record.ips.emplace_back(item.ip);
         }
     }
+    shuffle(record.ips.begin(), record.ips.end(), default_random_engine(seed));
 
     if (!ip_records.empty()) {
         record.match_area = ip_records[0].match_area;

@@ -30,7 +30,7 @@ namespace st {
                 }
             }
             apm_logger::perf("st-dist-kv-get", {{"namespace", this->ns}, {"success", success ? "1" : "0"}},
-                             time::now() - begin);
+                             time::now() - begin, 10U);
             return result;
         }
         bool disk_kv::not_expired(const proto::value &val) {
@@ -49,7 +49,7 @@ namespace st {
             }
             bool success = db->Put(leveldb::WriteOptions(), key, val.SerializeAsString()).ok();
             apm_logger::perf("st-dist-kv-put", {{"namespace", this->ns}, {"success", success ? "1" : "0"}},
-                             time::now() - begin);
+                             time::now() - begin, 10);
         }
         void disk_kv::erase(const std::string &key) { db->Delete(leveldb::WriteOptions(), key); }
         void disk_kv::clear() {

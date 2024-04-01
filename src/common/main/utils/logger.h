@@ -98,9 +98,11 @@ namespace st {
             static void enable(const string &udpServerIP, uint16_t udpServerPort);
             static void disable();
             static void perf(const string &name, unordered_map<string, string> &&dimensions, uint64_t cost,
-                             uint64_t count);
+                             uint64_t count, uint64_t sample);
             static void perf(const string &name, unordered_map<string, string> &&dimensions,
                              unordered_map<string, int64_t> &&counts);
+            static void perf(const string &name, unordered_map<string, string> &&dimensions, uint64_t cost,
+                             uint64_t sample);
 
             static void perf(const string &name, unordered_map<string, string> &&dimensions, uint64_t cost);
             explicit apm_logger(const string &name);
@@ -112,23 +114,26 @@ namespace st {
             void add_dimension(const string name, const V &value) {
                 this->dimensions.put<V>(name, value);
             }
-            void add_metric(const string &name, const long &value) { this->metrics.put<long>(name, value); }
+            void add_metric(const string &name, const uint64_t &value) { this->metrics.put<uint64_t>(name, value); }
 
         private:
-            static unordered_map<string, unordered_map<string, unordered_map<string, unordered_map<string, long>>>>
+            static unordered_map<string, unordered_map<string, unordered_map<string, unordered_map<string, uint64_t>>>>
                     STATISTICS;
             static udp_log_server UDP_LOG_SERVER;
             static boost::asio::deadline_timer LOG_TIMER;
             static boost::asio::io_context IO_CONTEXT;
+            static std::mutex APM_LOCK;
             static boost::asio::io_context::work *IO_CONTEXT_WORK;
-            static std::thread *LOG_THREAD;
+            static std::vector<std::thread *> LOG_THREADS;
             static void schedule_log();
-            static void accumulate_metric(unordered_map<string, long> &metric, long value);
+            static void accumulate_metric(unordered_map<string, uint64_t> &metric, uint64_t value, uint64_t sample);
 
             boost::property_tree::ptree dimensions;
             boost::property_tree::ptree metrics;
             uint64_t start_time;
             uint64_t last_step_time;
+
+            static bool is_sample(uint64_t sample);
         };
     }// namespace utils
 }// namespace st

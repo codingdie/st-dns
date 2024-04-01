@@ -19,7 +19,7 @@ using namespace std;
 using namespace st::dns;
 using namespace st::dns::protocol;
 dns_server::dns_server(st::dns::config &config) : rid(time::now()), config(config), counter(0), console(config.console_ip, config.console_port),
-                                                  sync_remote_record_task_queue("st-dns-record-sync-task", 10, 20, [=](const st::task::priority_task<string> &task) {
+                                                  sync_remote_record_task_queue("st-dns-record-sync-task", 100, 100, [=](const st::task::priority_task<string> &task) {
                                                       auto domain = task.get_input();
                                                       logger::DEBUG << "begin update dn record !" << domain << END;
                                                       vector<remote_dns_server *> servers = remote_dns_server::select_servers(domain, config.servers);
@@ -150,10 +150,11 @@ void dns_server::receive() {
                                    if (parsed) {
                                        process_session(session);
                                    } else {
-                                       logger::ERROR << "invalid dns request" << END;
+                                       logger::ERROR << "invalid dns request: parse error" << END;
                                        end_session(session);
                                    }
                                } else {
+                                   logger::ERROR << "invalid dns request: net error" << END;
                                    end_session(session);
                                }
                            });
@@ -243,16 +244,16 @@ void dns_server::query_dns_record(session *session, const std::function<void(st:
         dns_record record = query_record_from_cache(host);
         if (record.ips.empty()) {
             session->logger.add_dimension("process_type", "remote");
-            st::task::priority_task<string> task(record.domain, 1, record.domain);
-            sync_remote_record_task_queue.submit(task);
             auto *timer = new deadline_timer(ic);
-            timer->expires_from_now(boost::posix_time::milliseconds(1000));
+            timer->expires_from_now(boost::posix_time::milliseconds(100));
             timer->async_wait([=](boost::system::error_code ec) {
                 dns_record record = query_record_from_cache(host);
                 session->record = record;
                 complete(session);
                 delete timer;
             });
+            st::task::priority_task<string> task(record.domain, 1, record.domain);
+            sync_remote_record_task_queue.submit(task);
         } else {
             session->logger.add_dimension("process_type", "cache");
             session->record = record;

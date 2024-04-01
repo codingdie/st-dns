@@ -168,17 +168,21 @@ namespace st {
             return "";
         }
         void manager::async_load_ip_info_from_net(const uint32_t &ip) {
-            if (net_caches.find(ip) != net_caches.end()) {
-                return;
-            }
             ctx.post([this, ip]() {
                 if (ips.emplace(ip).second) {
                     std::function<void(const uint32_t &ip)> do_load_ip_info = [this](const uint32_t &ip) {
-                        if (get_area(ip, net_caches).empty()) {
+                        string net_area = "";
+                        {
+                            std::lock_guard<std::mutex> lg(net_lock);
+                            net_area = get_area(ip, net_caches);
+                        }
+                        if (net_area.empty()) {
                             auto area_code = load_ip_info(ip);
                             if (!area_code.empty()) {
-                                std::lock_guard<std::mutex> lg(net_lock);
-                                this->net_caches[ip] = area_code;
+                                {
+                                    std::lock_guard<std::mutex> lg(net_lock);
+                                    this->net_caches[ip] = area_code;
+                                }
                                 async_load_area_ips(area_code);
                             } else {
                                 logger::ERROR << "async load ip info failed!" << st::utils::ipv4::ip_to_str(ip) << END;
@@ -242,6 +246,7 @@ namespace st {
             return "";
         }
         string manager::get_area(const uint32_t &ip, bool async_load_net) {
+            auto begin = time::now();
             string area;
             if (ip != 0) {
                 {
@@ -258,6 +263,7 @@ namespace st {
                     }
                 }
             }
+            apm_logger::perf("get-ip-area", {}, time::now() - begin);
             return area.empty() ? "default" : area;
         }
 
@@ -312,7 +318,6 @@ namespace st {
         }
 
         void manager::sync_net_area_ip() {
-            lock_guard<mutex> lockGuard(net_lock);
             unordered_set<string> final_record;
             ifstream in(IP_NET_AREA_FILE);
             if (in) {
@@ -324,10 +329,13 @@ namespace st {
                 }
                 in.close();
                 auto ori_size = final_record.size();
-                for (auto &net_cache : net_caches) {
-                    auto ip = net_cache.first;
-                    auto area = net_cache.second;
-                    final_record.emplace(st::utils::ipv4::ip_to_str(ip) + "\t" + area);
+                {
+                    lock_guard<mutex> lockGuard(net_lock);
+                    for (auto &net_cache : net_caches) {
+                        auto ip = net_cache.first;
+                        auto area = net_cache.second;
+                        final_record.emplace(st::utils::ipv4::ip_to_str(ip) + "\t" + area);
+                    }
                 }
                 auto merged_size = final_record.size();
                 if (ori_size != merged_size) {
@@ -348,7 +356,10 @@ namespace st {
                     }
                     fs.flush();
                     fs.close();
-                    this->net_caches = new_caches;
+                    {
+                        lock_guard<mutex> lockGuard(net_lock);
+                        this->net_caches = new_caches;
+                    }
                     auto last_write_time = boost::filesystem::last_write_time(IP_NET_AREA_FILE);
                     if (last_write_time < tmp_crate_time) {
                         boost::filesystem::rename(tmp, IP_NET_AREA_FILE);

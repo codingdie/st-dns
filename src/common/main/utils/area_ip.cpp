@@ -263,7 +263,6 @@ namespace st {
                     }
                 }
             }
-            apm_logger::perf("get-ip-area", {}, time::now() - begin);
             return area.empty() ? "default" : area;
         }
 

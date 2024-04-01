@@ -289,7 +289,8 @@ void apm_logger::schedule_log() {
             }
         }
         STATISTICS.clear();
-        logger::INFO << "apm log report at" << time::now_str() << "cost" << time::now() - begin << END;
+        uint64_t cost = time::now() - begin;
+        logger::INFO << "apm log report at" << time::now_str() << "cost" << cost << END;
         schedule_log();
     });
 }

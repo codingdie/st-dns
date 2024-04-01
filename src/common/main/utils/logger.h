@@ -120,8 +120,9 @@ namespace st {
             static udp_log_server UDP_LOG_SERVER;
             static boost::asio::deadline_timer LOG_TIMER;
             static boost::asio::io_context IO_CONTEXT;
+            static std::mutex APM_LOCK;
             static boost::asio::io_context::work *IO_CONTEXT_WORK;
-            static std::thread *LOG_THREAD;
+            static std::vector<std::thread *> LOG_THREADS;
             static void schedule_log();
             static void accumulate_metric(unordered_map<string, long> &metric, long value);
 

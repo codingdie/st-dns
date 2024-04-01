@@ -329,13 +329,15 @@ namespace st {
                 }
                 in.close();
                 auto ori_size = final_record.size();
+                unordered_map<uint32_t, string> net_caches_duplicate;
                 {
                     lock_guard<mutex> lockGuard(net_lock);
-                    for (auto &net_cache : net_caches) {
-                        auto ip = net_cache.first;
-                        auto area = net_cache.second;
-                        final_record.emplace(st::utils::ipv4::ip_to_str(ip) + "\t" + area);
-                    }
+                    net_caches_duplicate = net_caches;
+                }
+                for (auto &net_cache : net_caches_duplicate) {
+                    auto ip = net_cache.first;
+                    auto area = net_cache.second;
+                    final_record.emplace(st::utils::ipv4::ip_to_str(ip) + "\t" + area);
                 }
                 auto merged_size = final_record.size();
                 if (ori_size != merged_size) {

@@ -250,7 +250,8 @@ void apm_logger::enable(const string &udpServerIP, uint16_t udpServerPort) {
     UDP_LOG_SERVER.ip = udpServerIP;
     UDP_LOG_SERVER.port = udpServerPort;
     IO_CONTEXT_WORK = new boost::asio::io_context::work(IO_CONTEXT);
-    for (auto i = 0; i < 8; i++) {
+    unsigned int cpu_count = std::thread::hardware_concurrency();
+    for (auto i = 0; i < cpu_count; i++) {
         std::thread *th = new std::thread([&]() { IO_CONTEXT.run(); });
         LOG_THREADS.emplace_back(th);
     }

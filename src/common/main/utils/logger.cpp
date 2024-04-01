@@ -261,6 +261,7 @@ void apm_logger::disable() {
 void apm_logger::schedule_log() {
     LOG_TIMER.expires_from_now(boost::posix_time::milliseconds(65 * 1000 - time::now() % (60 * 1000U)));
     LOG_TIMER.async_wait([=](boost::system::error_code ec) {
+        auto begin = time::now();
         for (auto &it0 : STATISTICS) {
             for (auto &it1 : it0.second) {
                 boost::property_tree::ptree finalPT;
@@ -288,6 +289,8 @@ void apm_logger::schedule_log() {
             }
         }
         STATISTICS.clear();
+        uint64_t cost = time::now() - begin;
+        logger::INFO << "apm log report at" << time::now_str() << "cost" << cost << END;
         schedule_log();
     });
 }

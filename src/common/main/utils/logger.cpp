@@ -165,7 +165,9 @@ unordered_map<string, unordered_map<string, unordered_map<string, unordered_map<
 boost::asio::io_context apm_logger::IO_CONTEXT;
 boost::asio::io_context::work *apm_logger::IO_CONTEXT_WORK = nullptr;
 boost::asio::deadline_timer apm_logger::LOG_TIMER(apm_logger::IO_CONTEXT);
-std::thread *apm_logger::LOG_THREAD;
+std::vector<std::thread *> apm_logger::LOG_THREADS;
+std::mutex apm_logger::APM_LOCK;
+
 
 apm_logger::apm_logger(const string &name) { this->add_dimension("name", name); }
 
@@ -186,6 +188,7 @@ void apm_logger::end() {
         for (auto it = metrics.begin(); it != metrics.end(); it++) {
             string metricName = it->first;
             long value = boost::lexical_cast<long>(it->second.data());
+            std::lock_guard<std::mutex> lg(APM_LOCK);
             accumulate_metric(STATISTICS[name][dimensionsId][metricName], value);
         }
     });
@@ -220,6 +223,7 @@ void apm_logger::perf(const string &name, unordered_map<string, string> &&dimens
         }
         pt.put("name", name);
         string id = base64::encode(to_json(pt));
+        std::lock_guard<std::mutex> lg(APM_LOCK);
         accumulate_metric(STATISTICS[name][id]["count"], count);
         accumulate_metric(STATISTICS[name][id]["cost"], cost);
     });
@@ -234,6 +238,7 @@ void apm_logger::perf(const string &name, unordered_map<string, string> &&dimens
         }
         pt.put("name", name);
         string id = base64::encode(to_json(pt));
+        std::lock_guard<std::mutex> lg(APM_LOCK);
         accumulate_metric(STATISTICS[name][id]["count"], 1);
         for (const auto &count : counts) {
             accumulate_metric(STATISTICS[name][id][count.first], count.second);
@@ -245,7 +250,10 @@ void apm_logger::enable(const string &udpServerIP, uint16_t udpServerPort) {
     UDP_LOG_SERVER.ip = udpServerIP;
     UDP_LOG_SERVER.port = udpServerPort;
     IO_CONTEXT_WORK = new boost::asio::io_context::work(IO_CONTEXT);
-    LOG_THREAD = new std::thread([&]() { IO_CONTEXT.run(); });
+    for (auto i = 0; i < 8; i++) {
+        std::thread *th = new std::thread([&]() { IO_CONTEXT.run(); });
+        LOG_THREADS.emplace_back(th);
+    }
     schedule_log();
 }
 void apm_logger::disable() {
@@ -253,16 +261,24 @@ void apm_logger::disable() {
         IO_CONTEXT.stop();
         delete IO_CONTEXT_WORK;
         IO_CONTEXT_WORK = nullptr;
-        LOG_THREAD->join();
-        delete LOG_THREAD;
+        for (thread *th : LOG_THREADS) {
+            th->join();
+            delete th;
+        }
     }
 }
 
 void apm_logger::schedule_log() {
     LOG_TIMER.expires_from_now(boost::posix_time::milliseconds(65 * 1000 - time::now() % (60 * 1000U)));
     LOG_TIMER.async_wait([=](boost::system::error_code ec) {
+        unordered_map<string, unordered_map<string, unordered_map<string, unordered_map<string, long>>>> metric_duplicate;
         auto begin = time::now();
-        for (auto &it0 : STATISTICS) {
+        {
+            std::lock_guard<std::mutex> lg(APM_LOCK);
+            metric_duplicate = STATISTICS;
+            STATISTICS.clear();
+        }
+        for (auto &it0 : metric_duplicate) {
             for (auto &it1 : it0.second) {
                 boost::property_tree::ptree finalPT;
                 boost::property_tree::ptree t_dimensions = fromJson(base64::decode(it1.first));
@@ -288,7 +304,6 @@ void apm_logger::schedule_log() {
                 }
             }
         }
-        STATISTICS.clear();
         uint64_t cost = time::now() - begin;
         logger::INFO << "apm log report at" << time::now_str() << "cost" << cost << END;
         schedule_log();

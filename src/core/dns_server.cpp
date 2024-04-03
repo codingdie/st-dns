@@ -243,8 +243,6 @@ void dns_server::query_dns_record(session *session, const std::function<void(st:
         dns_record record = query_record_from_cache(host);
         if (record.ips.empty()) {
             session->logger.add_dimension("process_type", "remote");
-            st::task::priority_task<string> task(record.domain, 1, record.domain);
-            sync_remote_record_task_queue.submit(task);
             auto *timer = new deadline_timer(ic);
             timer->expires_from_now(boost::posix_time::milliseconds(1000));
             timer->async_wait([=](boost::system::error_code ec) {
@@ -253,6 +251,8 @@ void dns_server::query_dns_record(session *session, const std::function<void(st:
                 complete(session);
                 delete timer;
             });
+            st::task::priority_task<string> task(record.domain, 1, record.domain);
+            sync_remote_record_task_queue.submit(task);
         } else {
             session->logger.add_dimension("process_type", "cache");
             session->record = record;

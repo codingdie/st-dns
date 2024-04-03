@@ -245,7 +245,7 @@ void dns_server::query_dns_record(session *session, const std::function<void(st:
         if (record.ips.empty()) {
             session->logger.add_dimension("process_type", "remote");
             auto *timer = new deadline_timer(ic);
-            timer->expires_from_now(boost::posix_time::milliseconds(1000));
+            timer->expires_from_now(boost::posix_time::milliseconds(100));
             timer->async_wait([=](boost::system::error_code ec) {
                 dns_record record = query_record_from_cache(host);
                 session->record = record;

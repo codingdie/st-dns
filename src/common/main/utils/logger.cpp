@@ -208,7 +208,11 @@ void apm_logger::accumulate_metric(unordered_map<string, uint64_t> &metric, uint
         metric["min"] = numeric_limits<uint64_t>::max();
         metric["max"] = numeric_limits<uint64_t>::min();
     }
-    metric["sum"] += value * sample;
+    uint64_t sum = value * sample;
+    if (sum > 1000000) {
+        logger::ERROR << "bit number" << value << sample << END;
+    }
+    metric["sum"] += sum;
     metric["min"] = min(value, metric["min"]);
     metric["max"] = max(value, metric["max"]);
 }

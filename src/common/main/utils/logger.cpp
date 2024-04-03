@@ -180,7 +180,7 @@ void apm_logger::start() {
 void apm_logger::end() {
     uint64_t cost = time::now() - this->start_time;
     this->add_metric("cost", cost);
-    this->add_metric("count", 1);
+    this->add_metric("count", (uint64_t) 1);
     boost::property_tree::ptree &dimensions = this->dimensions;
     boost::property_tree::ptree &metrics = this->metrics;
     IO_CONTEXT.post([dimensions, metrics, this]() {
@@ -204,7 +204,7 @@ void apm_logger::step(const string &step) {
 
 void apm_logger::accumulate_metric(unordered_map<string, uint64_t> &metric, uint64_t value, uint64_t sample) {
     if (metric.empty()) {
-        metric["sum"] = 0;
+        metric["sum"] = (uint64_t) 0;
         metric["min"] = numeric_limits<uint64_t>::max();
         metric["max"] = numeric_limits<uint64_t>::min();
     }

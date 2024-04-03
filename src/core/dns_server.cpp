@@ -150,10 +150,11 @@ void dns_server::receive() {
                                    if (parsed) {
                                        process_session(session);
                                    } else {
-                                       logger::ERROR << "invalid dns request" << END;
+                                       logger::ERROR << "invalid dns request: parse error" << END;
                                        end_session(session);
                                    }
                                } else {
+                                   logger::ERROR << "invalid dns request: net error" << END;
                                    end_session(session);
                                }
                            });

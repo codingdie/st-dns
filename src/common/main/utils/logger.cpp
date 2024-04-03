@@ -162,7 +162,7 @@ void std_logger::log(const string &str, ostream *st) { *st << str; }
 
 
 udp_log_server apm_logger::UDP_LOG_SERVER;
-unordered_map<string, unordered_map<string, unordered_map<string, unordered_map<string, long>>>> apm_logger::STATISTICS;
+unordered_map<string, unordered_map<string, unordered_map<string, unordered_map<string, uint64_t>>>> apm_logger::STATISTICS;
 boost::asio::io_context apm_logger::IO_CONTEXT;
 boost::asio::io_context::work *apm_logger::IO_CONTEXT_WORK = nullptr;
 boost::asio::deadline_timer apm_logger::LOG_TIMER(apm_logger::IO_CONTEXT);
@@ -170,7 +170,7 @@ std::vector<std::thread *> apm_logger::LOG_THREADS;
 std::mutex apm_logger::APM_LOCK;
 
 
-apm_logger::apm_logger(const string &name) { this->add_dimension("name", name); }
+apm_logger::apm_logger(const string &name) : sample(1) { this->add_dimension("name", name); }
 
 void apm_logger::start() {
     this->start_time = time::now();
@@ -188,7 +188,7 @@ void apm_logger::end() {
         string dimensionsId = base64::encode(to_json(dimensions));
         for (auto it = metrics.begin(); it != metrics.end(); it++) {
             string metricName = it->first;
-            long value = boost::lexical_cast<long>(it->second.data());
+            uint64_t value = boost::lexical_cast<uint64_t>(it->second.data());
             std::lock_guard<std::mutex> lg(APM_LOCK);
             accumulate_metric(STATISTICS[name][dimensionsId][metricName], value, sample);
         }
@@ -202,11 +202,11 @@ void apm_logger::step(const string &step) {
     this->add_metric(step + "Cost", cost);
 }
 
-void apm_logger::accumulate_metric(unordered_map<string, long> &metric, long value, uint64_t sample) {
+void apm_logger::accumulate_metric(unordered_map<string, uint64_t> &metric, uint64_t value, uint64_t sample) {
     if (metric.empty()) {
         metric["sum"] = 0;
-        metric["min"] = numeric_limits<long>::max();
-        metric["max"] = numeric_limits<long>::min();
+        metric["min"] = numeric_limits<uint64_t>::max();
+        metric["max"] = numeric_limits<uint64_t>::min();
     }
     metric["sum"] += value * sample;
     metric["min"] = min(value, metric["min"]);
@@ -235,7 +235,7 @@ void apm_logger::perf(const string &name, unordered_map<string, string> &&dimens
     }
 }
 bool apm_logger::is_sample(uint64_t sample) {
-    static auto range = 1000;
+    static uint64_t range = 1000;
     static uniform_int_distribution<unsigned short> random_range(0, range - 1);//随机数分布对象
     static default_random_engine random_engine(time::now());
     auto scale = range / sample;
@@ -288,7 +288,7 @@ void apm_logger::disable() {
 void apm_logger::schedule_log() {
     LOG_TIMER.expires_from_now(boost::posix_time::milliseconds(65 * 1000 - time::now() % (60 * 1000U)));
     LOG_TIMER.async_wait([=](boost::system::error_code ec) {
-        unordered_map<string, unordered_map<string, unordered_map<string, unordered_map<string, long>>>>
+        unordered_map<string, unordered_map<string, unordered_map<string, unordered_map<string, uint64_t>>>>
                 metric_duplicate;
         auto begin = time::now();
         {
@@ -301,7 +301,7 @@ void apm_logger::schedule_log() {
                 boost::property_tree::ptree finalPT;
                 boost::property_tree::ptree t_dimensions = fromJson(base64::decode(it1.first));
                 finalPT.insert(finalPT.end(), t_dimensions.begin(), t_dimensions.end());
-                long t_count = it1.second["count"]["sum"];
+                uint64_t t_count = it1.second["count"]["sum"];
                 if (t_count <= 0) {
                     continue;
                 }
@@ -310,7 +310,7 @@ void apm_logger::schedule_log() {
                         it2.second["avg"] = it2.second["sum"] / t_count;
                         boost::property_tree::ptree t_metrics;
                         for (auto &it3 : it2.second) {
-                            t_metrics.put<long>(it3.first, it3.second);
+                            t_metrics.put<uint64_t>(it3.first, it3.second);
                         }
                         finalPT.put_child(it2.first, t_metrics);
                     }

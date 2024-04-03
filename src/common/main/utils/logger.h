@@ -114,10 +114,10 @@ namespace st {
             void add_dimension(const string name, const V &value) {
                 this->dimensions.put<V>(name, value);
             }
-            void add_metric(const string &name, const long &value) { this->metrics.put<long>(name, value); }
+            void add_metric(const string &name, const uint64_t &value) { this->metrics.put<uint64_t>(name, value); }
 
         private:
-            static unordered_map<string, unordered_map<string, unordered_map<string, unordered_map<string, long>>>>
+            static unordered_map<string, unordered_map<string, unordered_map<string, unordered_map<string, uint64_t>>>>
                     STATISTICS;
             static udp_log_server UDP_LOG_SERVER;
             static boost::asio::deadline_timer LOG_TIMER;
@@ -126,13 +126,13 @@ namespace st {
             static boost::asio::io_context::work *IO_CONTEXT_WORK;
             static std::vector<std::thread *> LOG_THREADS;
             static void schedule_log();
-            static void accumulate_metric(unordered_map<string, long> &metric, long value, uint64_t sample);
+            static void accumulate_metric(unordered_map<string, uint64_t> &metric, uint64_t value, uint64_t sample);
 
             boost::property_tree::ptree dimensions;
             boost::property_tree::ptree metrics;
             uint64_t start_time;
             uint64_t last_step_time;
-            uint64_t sample = 1;
+            uint64_t sample;
 
             static bool is_sample(uint64_t sample);
         };

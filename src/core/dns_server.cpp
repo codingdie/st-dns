@@ -19,7 +19,7 @@ using namespace std;
 using namespace st::dns;
 using namespace st::dns::protocol;
 dns_server::dns_server(st::dns::config &config) : rid(time::now()), config(config), counter(0), console(config.console_ip, config.console_port),
-                                                  sync_remote_record_task_queue("st-dns-record-sync-task", 10, 20, [=](const st::task::priority_task<string> &task) {
+                                                  sync_remote_record_task_queue("st-dns-record-sync-task", 100, 100, [=](const st::task::priority_task<string> &task) {
                                                       auto domain = task.get_input();
                                                       logger::DEBUG << "begin update dn record !" << domain << END;
                                                       vector<remote_dns_server *> servers = remote_dns_server::select_servers(domain, config.servers);

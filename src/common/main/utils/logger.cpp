@@ -188,7 +188,7 @@ void apm_logger::end() {
         string dimensionsId = base64::encode(to_json(dimensions));
         for (auto it = metrics.begin(); it != metrics.end(); it++) {
             string metricName = it->first;
-            uint64_t value = boost::lexical_cast<uint64_t>(it->second.data());
+            auto value = metrics.get<uint64_t>(metricName);
             std::lock_guard<std::mutex> lg(APM_LOCK);
             accumulate_metric(STATISTICS[name][dimensionsId][metricName], value, sample);
         }

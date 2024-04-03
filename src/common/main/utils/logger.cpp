@@ -10,6 +10,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <iostream>
+#include <random>
 #include <regex>
 #include <thread>
 #include <utility>
@@ -182,14 +183,14 @@ void apm_logger::end() {
     this->add_metric("count", 1);
     boost::property_tree::ptree &dimensions = this->dimensions;
     boost::property_tree::ptree &metrics = this->metrics;
-    IO_CONTEXT.post([dimensions, metrics]() {
+    IO_CONTEXT.post([dimensions, metrics, this]() {
         string name = dimensions.get<string>("name");
         string dimensionsId = base64::encode(to_json(dimensions));
         for (auto it = metrics.begin(); it != metrics.end(); it++) {
             string metricName = it->first;
             long value = boost::lexical_cast<long>(it->second.data());
             std::lock_guard<std::mutex> lg(APM_LOCK);
-            accumulate_metric(STATISTICS[name][dimensionsId][metricName], value);
+            accumulate_metric(STATISTICS[name][dimensionsId][metricName], value, sample);
         }
     });
 }
@@ -201,49 +202,64 @@ void apm_logger::step(const string &step) {
     this->add_metric(step + "Cost", cost);
 }
 
-void apm_logger::accumulate_metric(unordered_map<string, long> &metric, long value) {
+void apm_logger::accumulate_metric(unordered_map<string, long> &metric, long value, uint64_t sample) {
     if (metric.empty()) {
         metric["sum"] = 0;
         metric["min"] = numeric_limits<long>::max();
         metric["max"] = numeric_limits<long>::min();
     }
-    metric["sum"] += value;
+    metric["sum"] += value * sample;
     metric["min"] = min(value, metric["min"]);
     metric["max"] = max(value, metric["max"]);
 }
-
+void apm_logger::perf(const string &name, unordered_map<string, string> &&dimensions, uint64_t cost, uint64_t sample) {
+    perf(name, std::move(dimensions), cost, 1, sample);
+}
 void apm_logger::perf(const string &name, unordered_map<string, string> &&dimensions, uint64_t cost) {
     perf(name, std::move(dimensions), cost, 1);
 }
-void apm_logger::perf(const string &name, unordered_map<string, string> &&dimensions, uint64_t cost, uint64_t count) {
-    IO_CONTEXT.post([=]() {
-        boost::property_tree::ptree pt;
-        for (auto &dimension : dimensions) {
-            pt.put(dimension.first, dimension.second);
-        }
-        pt.put("name", name);
-        string id = base64::encode(to_json(pt));
-        std::lock_guard<std::mutex> lg(APM_LOCK);
-        accumulate_metric(STATISTICS[name][id]["count"], count);
-        accumulate_metric(STATISTICS[name][id]["cost"], cost);
-    });
+void apm_logger::perf(const string &name, unordered_map<string, string> &&dimensions, uint64_t cost, uint64_t count,
+                      uint64_t sample) {
+    if (is_sample(sample)) {
+        IO_CONTEXT.post([=]() {
+            boost::property_tree::ptree pt;
+            for (auto &dimension : dimensions) {
+                pt.put(dimension.first, dimension.second);
+            }
+            pt.put("name", name);
+            string id = base64::encode(to_json(pt));
+            std::lock_guard<std::mutex> lg(APM_LOCK);
+            accumulate_metric(STATISTICS[name][id]["count"], count, sample);
+            accumulate_metric(STATISTICS[name][id]["cost"], cost, sample);
+        });
+    }
+}
+bool apm_logger::is_sample(uint64_t sample) {
+    static auto range = 1000;
+    static uniform_int_distribution<unsigned short> random_range(0, range - 1);//随机数分布对象
+    static default_random_engine random_engine(time::now());
+    auto scale = range / sample;
+    return random_range(random_engine) / scale == 0;
 }
 
 void apm_logger::perf(const string &name, unordered_map<string, string> &&dimensions,
                       unordered_map<string, int64_t> &&counts) {
-    IO_CONTEXT.post([=]() {
-        boost::property_tree::ptree pt;
-        for (auto &dimension : dimensions) {
-            pt.put(dimension.first, dimension.second);
-        }
-        pt.put("name", name);
-        string id = base64::encode(to_json(pt));
-        std::lock_guard<std::mutex> lg(APM_LOCK);
-        accumulate_metric(STATISTICS[name][id]["count"], 1);
-        for (const auto &count : counts) {
-            accumulate_metric(STATISTICS[name][id][count.first], count.second);
-        }
-    });
+    uint64_t sample = 1;
+    if (is_sample(sample)) {
+        IO_CONTEXT.post([=]() {
+            boost::property_tree::ptree pt;
+            for (auto &dimension : dimensions) {
+                pt.put(dimension.first, dimension.second);
+            }
+            pt.put("name", name);
+            string id = base64::encode(to_json(pt));
+            std::lock_guard<std::mutex> lg(APM_LOCK);
+            accumulate_metric(STATISTICS[name][id]["count"], 1, sample);
+            for (const auto &count : counts) {
+                accumulate_metric(STATISTICS[name][id][count.first], count.second, sample);
+            }
+        });
+    }
 }
 
 void apm_logger::enable(const string &udpServerIP, uint16_t udpServerPort) {
@@ -272,7 +288,8 @@ void apm_logger::disable() {
 void apm_logger::schedule_log() {
     LOG_TIMER.expires_from_now(boost::posix_time::milliseconds(65 * 1000 - time::now() % (60 * 1000U)));
     LOG_TIMER.async_wait([=](boost::system::error_code ec) {
-        unordered_map<string, unordered_map<string, unordered_map<string, unordered_map<string, long>>>> metric_duplicate;
+        unordered_map<string, unordered_map<string, unordered_map<string, unordered_map<string, long>>>>
+                metric_duplicate;
         auto begin = time::now();
         {
             std::lock_guard<std::mutex> lg(APM_LOCK);

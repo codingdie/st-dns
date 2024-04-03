@@ -98,9 +98,11 @@ namespace st {
             static void enable(const string &udpServerIP, uint16_t udpServerPort);
             static void disable();
             static void perf(const string &name, unordered_map<string, string> &&dimensions, uint64_t cost,
-                             uint64_t count);
+                             uint64_t count, uint64_t sample);
             static void perf(const string &name, unordered_map<string, string> &&dimensions,
                              unordered_map<string, int64_t> &&counts);
+            static void perf(const string &name, unordered_map<string, string> &&dimensions, uint64_t cost,
+                             uint64_t sample);
 
             static void perf(const string &name, unordered_map<string, string> &&dimensions, uint64_t cost);
             explicit apm_logger(const string &name);
@@ -124,12 +126,15 @@ namespace st {
             static boost::asio::io_context::work *IO_CONTEXT_WORK;
             static std::vector<std::thread *> LOG_THREADS;
             static void schedule_log();
-            static void accumulate_metric(unordered_map<string, long> &metric, long value);
+            static void accumulate_metric(unordered_map<string, long> &metric, long value, uint64_t sample);
 
             boost::property_tree::ptree dimensions;
             boost::property_tree::ptree metrics;
             uint64_t start_time;
             uint64_t last_step_time;
+            uint64_t sample = 1;
+
+            static bool is_sample(uint64_t sample);
         };
     }// namespace utils
 }// namespace st

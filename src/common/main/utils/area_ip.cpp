@@ -376,7 +376,7 @@ namespace st {
                 file::create_if_not_exits(IP_NET_AREA_FILE);
                 logger::ERROR << "sync net area ips skip! file not exits" << END;
             }
-            sync_timer->expires_from_now(boost::posix_time::seconds(3 + random_engine() % 2));
+            sync_timer->expires_from_now(boost::posix_time::seconds(10 + random_engine() % 5));
             sync_timer->async_wait([=](boost::system::error_code ec) {
                 this->sync_net_area_ip();
             });

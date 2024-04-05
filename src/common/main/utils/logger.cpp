@@ -170,7 +170,7 @@ std::vector<std::thread *> apm_logger::LOG_THREADS;
 std::mutex apm_logger::APM_LOCK;
 
 
-apm_logger::apm_logger(const string &name) : sample(1) { this->add_dimension("name", name); }
+apm_logger::apm_logger(const string &name) { this->add_dimension("name", name); }
 
 void apm_logger::start() {
     this->start_time = time::now();
@@ -190,7 +190,7 @@ void apm_logger::end() {
             string metricName = it->first;
             auto value = metrics.get<uint64_t>(metricName);
             std::lock_guard<std::mutex> lg(APM_LOCK);
-            accumulate_metric(STATISTICS[name][dimensionsId][metricName], value, sample);
+            accumulate_metric(STATISTICS[name][dimensionsId][metricName], value, 1);
         }
     });
 }
@@ -210,7 +210,7 @@ void apm_logger::accumulate_metric(unordered_map<string, uint64_t> &metric, uint
     }
     uint64_t sum = value * sample;
     if (sum > 1000000) {
-        logger::ERROR << "bit number" << value << sample << END;
+        logger::ERROR << "big number" << value << sample << END;
     }
     metric["sum"] += sum;
     metric["min"] = min(value, metric["min"]);
@@ -248,22 +248,19 @@ bool apm_logger::is_sample(uint64_t sample) {
 
 void apm_logger::perf(const string &name, unordered_map<string, string> &&dimensions,
                       unordered_map<string, int64_t> &&counts) {
-    uint64_t sample = 1;
-    if (is_sample(sample)) {
-        IO_CONTEXT.post([=]() {
-            boost::property_tree::ptree pt;
-            for (auto &dimension : dimensions) {
-                pt.put(dimension.first, dimension.second);
-            }
-            pt.put("name", name);
-            string id = base64::encode(to_json(pt));
-            std::lock_guard<std::mutex> lg(APM_LOCK);
-            accumulate_metric(STATISTICS[name][id]["count"], 1, sample);
-            for (const auto &count : counts) {
-                accumulate_metric(STATISTICS[name][id][count.first], count.second, sample);
-            }
-        });
-    }
+    IO_CONTEXT.post([=]() {
+        boost::property_tree::ptree pt;
+        for (auto &dimension : dimensions) {
+            pt.put(dimension.first, dimension.second);
+        }
+        pt.put("name", name);
+        string id = base64::encode(to_json(pt));
+        std::lock_guard<std::mutex> lg(APM_LOCK);
+        accumulate_metric(STATISTICS[name][id]["count"], 1, 1);
+        for (const auto &count : counts) {
+            accumulate_metric(STATISTICS[name][id][count.first], count.second, 1);
+        }
+    });
 }
 
 void apm_logger::enable(const string &udpServerIP, uint16_t udpServerPort) {

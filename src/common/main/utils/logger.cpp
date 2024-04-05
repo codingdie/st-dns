@@ -181,14 +181,17 @@ void apm_logger::end() {
     uint64_t cost = time::now() - this->start_time;
     this->add_metric("cost", cost);
     this->add_metric("count", (uint64_t) 1);
-    boost::property_tree::ptree &dimensions = this->dimensions;
-    boost::property_tree::ptree &metrics = this->metrics;
-    IO_CONTEXT.post([dimensions, metrics, this]() {
-        string name = dimensions.get<string>("name");
-        string dimensionsId = base64::encode(to_json(dimensions));
-        for (auto it = metrics.begin(); it != metrics.end(); it++) {
+    boost::property_tree::ptree &c_dimensions = this->dimensions;
+    boost::property_tree::ptree &c_metrics = this->metrics;
+    IO_CONTEXT.post([c_dimensions, c_metrics]() {
+        string name = c_dimensions.get<string>("name");
+        string dimensionsId = base64::encode(to_json(c_dimensions));
+        for (auto it = c_metrics.begin(); it != c_metrics.end(); it++) {
             string metricName = it->first;
-            auto value = metrics.get<uint64_t>(metricName);
+            auto value = c_metrics.get<uint64_t>(metricName);
+            if (value ==0) {
+                logger::ERROR << "zero number" << value << metricName << END;
+            }
             std::lock_guard<std::mutex> lg(APM_LOCK);
             accumulate_metric(STATISTICS[name][dimensionsId][metricName], value, 1);
         }

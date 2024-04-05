@@ -209,7 +209,7 @@ void apm_logger::accumulate_metric(unordered_map<string, uint64_t> &metric, uint
         metric["max"] = numeric_limits<uint64_t>::min();
     }
     uint64_t sum = value * sample;
-    if (sum > 1000000) {
+    if (sum > 1000000 || sum == 0) {
         logger::ERROR << "big number" << value << sample << END;
     }
     metric["sum"] += sum;
@@ -269,7 +269,7 @@ void apm_logger::enable(const string &udpServerIP, uint16_t udpServerPort) {
     IO_CONTEXT_WORK = new boost::asio::io_context::work(IO_CONTEXT);
     unsigned int cpu_count = std::thread::hardware_concurrency();
     for (auto i = 0; i < cpu_count; i++) {
-        std::thread *th = new std::thread([&]() { IO_CONTEXT.run(); });
+        auto *th = new std::thread([&]() { IO_CONTEXT.run(); });
         LOG_THREADS.emplace_back(th);
     }
     schedule_log();

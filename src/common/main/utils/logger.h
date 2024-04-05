@@ -132,7 +132,6 @@ namespace st {
             boost::property_tree::ptree metrics;
             uint64_t start_time;
             uint64_t last_step_time;
-            uint64_t sample;
 
             static bool is_sample(uint64_t sample);
         };

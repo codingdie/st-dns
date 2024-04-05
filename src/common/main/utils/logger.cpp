@@ -189,9 +189,6 @@ void apm_logger::end() {
         for (auto it = c_metrics.begin(); it != c_metrics.end(); it++) {
             string metricName = it->first;
             auto value = c_metrics.get<uint64_t>(metricName);
-            if (value ==0) {
-                logger::ERROR << "zero number" << value << metricName << END;
-            }
             std::lock_guard<std::mutex> lg(APM_LOCK);
             accumulate_metric(STATISTICS[name][dimensionsId][metricName], value, 1);
         }
@@ -212,9 +209,6 @@ void apm_logger::accumulate_metric(unordered_map<string, uint64_t> &metric, uint
         metric["max"] = numeric_limits<uint64_t>::min();
     }
     uint64_t sum = value * sample;
-    if (sum > 1000000 || sum == 0) {
-        logger::ERROR << "big number" << value << sample << END;
-    }
     metric["sum"] += sum;
     metric["min"] = min(value, metric["min"]);
     metric["max"] = max(value, metric["max"]);

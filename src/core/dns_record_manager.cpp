@@ -3,10 +3,10 @@
 //
 
 #include "dns_record_manager.h"
-#include "config.h"
 #include <random>
 #include <vector>
 #include "protocol/message.pb.h"
+#include "config.h"
 
 void dns_record_manager::add(const string &domain, const vector<uint32_t> &ips, const string &dns_server, const int expire) {
     st::dns::proto::records dns_records = get_dns_records_pb(domain);
@@ -56,6 +56,7 @@ dns_record dns_record_manager::transform(const st::dns::proto::records &records)
                 tmp.expire_time = t_record.expire();
                 tmp.server_order = server_order;
                 ip_records.emplace_back(tmp);
+                record.servers.emplace(serverId);
             }
         }
     }

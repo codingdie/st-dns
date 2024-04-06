@@ -255,12 +255,13 @@ void dns_server::query_dns_record(session *session, const std::function<void(st:
             complete(session);
             if (record.expire || !record.match_area) {
                 sync_dns_record_from_remote(host);
+            } else {
+                sync_loss_dns_record_from_remote(host, record);
             }
         }
     }
 }
 dns_record dns_server::query_record_from_cache(const string &host) const {
-    auto begin = time::now();
     auto record = dns_record_manager::uniq().resolve(host);
     if (record.ips.empty()) {
         string fiDomain = dns_domain::getFIDomain(host);
@@ -311,7 +312,7 @@ void dns_server::sync_dns_record_from_remote(const string &domain) {
         logger::ERROR << domain << "update dns record cal servers empty!" << END;
         return;
     } else {
-        uint32_t priority = 100;
+        uint32_t priority = MAX_PRIORITY;
         for (auto server : servers) {
             st::task::priority_task<task_queue_param> task(make_pair(domain, server), priority, domain + "/" + server->id());
             sync_remote_record_task_queue.submit(task);
@@ -320,8 +321,23 @@ void dns_server::sync_dns_record_from_remote(const string &domain) {
     }
 }
 
+void dns_server::sync_loss_dns_record_from_remote(string &host, dns_record &record) {
+    vector<remote_dns_server *> servers = remote_dns_server::select_servers(host, config.servers);
+    uint32_t priority = MAX_PRIORITY;
+    for (auto &server : servers) {
+        if (record.servers.find(server->id()) == record.servers.end()) {
+            task::priority_task<task_queue_param> task(make_pair(host, server), priority, host + "/" + server->id());
+            sync_remote_record_task_queue.submit(task);
+            apm_logger::perf("st-dns-sync-loss_record", {{"domain", host}, {"server", server->id()}}, 0);
+            priority--;
+        }
+    }
+}
+
 void dns_server::sync_dns_record_from_remote(const string &host, const std::function<void(dns_record record)> &complete, remote_dns_server *server) const {
+    auto begin = time::now();
     dns_multi_area_complete multi_area_complete_handler = [=](const vector<uint32_t> &ips, bool load_all) {
+        apm_logger::perf("st-dns-sync-record-from-remote", {{"domain", host}, {"server", server->id()}}, time::now() - begin);
         if (!ips.empty()) {
             dns_record_manager::uniq().add(host, ips, server->id(), load_all ? server->dns_cache_expire : server->dns_cache_expire / 2);
         }

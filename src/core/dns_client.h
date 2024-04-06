@@ -22,7 +22,6 @@ using namespace st::dns;
 using namespace std;
 #define dns_complete std::function<void(const std::vector<uint32_t> &ips)>
 #define dns_multi_area_complete std::function<void(const std::vector<uint32_t> &ips, bool load_all)>
-
 class dns_client {
 public:
     void udp_dns(const string &domain, const std::string &dns_server, uint32_t port, uint64_t timeout, const dns_complete &complete_handler);

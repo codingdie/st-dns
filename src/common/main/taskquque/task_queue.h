@@ -55,7 +55,7 @@ namespace st {
             std::set<std::string> task_keys;
 
             void schedule_generate_key() {
-                uint16_t duration = 100;
+                uint16_t duration = 50;
                 generate_key_timer.expires_from_now(boost::posix_time::milliseconds(duration));
                 generate_key_timer.async_wait([this, duration](error_code ec) {
                     key_count += speed * duration / 1000;
@@ -78,7 +78,7 @@ namespace st {
                     }
                 });
 
-                schedule_timer.expires_from_now(boost::posix_time::milliseconds(100));
+                schedule_timer.expires_from_now(boost::posix_time::milliseconds(50));
                 schedule_timer.async_wait([this](error_code ec) { schedule_dispatch_task(); });
             }
 

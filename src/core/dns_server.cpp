@@ -18,24 +18,19 @@ using namespace std::placeholders;
 using namespace std;
 using namespace st::dns;
 using namespace st::dns::protocol;
-dns_server::dns_server(st::dns::config &config) : rid(time::now()), config(config), counter(0), console(config.console_ip, config.console_port),
-                                                  sync_remote_record_task_queue("st-dns-record-sync-task", 100, 100, [=](const st::task::priority_task<string> &task) {
-                                                      auto domain = task.get_input();
-                                                      logger::DEBUG << "begin update dn record !" << domain << END;
-                                                      vector<remote_dns_server *> servers = remote_dns_server::select_servers(domain, config.servers);
-                                                      if (servers.empty()) {
-                                                          sync_remote_record_task_queue.complete(task);
-                                                          logger::ERROR << domain << "update dns record cal servers empty!" << END;
-                                                          return;
-                                                      } else {
-                                                          sync_dns_record_from_remote(
-                                                                  domain, [=](const dns_record &record) {
-                                                                      sync_remote_record_task_queue.complete(task);
-                                                                      logger::DEBUG << "sync_dns_record_from_remote finished!" << domain << END;
-                                                                  },
-                                                                  servers, 0);
-                                                      }
-                                                  }) {
+dns_server::dns_server(st::dns::config &config) : rid(time::now()),
+                                                  config(config),
+                                                  counter(0),
+                                                  console(config.console_ip, config.console_port),
+                                                  sync_remote_record_task_queue(
+                                                          "st-dns-record-sync-task",
+                                                          100,
+                                                          100,
+                                                          [=](const st::task::priority_task<pair<string, remote_dns_server *>> &task) {
+                                                              auto domain = task.get_input().first;
+                                                              auto server = task.get_input().second;
+                                                              sync_dns_record_from_remote(domain, [=](const dns_record &record) { sync_remote_record_task_queue.complete(task); }, server);
+                                                          }) {
     try {
         ss = new udp::socket(ic, udp::endpoint(boost::asio::ip::make_address_v4(config.ip), config.port));
     } catch (const boost::system::system_error &e) {
@@ -99,9 +94,10 @@ void dns_server::start_console() {
 
 void dns_server::start() {
     dns_record_manager::uniq();
-    vector<thread> threads;
     unsigned int cpu_count = std::thread::hardware_concurrency();
     iw = new boost::asio::io_context::work(ic);
+    vector<thread> threads;
+    threads.reserve(cpu_count);
     for (auto i = 0; i < cpu_count; i++) {
         threads.emplace_back([this]() {
             this->ic.run();
@@ -245,22 +241,20 @@ void dns_server::query_dns_record(session *session, const std::function<void(st:
         if (record.ips.empty()) {
             session->logger.add_dimension("process_type", "remote");
             auto *timer = new deadline_timer(ic);
-            timer->expires_from_now(boost::posix_time::milliseconds(100));
+            timer->expires_from_now(boost::posix_time::milliseconds(200));
             timer->async_wait([=](boost::system::error_code ec) {
                 dns_record record = query_record_from_cache(host);
                 session->record = record;
                 complete(session);
                 delete timer;
             });
-            st::task::priority_task<string> task(record.domain, 1, record.domain);
-            sync_remote_record_task_queue.submit(task);
+            sync_dns_record_from_remote(host);
         } else {
             session->logger.add_dimension("process_type", "cache");
             session->record = record;
             complete(session);
             if (record.expire || !record.match_area) {
-                st::task::priority_task<string> task(record.domain, 0, record.domain);
-                sync_remote_record_task_queue.submit(task);
+                sync_dns_record_from_remote(host);
             }
         }
     }
@@ -310,26 +304,29 @@ void dns_server::forward_dns_request(session *session, const std::function<void(
         }
     });
 }
-
-void dns_server::sync_dns_record_from_remote(const string &host, const std::function<void(dns_record record)> &complete,
-                                             vector<remote_dns_server *> servers,
-                                             int pos) {
-    if (pos >= servers.size()) {
-        logger::ERROR << "not known host" << host << END;
-        complete(dns_record_manager::uniq().resolve(host));
+void dns_server::sync_dns_record_from_remote(const string &domain) {
+    logger::DEBUG << "begin update dns record !" << domain << END;
+    vector<remote_dns_server *> servers = remote_dns_server::select_servers(domain, config.servers);
+    if (servers.empty()) {
+        logger::ERROR << domain << "update dns record cal servers empty!" << END;
         return;
+    } else {
+        uint32_t priority = 100;
+        for (auto server : servers) {
+            st::task::priority_task<task_queue_param> task(make_pair(domain, server), priority, domain + "/" + server->id());
+            sync_remote_record_task_queue.submit(task);
+            priority--;
+        }
     }
-    remote_dns_server *server = servers[pos];
-    dns_multi_area_complete multi_area_complete_handler = [=](const vector<uint32_t> &ips, bool loadAll) {
+}
+
+void dns_server::sync_dns_record_from_remote(const string &host, const std::function<void(dns_record record)> &complete, remote_dns_server *server) const {
+    dns_multi_area_complete multi_area_complete_handler = [=](const vector<uint32_t> &ips, bool load_all) {
         if (!ips.empty()) {
-            dns_record_manager::uniq().add(host, ips, server->id(), loadAll ? server->dns_cache_expire : server->dns_cache_expire / 2);
+            dns_record_manager::uniq().add(host, ips, server->id(), load_all ? server->dns_cache_expire : server->dns_cache_expire / 2);
         }
         dns_record record = dns_record_manager::uniq().resolve(host);
-        if (pos + 1 >= servers.size()) {
-            complete(record);
-        } else {
-            sync_dns_record_from_remote(host, complete, servers, pos + 1);
-        }
+        complete(record);
     };
     //resolve all area ip
     unordered_set<string> areas;

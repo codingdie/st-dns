@@ -18,6 +18,7 @@
 #include <vector>
 #include "kv/disk_kv.h"
 #include "protocol/message.pb.h"
+
 using namespace std;
 
 class dns_ip_record {
@@ -57,6 +58,8 @@ public:
     uint64_t expire_time = 0;
     string server;
     string domain;
+    unordered_set<string> servers;
+
     bool expire = false;
     bool match_area = false;
     uint32_t trusted_ip_count = 0;

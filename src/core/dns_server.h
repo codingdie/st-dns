@@ -21,6 +21,7 @@ using namespace std;
 using namespace st::dns;
 #define task_queue_param pair<string, remote_dns_server *>
 
+static const uint64_t MAX_PRIORITY = 100;
 class dns_server {
 public:
     explicit dns_server(st::dns::config &config);
@@ -65,6 +66,7 @@ private:
 
     void start_console();
     dns_record query_record_from_cache(const string &host) const;
+    void sync_loss_dns_record_from_remote(string &host, dns_record &record);
 };
 
 

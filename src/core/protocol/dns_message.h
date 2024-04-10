@@ -172,7 +172,7 @@ namespace st {
                     if (isAnswer) {
                         tmpData[1] = 0x8000;
                         if (answerCount == 0) {
-                            tmpData[1] = 0x8003;
+                            tmpData[1] = 0x8000;
                         }
                         tmpData[1] |= 0x0080;
                     }

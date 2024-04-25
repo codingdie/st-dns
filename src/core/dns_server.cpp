@@ -274,36 +274,22 @@ dns_record dns_server::query_record_from_cache(const string &host) const {
 }
 
 void dns_server::forward_dns_request(session *session, const std::function<void(st::dns::session *session)> &complete_handler) {
-    vector<remote_dns_server *> servers;
+
+    remote_dns_server *server = nullptr;
     for (auto &it : config.servers) {
         if (it->type == "UDP") {
-            servers.emplace_back(it);
+            server = it;
+            break;
         }
     }
-    if (!servers.empty()) {
-        forward_dns_request(
-                session, [=](udp_response *res) {
-                    session->response = res;
-                    complete_handler(session);
-                },
-                servers, 0);
+    if (server != nullptr) {
+        dns_client::uniq().forward_udp(session->request, server->ip, server->port, server->timeout, [=](udp_response *response) {
+            session->response = response;
+            complete_handler(session);
+        });
     } else {
         complete_handler(session);
     }
-}
-void dns_server::forward_dns_request(session *session, const std::function<void(udp_response *)> &complete, vector<remote_dns_server *> servers, uint32_t pos) {
-    if (pos >= servers.size()) {
-        complete(nullptr);
-        return;
-    }
-    remote_dns_server *server = servers[pos];
-    dns_client::uniq().forward_udp(session->request, server->ip, server->port, server->timeout, [=](udp_response *response) {
-        if (response == nullptr && pos + 1 < servers.size()) {
-            forward_dns_request(session, complete, servers, pos + 1);
-        } else {
-            complete(response);
-        }
-    });
 }
 void dns_server::sync_dns_record_from_remote(const string &domain) {
     logger::DEBUG << "begin update dns record !" << domain << END;

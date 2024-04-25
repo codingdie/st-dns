@@ -57,7 +57,6 @@ private:
 
     void forward_dns_request(session *session, const std::function<void(st::dns::session *)> &complete_handler);
 
-    void forward_dns_request(session *session, const std::function<void(protocol::udp_response *)> &complete, vector<remote_dns_server *> servers, uint32_t pos);
 
     void end_session(session *session);
 

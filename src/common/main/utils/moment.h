@@ -26,6 +26,15 @@ namespace st {
                 std::string result = buff;
                 return result + "." + std::to_string(nowt % 1000);
             }
+            inline std::string now_str(std::string format) {
+                char buff[20];
+                uint64_t nowt = time::now();
+                time_t now = nowt / 1000;
+                tm *time = localtime(&now);
+                strftime(buff, sizeof(buff), format.c_str(), time);
+                std::string result = buff;
+                return result + "." + std::to_string(nowt % 1000);
+            }
             inline std::string format(uint64_t timestamp) {
                 char buff[20];
                 uint64_t nowt = timestamp;
@@ -36,6 +45,6 @@ namespace st {
                 return result + "." + std::to_string(nowt % 1000);
             }
         }// namespace time
-    }    // namespace utils
+    }// namespace utils
 }// namespace st
 #endif//ST_TIMEUTILS_H

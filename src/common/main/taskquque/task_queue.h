@@ -52,7 +52,7 @@ namespace st {
             volatile double speed = 1;
             volatile atomic_uint32_t running;
             uint32_t max_running = 1;
-            std::set<std::string> task_keys;
+            std::unordered_set<std::string> task_keys;
 
             void schedule_generate_key() {
                 uint16_t duration = 50;
@@ -72,7 +72,8 @@ namespace st {
                         i_queue.pop();
                         key_count--;
                         running++;
-                        apm_logger::perf("st-task-queue-stats", {{"queue_name", name}},
+                        apm_logger::perf("st-task-queue-stats",
+                                         {{"queue_name", name}, {"priority", to_string(task.priority)}},
                                          {{"heap", i_queue.size()}, {"running", running}});
                         boost::asio::post(ic, [this, task]() { executor(task); });
                     }

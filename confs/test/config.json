@@ -63,15 +63,7 @@
   "console_ip": "0.0.0.0",
   "log": {
     "level": 0,
-    "raw_log_server": {
-      "ip": "192.168.31.20",
-      "port": "30500",
-      "tag": "st-dns"
-    },
-    "apm_log_server": {
-      "ip": "192.168.31.20",
-      "port": "30501"
-    }
+    "tag": "st-dns"
   },
   "enabled": true,
   "area_ip_config": {

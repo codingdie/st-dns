@@ -18,6 +18,7 @@ void st::dns::config::load(const string &base_conf_dir) {
             logger::ERROR << " parse config file " + config_path + " error!" << e.message() << END;
             exit(1);
         }
+        logger::init(tree);
         this->ip = tree.get("ip", string("127.0.0.1"));
         this->port = tree.get("port", port);
         this->console_port = tree.get("console_port", console_port);
@@ -70,7 +71,6 @@ void st::dns::config::load(const string &base_conf_dir) {
             logger::ERROR << "st-dns config no servers" << END;
             exit(1);
         }
-        logger::init(tree);
         auto area_ip_config_node = tree.get_child_optional("area_ip_config");
         if (area_ip_config_node.is_initialized()) {
             this->area_ip_config.load(area_ip_config_node.get());

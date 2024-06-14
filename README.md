@@ -73,12 +73,12 @@ st-dns is a smart local dns server which support to config multi UDP/TCP/DOT DNS
         "raw_log_server": { //UDP log server for raw log (optional), recommend logstash to elasticseatch
             "ip": "192.168.31.20", //server ip
             "port": 30500, //server port
-            "tag": "st-proxy" //fixed value
+            "TAG": "st-proxy" //fixed value
         },
         "apm_log_server": { //UDP log server for apm log (optional), recommend logstash to elasticseatch
             "ip": "192.168.31.20",
             "port": 30501,
-            "tag": "st-proxy" //fixed value
+            "TAG": "st-proxy" //fixed value
         }
     }
 }

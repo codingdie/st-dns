@@ -8,6 +8,9 @@
 #include <string>
 #include <vector>
 #include <boost/algorithm/string.hpp>
+#include <boost/uuid/uuid.hpp>           // uuid class
+#include <boost/uuid/uuid_generators.hpp>// generators
+#include <boost/uuid/uuid_io.hpp>        // streaming operators etc.
 
 namespace st {
     namespace utils {
@@ -56,6 +59,11 @@ namespace st {
                     result += value;
                 }
                 return result;
+            }
+            static std::string uuid() {
+                static boost::uuids::random_generator generator;
+                boost::uuids::uuid uuid = generator();
+                return to_string(uuid);
             }
         }// namespace strutils
     }    // namespace utils

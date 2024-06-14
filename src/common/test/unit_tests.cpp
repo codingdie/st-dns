@@ -168,3 +168,26 @@ TEST(unit_tests, test_task_queue) {
     ASSERT_EQ(1, result.size());
     ASSERT_TRUE(result[0] == "0");
 }
+
+
+TEST(unit_tests, test_limie_file_cnt) {
+    auto path = "/tmp/" + st::utils::strutils::uuid();
+    st::utils::file::mkdirs(path);
+    for (int i = 0; i < 10; i++) {
+        st::utils::file::create_if_not_exits(path + "/" + to_string(i) + ".txt");
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+    ASSERT_EQ(4, st::utils::file::limit_file_cnt(path, 6));
+}
+
+TEST(UnitTests, test_logger) {
+    boost::property_tree::ptree tree;
+    st::utils::logger::init(tree);
+    for (int i = 0; i < 1000000; i++) {
+        st::utils::apm_logger::perf("123", {}, 100);
+        st::utils::logger::INFO << i << time::now_str() << END;
+    }
+    ASSERT_TRUE(st::utils::file::get_file_cnt("/tmp/st") >= 16);
+    ASSERT_TRUE(st::utils::file::get_file_cnt("/tmp/st/perf") >= 1);
+    st::utils::logger::disable();
+}

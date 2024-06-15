@@ -114,6 +114,7 @@ namespace st {
                 uint32_t result = need_delete_cnt;
                 if (need_delete_cnt > 0) {
                     for (const auto &item : files) {
+                        boost::filesystem::remove(item.second);
                         logger::INFO << "delete file" << item.second.string() << item.first << END;
                         need_delete_cnt--;
                         if (need_delete_cnt <= 0) {

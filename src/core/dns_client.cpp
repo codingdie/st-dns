@@ -388,7 +388,6 @@ void dns_client::forward_udp(udp_request &udpdns_request, const std::string &dns
                                                   complete(dnsResponse);
                                               } else {
                                                   delete dnsResponse;
-                                                  complete(nullptr);
                                               }
                                           });
                               }

@@ -277,7 +277,7 @@ void apm_logger::report_apm_log_local() {
         return;
     }
     auto folder = "/tmp/st/perf/";
-    auto filename = folder + time::now_str("%Y-%m-%d-%H-%M") + ".perf." + strutils::uuid();
+    auto filename = folder + time::now_str("%Y-%m-%d-%H-%M") + "." + logger::TAG + ".perf." + strutils::uuid();
     file::create_if_not_exits(filename);
     file::limit_file_cnt(folder, 200);
     ofstream fs(filename);

@@ -341,19 +341,11 @@ void dns_server::sync_dns_record_from_remote(const string &host, const std::func
         dns_record record = dns_record_manager::uniq().resolve(host);
         complete(record);
     };
-    //resolve all area ip
-    unordered_set<string> areas;
-    if (server->area_resolve_optimize) {
-        for (auto area : server->resolve_optimize_areas) {
-            if (area[0] != '!') {
-                areas.emplace(area);
-            }
-        }
-    }
+
     if (server->type == "TCP_SSL") {
-        dns_client::uniq().tcp_tls_dns(host, server->ip, server->port, server->timeout, areas, multi_area_complete_handler);
+        dns_client::uniq().tcp_tls_dns(host, server->ip, server->port, server->timeout, server->resolve_optimize_areas, multi_area_complete_handler);
     } else if (server->type == "TCP") {
-        dns_client::uniq().tcp_dns(host, server->ip, server->port, server->timeout, areas, multi_area_complete_handler);
+        dns_client::uniq().tcp_dns(host, server->ip, server->port, server->timeout, server->resolve_optimize_areas, multi_area_complete_handler);
     } else if (server->type == "UDP") {
         dns_client::uniq().udp_dns(host, server->ip, server->port, server->timeout, [=](const std::vector<uint32_t> &ips) {
             multi_area_complete_handler(ips, true);
@@ -363,12 +355,17 @@ void dns_server::sync_dns_record_from_remote(const string &host, const std::func
 void dns_server::schedule() {
     for (auto &server : config.servers) {
         if (server->area_resolve_optimize) {
+            vector<pair<string, uint16_t>> result;
             server->resolve_optimize_areas.clear();
-            server->resolve_optimize_areas = st::command::proxy::get_ip_available_proxy_areas(server->ip);
-            logger::INFO << server->id() << "resolve_optimize_areas area sync" << strutils::join(server->resolve_optimize_areas, ",") << END;
-            for (const auto &area : server->resolve_optimize_areas) {
+            for (const auto &area : st::command::proxy::get_ip_available_proxy_areas(server->ip)) {
+                uint16_t a_port = st::command::proxy::register_area_port(server->ip, server->port, area);
+                if (a_port > 0) {
+                    result.emplace_back(area, a_port);
+                }
                 st::areaip::manager::uniq().load_area_ips(area);
+                logger::INFO << server->id() << "resolve_optimize_areas area sync" << area << a_port << END;
             }
+            server->resolve_optimize_areas = result;
         }
     }
     schedule_timer->expires_from_now(boost::posix_time::seconds(30));

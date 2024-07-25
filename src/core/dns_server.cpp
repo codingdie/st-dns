@@ -112,7 +112,7 @@ void dns_server::start() {
     receive();
     state++;
     schedule_timer = new boost::asio::deadline_timer(schedule_ic);
-
+    schedule();
     for (auto &th : threads) {
         th.join();
     }

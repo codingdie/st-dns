@@ -26,9 +26,8 @@
       "type": "TCP_SSL",
       "ip": "8.8.8.8",
       "port": 853,
+      "area_resolve_optimize": true,
       "areas": [
-        "JP",
-        "US",
         "!CN"
       ],
       "timeout": "20000",
@@ -36,7 +35,6 @@
     }
   ],
   "dns_cache_expire": 600,
-  "area_resolve_optimize": true,
   "console_port": 5757,
   "console_ip": "0.0.0.0",
   "log": {

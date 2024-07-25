@@ -12,6 +12,7 @@
 #include "dns_record_manager.h"
 #include "dns_client.h"
 #include "st.h"
+#include "command/proxy_command.h"
 static mutex rLock;
 
 using namespace std::placeholders;
@@ -96,6 +97,7 @@ void dns_server::start() {
     dns_record_manager::uniq();
     unsigned int cpu_count = std::thread::hardware_concurrency();
     iw = new boost::asio::io_context::work(ic);
+    schedule_iw = new boost::asio::io_context::work(schedule_ic);
     vector<thread> threads;
     threads.reserve(cpu_count);
     for (auto i = 0; i < cpu_count; i++) {
@@ -103,9 +105,14 @@ void dns_server::start() {
             this->ic.run();
         });
     }
+    threads.emplace_back([this]() {
+        this->schedule_ic.run();
+    });
     logger::INFO << "st-dns start, listen at" << config.ip << config.port << END;
     receive();
     state++;
+    schedule_timer = new boost::asio::deadline_timer(schedule_ic);
+    schedule();
     for (auto &th : threads) {
         th.join();
     }
@@ -115,9 +122,13 @@ void dns_server::start() {
 void dns_server::shutdown() {
     this->state = 2;
     ss->cancel();
+    schedule_timer->cancel();
     ic.stop();
-    delete iw;
+    schedule_ic.stop();
     ss->close();
+    delete iw;
+    delete schedule_iw;
+    delete schedule_timer;
     delete ss;
     apm_logger::disable();
     logger::INFO << "st-dns server stopped, listen at" << config.ip + ":" + to_string(config.port) << END;
@@ -330,22 +341,35 @@ void dns_server::sync_dns_record_from_remote(const string &host, const std::func
         dns_record record = dns_record_manager::uniq().resolve(host);
         complete(record);
     };
-    //resolve all area ip
-    unordered_set<string> areas;
-    if (config.area_resolve_optimize) {
-        for (auto area : server->areas) {
-            if (area[0] != '!') {
-                areas.emplace(area);
-            }
-        }
-    }
+
     if (server->type == "TCP_SSL") {
-        dns_client::uniq().tcp_tls_dns(host, server->ip, server->port, server->timeout, areas, multi_area_complete_handler);
+        dns_client::uniq().tcp_tls_dns(host, server->ip, server->port, server->timeout, server->resolve_optimize_areas, multi_area_complete_handler);
     } else if (server->type == "TCP") {
-        dns_client::uniq().tcp_dns(host, server->ip, server->port, server->timeout, areas, multi_area_complete_handler);
+        dns_client::uniq().tcp_dns(host, server->ip, server->port, server->timeout, server->resolve_optimize_areas, multi_area_complete_handler);
     } else if (server->type == "UDP") {
         dns_client::uniq().udp_dns(host, server->ip, server->port, server->timeout, [=](const std::vector<uint32_t> &ips) {
             multi_area_complete_handler(ips, true);
         });
     }
+}
+void dns_server::schedule() {
+    for (auto &server : config.servers) {
+        if (server->area_resolve_optimize) {
+            vector<pair<string, uint16_t>> result;
+            server->resolve_optimize_areas.clear();
+            for (const auto &area : st::command::proxy::get_ip_available_proxy_areas(server->ip)) {
+                uint16_t a_port = st::command::proxy::register_area_port(server->ip, server->port, area);
+                if (a_port > 0) {
+                    result.emplace_back(area, a_port);
+                }
+                st::areaip::manager::uniq().load_area_ips(area);
+                logger::INFO << server->id() << "resolve_optimize_areas area sync" << area << a_port << END;
+            }
+            server->resolve_optimize_areas = result;
+        }
+    }
+    schedule_timer->expires_from_now(boost::posix_time::seconds(30));
+    schedule_timer->async_wait([=](boost::system::error_code ec) {
+        schedule();
+    });
 }

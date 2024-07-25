@@ -12,6 +12,7 @@
 #include "dns_record_manager.h"
 #include "dns_client.h"
 #include "st.h"
+#include "command/proxy_command.h"
 static mutex rLock;
 
 using namespace std::placeholders;
@@ -106,6 +107,8 @@ void dns_server::start() {
     logger::INFO << "st-dns start, listen at" << config.ip << config.port << END;
     receive();
     state++;
+    stimer = new boost::asio::deadline_timer(schedule_ic);
+
     for (auto &th : threads) {
         th.join();
     }
@@ -332,8 +335,8 @@ void dns_server::sync_dns_record_from_remote(const string &host, const std::func
     };
     //resolve all area ip
     unordered_set<string> areas;
-    if (config.area_resolve_optimize) {
-        for (auto area : server->areas) {
+    if (server->area_resolve_optimize) {
+        for (auto area : server->resolve_optimize_areas) {
             if (area[0] != '!') {
                 areas.emplace(area);
             }
@@ -348,4 +351,20 @@ void dns_server::sync_dns_record_from_remote(const string &host, const std::func
             multi_area_complete_handler(ips, true);
         });
     }
+}
+void dns_server::schedule() {
+    for (auto &server : config.servers) {
+        if (server->area_resolve_optimize) {
+            server->resolve_optimize_areas.clear();
+            server->resolve_optimize_areas = st::command::proxy::get_ip_available_proxy_areas(server->ip);
+            logger::ERROR << server->id() << "resolve_optimize_areas area sync" << strutils::join(server->resolve_optimize_areas, ",") << END;
+            for (const auto &area : server->resolve_optimize_areas) {
+                st::areaip::manager::uniq().load_area_ips(area);
+            }
+        }
+    }
+    schedule_timer->expires_from_now(boost::posix_time::seconds(30));
+    schedule_timer->async_wait([=](boost::system::error_code ec) {
+        schedule();
+    });
 }

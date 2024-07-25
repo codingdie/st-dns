@@ -27,6 +27,9 @@ public:
     vector<string> areas;
     int timeout = 100;
     int dns_cache_expire = 10 * 60;
+    bool area_resolve_optimize = false;
+    vector<string> resolve_optimize_areas;
+
 
     static string generate_server_id(const string &serverIp, int serverPort) {
         return boost::algorithm::ireplace_all_copy(serverIp, ".", "_") + "_" + to_string(serverPort);
@@ -55,7 +58,6 @@ namespace st {
             uint32_t dns_cache_expire = 60 * 10;
             string base_conf_dir = "/usr/local/etc/st/dns";
             vector<remote_dns_server *> servers;
-            bool area_resolve_optimize = false;
             st::areaip::area_ip_config area_ip_config;
 
             config() = default;

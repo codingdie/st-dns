@@ -24,7 +24,6 @@ void st::dns::config::load(const string &base_conf_dir) {
         this->console_port = tree.get("console_port", console_port);
         this->console_ip = tree.get("console_ip", string("127.0.0.1"));
         this->dns_cache_expire = stoi(tree.get("dns_cache_expire", to_string(this->dns_cache_expire)));
-        this->area_resolve_optimize = tree.get("area_resolve_optimize", false);
 
         auto servers_nodes = tree.get_child("servers");
         if (!servers_nodes.empty()) {
@@ -40,7 +39,7 @@ void st::dns::config::load(const string &base_conf_dir) {
                 string filename = remote_dns_server::generate_server_id(serverIp, server_port);
 
 
-                remote_dns_server *dns_server = new remote_dns_server(serverIp, server_port, type);
+                auto *dns_server = new remote_dns_server(serverIp, server_port, type);
                 auto whitelist_node = server_node.get_child_optional("whitelist");
                 if (whitelist_node.is_initialized()) {
                     auto whitelistArr = whitelist_node.get();
@@ -50,6 +49,8 @@ void st::dns::config::load(const string &base_conf_dir) {
                 }
                 dns_server->dns_cache_expire = stoi(server_node.get("dns_cache_expire", to_string(this->dns_cache_expire)));
                 dns_server->timeout = server_node.get("timeout", 100);
+                dns_server->area_resolve_optimize = server_node.get("area_resolve_optimize", false);
+
                 auto areas_node = server_node.get_child_optional("areas");
                 if (areas_node.is_initialized()) {
                     auto areas_arr = areas_node.get();

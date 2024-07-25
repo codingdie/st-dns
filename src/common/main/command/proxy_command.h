@@ -21,7 +21,18 @@ namespace st {
                     return 0;
                 }
             }
+            static vector<string> get_ip_available_proxy_areas(string ip) {
+                auto begin = time::now();
+                auto cm = "proxy ip available areas --ip=" + ip;
+                auto result = st::console::client::command("127.0.0.1", 5858, cm, 10);
+                vector<string> areas;
+                apm_logger::perf("get-ip-available-proxy-areas", {}, st::utils::time::now() - begin);
+                if (result.first) {
+                    areas = st::utils::strutils::split(result.second, ",");
+                }
+                return areas;
+            }
         }// namespace proxy
-    }    // namespace command
+    }// namespace command
 }// namespace st
 #endif//ST_PROXY_COMMAND_H

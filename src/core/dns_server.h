@@ -38,6 +38,9 @@ private:
     udp::socket *ss = nullptr;
     io_context ic;
     boost::asio::io_context::work *iw;
+    io_context schedule_ic;
+    boost::asio::io_context::work *schedule_iw;
+    boost::asio::deadline_timer *schedule_timer;
     std::atomic<uint8_t> state;
     atomic_int64_t counter;
     st::console::udp_console console;
@@ -49,23 +52,23 @@ private:
 
     void query_dns_record(session *session, const std::function<void(st::dns::session *)> &complete_handler);
 
-
     void sync_dns_record_from_remote(const string &host);
 
     void sync_dns_record_from_remote(const string &host, const std::function<void(dns_record record)> &complete, remote_dns_server *server) const;
 
-
     void forward_dns_request(session *session, const std::function<void(st::dns::session *)> &complete_handler);
 
-
     void end_session(session *session);
-
 
     uint32_t cal_expire(dns_record &record) const;
 
     void start_console();
+
     dns_record query_record_from_cache(const string &host) const;
+
     void sync_loss_dns_record_from_remote(string &host, dns_record &record);
+
+    void schedule();
 };
 
 

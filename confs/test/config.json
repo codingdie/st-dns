@@ -45,15 +45,9 @@
       "port": "853",
       "dns_cache_expire": 15,
       "timeout": 20000,
+      "area_resolve_optimize": true,
       "areas": [
-        "!CN",
-        "AU",
-        "DE",
-        "NL",
-        "HK",
-        "UK",
-        "US",
-        "JP"
+        "!CN"
       ]
     }
   ],

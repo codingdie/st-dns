@@ -6,7 +6,6 @@
 #include "st.h"
 #include <sys/socket.h>
 #include <openssl/ssl.h>
-#include "command/proxy_command.h"
 using namespace st::dns::protocol;
 template<typename Result>
 bool dns_client::is_timeout_or_error(const string &logTag, boost::system::error_code ec, uint64_t beginTime, uint64_t timeout, std::function<void(Result)> complete_handler, Result defaultV) {
@@ -81,14 +80,10 @@ void dns_client::udp_dns(const string &domain, const std::string &dns_server, ui
                           });
 }
 
-void dns_client::tcp_tls_dns(const string &domain, const std::string &dns_server, uint16_t port, uint64_t timeout, const string &area, const dns_complete &complete_handler) {
-    auto area_port = 0;
+void dns_client::tcp_tls_dns(const string &domain, const std::string &dns_server, uint16_t port, uint64_t timeout, pair<string, uint16_t> area, const dns_complete &complete_handler) {
     auto o_port = port;
-    if (!area.empty()) {
-        area_port = st::command::proxy::register_area_port(st::utils::ipv4::str_to_ip(dns_server), port, area);
-        if (area_port != 0) {
-            port = area_port;
-        }
+    if (area.second > 0) {
+        port = area.second;
     }
     vector<string> domains;
     domains.emplace_back(domain);
@@ -96,7 +91,7 @@ void dns_client::tcp_tls_dns(const string &domain, const std::string &dns_server
     tcp::endpoint server_endpoint(make_address_v4(dns_server), port);
     auto *dns_request = new tcp_request(domains);
     uint16_t dnsId = dns_request->header->id;
-    string log_tag = to_string(dnsId) + " tcp_tls_dns " + dns_server + ":" + to_string(o_port) + " " + domains[0] + (area_port == 0 ? "" : " " + area + "/" + to_string(area_port));
+    string log_tag = to_string(dnsId) + " tcp_tls_dns " + dns_server + ":" + to_string(o_port) + " " + domains[0] + (area.second == 0 ? "" : " " + area.first + "/" + to_string(area.second));
 
     auto *socket = new boost::asio::ssl::stream<tcp::socket>(ic, ssl_ctx);
     socket->set_verify_mode(ssl::verify_none);
@@ -184,14 +179,10 @@ void dns_client::tcp_tls_dns(const string &domain, const std::string &dns_server
 }
 
 
-void dns_client::tcp_dns(const string &domain, const std::string &dns_server, uint16_t port, uint64_t timeout, const string &area, const dns_complete &complete_handler) {
-    auto area_port = 0;
+void dns_client::tcp_dns(const string &domain, const std::string &dns_server, uint16_t port, uint64_t timeout, pair<string, uint16_t> area, const dns_complete &complete_handler) {
     auto o_port = port;
-    if (!area.empty()) {
-        area_port = st::command::proxy::register_area_port(st::utils::ipv4::str_to_ip(dns_server), port, area);
-        if (area_port != 0) {
-            port = area_port;
-        }
+    if (area.second > 0) {
+        port = area.second;
     }
     vector<string> domains;
     domains.emplace_back(domain);
@@ -199,7 +190,7 @@ void dns_client::tcp_dns(const string &domain, const std::string &dns_server, ui
     tcp::endpoint server_endpoint(make_address_v4(dns_server), port);
     auto *dns_request = new tcp_request(domains);
     uint16_t dnsId = dns_request->header->id;
-    string logTag = to_string(dnsId) + " tcp_dns " + dns_server + ":" + to_string(o_port) + " " + domains[0] + (area_port == 0 ? "" : " " + area + "/" + to_string(area_port));
+    string logTag = to_string(dnsId) + " tcp_dns " + dns_server + ":" + to_string(o_port) + " " + domains[0] + (area.second == 0 ? "" : " " + area.first + "/" + to_string(area.second));
     auto *socket = new tcp::socket(ic);
     boost::system::error_code ec;
     socket->open(server_endpoint.protocol(), ec);
@@ -271,7 +262,7 @@ void dns_client::tcp_dns(const string &domain, const std::string &dns_server, ui
 }
 
 
-void dns_client::tcp_tls_dns(const string &domain, const std::string &dns_server, uint16_t port, uint64_t timeout, const unordered_set<string> &areas, const dns_multi_area_complete &complete_handler) {
+void dns_client::tcp_tls_dns(const string &domain, const std::string &dns_server, uint16_t port, uint64_t timeout, const vector<pair<string, uint16_t>> &areas, const dns_multi_area_complete &complete_handler) {
     if (areas.empty()) {
         tcp_tls_dns(domain, dns_server, port, timeout, [=](const std::vector<uint32_t> &ips) {
             complete_handler(ips, true);
@@ -306,7 +297,7 @@ void dns_client::tcp_tls_dns(const string &domain, const std::string &dns_server
     }
 }
 
-void dns_client::tcp_dns(const string &domain, const std::string &dns_server, uint16_t port, uint64_t timeout, const unordered_set<string> &areas, const dns_multi_area_complete &complete_handler) {
+void dns_client::tcp_dns(const string &domain, const std::string &dns_server, uint16_t port, uint64_t timeout, const vector<pair<string, uint16_t>> &areas, const dns_multi_area_complete &complete_handler) {
     if (areas.empty()) {
         tcp_dns(domain, dns_server, port, timeout, [=](const std::vector<uint32_t> &ips) {
             complete_handler(ips, true);
@@ -335,22 +326,22 @@ void dns_client::tcp_dns(const string &domain, const std::string &dns_server, ui
                 delete load_all;
             }
         };
-        for (const string &area : areas) {
+        for (const auto &area : areas) {
             tcp_dns(domain, dns_server, port, timeout, area, each_handler);
         }
     }
 }
 
 void dns_client::tcp_tls_dns(const string &domain, const std::string &dns_server, uint16_t port, uint64_t timeout, const dns_complete &complete_handler) {
-    tcp_tls_dns(domain, dns_server, port, timeout, "", complete_handler);
+    tcp_tls_dns(domain, dns_server, port, timeout, make_pair("", 0), complete_handler);
 }
 
 void dns_client::tcp_dns(const string &domain, const std::string &dns_server, uint16_t port, uint64_t timeout, const dns_complete &complete_handler) {
-    tcp_dns(domain, dns_server, port, timeout, "", complete_handler);
+    tcp_dns(domain, dns_server, port, timeout, make_pair("", 0), complete_handler);
 }
 
 
-void dns_client::forward_udp(udp_request &udpdns_request, const std::string &dns_server, uint32_t port, uint64_t timeout, std::function<void(udp_response *)> callback) {
+void dns_client::forward_udp(udp_request &udpdns_request, const std::string &dns_server, uint32_t port, uint64_t timeout, const std::function<void(udp_response *)>& callback) {
     uint64_t beginTime = time::now();
     auto *socket = new udp::socket(ic, udp::endpoint(udp::v4(), 0));
     string logTag = "forward_udp to " + dns_server;

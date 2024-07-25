@@ -62,9 +62,6 @@ void st::dns::config::load(const string &base_conf_dir) {
                         }
                     }
                 }
-                for (auto it = dns_server->areas.begin(); it != dns_server->areas.end(); it++) {
-                    st::command::proxy::register_area_port(st::utils::ipv4::str_to_ip(dns_server->ip), port, *it);
-                }
                 servers.emplace_back(dns_server);
             }
         }
@@ -81,15 +78,6 @@ void st::dns::config::load(const string &base_conf_dir) {
         logger::ERROR << "st-dns config file not exit！" << config_path << END;
         exit(1);
     }
-}
-remote_dns_server *st::dns::config::get_dns_server_by_id(string serverId) {
-    for (auto it = servers.begin(); it != servers.end(); it++) {
-        remote_dns_server *server = *it.base();
-        if (server->id() == serverId) {
-            return server;
-        }
-    }
-    return nullptr;
 }
 
 vector<remote_dns_server *>

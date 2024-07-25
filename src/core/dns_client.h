@@ -26,19 +26,19 @@ class dns_client {
 public:
     void udp_dns(const string &domain, const std::string &dns_server, uint32_t port, uint64_t timeout, const dns_complete &complete_handler);
 
-    void tcp_tls_dns(const string &domain, const std::string &dns_server, uint16_t port, uint64_t timeout, const string &area, const dns_complete &complete_handler);
+    void tcp_tls_dns(const string &domain, const std::string &dns_server, uint16_t port, uint64_t timeout, pair<string, uint16_t> area, const dns_complete &complete_handler);
 
-    void tcp_tls_dns(const string &domain, const std::string &dns_server, uint16_t port, uint64_t timeout, const unordered_set<string> &areas, const dns_multi_area_complete &complete_handler);
+    void tcp_tls_dns(const string &domain, const std::string &dns_server, uint16_t port, uint64_t timeout, const vector<pair<string, uint16_t>> &areas, const dns_multi_area_complete &complete_handler);
 
     void tcp_tls_dns(const string &domain, const std::string &dns_server, uint16_t port, uint64_t timeout, const dns_complete &complete_handler);
 
-    void tcp_dns(const string &domain, const std::string &dns_server, uint16_t port, uint64_t timeout, const string &area, const dns_complete &complete_handler);
+    void tcp_dns(const string &domain, const std::string &dns_server, uint16_t port, uint64_t timeout, pair<string, uint16_t> area, const dns_complete &complete_handler);
 
-    void tcp_dns(const string &domain, const std::string &dns_server, uint16_t port, uint64_t timeout, const unordered_set<string> &areas, const dns_multi_area_complete &complete_handler);
+    void tcp_dns(const string &domain, const std::string &dns_server, uint16_t port, uint64_t timeout, const vector<pair<string, uint16_t>> &areas, const dns_multi_area_complete &complete_handler);
 
     void tcp_dns(const string &domain, const std::string &dns_server, uint16_t port, uint64_t timeout, const dns_complete &complete_handler);
 
-    void forward_udp(protocol::udp_request &dns_request, const std::string &dns_server, uint32_t port, uint64_t timeout, std::function<void(protocol::udp_response *)> callback);
+    void forward_udp(protocol::udp_request &dns_request, const std::string &dns_server, uint32_t port, uint64_t timeout, const std::function<void(protocol::udp_response *)> &callback);
 
     dns_client();
     static dns_client &uniq();

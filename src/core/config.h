@@ -28,7 +28,7 @@ public:
     int timeout = 100;
     int dns_cache_expire = 10 * 60;
     bool area_resolve_optimize = false;
-    vector<string> resolve_optimize_areas;
+    vector<pair<string, uint16_t>> resolve_optimize_areas;
 
 
     static string generate_server_id(const string &serverIp, int serverPort) {
@@ -62,7 +62,6 @@ namespace st {
 
             config() = default;
             void load(const string &base_conf_dir);
-            remote_dns_server *get_dns_server_by_id(string serverId);
         };
 
     }// namespace dns

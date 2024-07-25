@@ -97,6 +97,7 @@ void dns_server::start() {
     dns_record_manager::uniq();
     unsigned int cpu_count = std::thread::hardware_concurrency();
     iw = new boost::asio::io_context::work(ic);
+    schedule_iw = new boost::asio::io_context::work(schedule_ic);
     vector<thread> threads;
     threads.reserve(cpu_count);
     for (auto i = 0; i < cpu_count; i++) {
@@ -104,10 +105,13 @@ void dns_server::start() {
             this->ic.run();
         });
     }
+    threads.emplace_back([this]() {
+        this->schedule_ic.run();
+    });
     logger::INFO << "st-dns start, listen at" << config.ip << config.port << END;
     receive();
     state++;
-    stimer = new boost::asio::deadline_timer(schedule_ic);
+    schedule_timer = new boost::asio::deadline_timer(schedule_ic);
 
     for (auto &th : threads) {
         th.join();
@@ -118,9 +122,13 @@ void dns_server::start() {
 void dns_server::shutdown() {
     this->state = 2;
     ss->cancel();
+    schedule_timer->cancel();
     ic.stop();
-    delete iw;
+    schedule_ic.stop();
     ss->close();
+    delete iw;
+    delete schedule_iw;
+    delete schedule_timer;
     delete ss;
     apm_logger::disable();
     logger::INFO << "st-dns server stopped, listen at" << config.ip + ":" + to_string(config.port) << END;

@@ -365,7 +365,7 @@ void dns_server::schedule() {
         if (server->area_resolve_optimize) {
             server->resolve_optimize_areas.clear();
             server->resolve_optimize_areas = st::command::proxy::get_ip_available_proxy_areas(server->ip);
-            logger::ERROR << server->id() << "resolve_optimize_areas area sync" << strutils::join(server->resolve_optimize_areas, ",") << END;
+            logger::INFO << server->id() << "resolve_optimize_areas area sync" << strutils::join(server->resolve_optimize_areas, ",") << END;
             for (const auto &area : server->resolve_optimize_areas) {
                 st::areaip::manager::uniq().load_area_ips(area);
             }

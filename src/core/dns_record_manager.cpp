@@ -24,10 +24,6 @@ void dns_record_manager::add(const string &domain, const vector<uint32_t> &ips, 
     logger::INFO << "add dns cache" << domain << ipv4::ips_to_str(ips) << "from" << dns_server << "expire" << expire << END;
 }
 
-bool dns_record_manager::has_any_record(const string &domain) {
-    return get_dns_records_pb(domain).map_size() > 0;
-}
-
 dns_record dns_record_manager::resolve(const string &domain) {
     auto begin = time::now();
     const dns_record &record = transform(this->get_dns_records_pb(domain));
@@ -41,7 +37,8 @@ dns_record dns_record_manager::transform(const st::dns::proto::records &records)
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
     vector<dns_ip_record> ip_records;
     uint8_t server_order = 0;
-    for (auto server : st::dns::config::INSTANCE.servers) {
+    vector<remote_dns_server *> servers = remote_dns_server::select_servers(record.domain, st::dns::config::INSTANCE.servers);
+    for (auto server : servers) {
         auto serverId = server->id();
         server_order++;
         if (records.map().contains(serverId)) {

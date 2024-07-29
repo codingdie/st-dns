@@ -337,13 +337,12 @@ void logger::init(boost::property_tree::ptree &tree) {
             boost::make_shared<sinks::text_file_backend>(
                     keywords::file_name = "/tmp/st/" + logger::TAG + ".log",
                     keywords::target_file_name = logger::TAG + ".log.%Y%m%d%H-%N",
-                    keywords::rotation_size = 1024 * 1024,
-                    keywords::time_based_rotation = sinks::file::rotation_at_time_interval(boost::posix_time::hours(1)));
+                    keywords::rotation_size = 4 * 1024 * 1024);
     boost::shared_ptr<sink_t> sink(new sink_t(backend));
     sink->locked_backend()->set_file_collector(sinks::file::make_collector(
             keywords::target = "/tmp/st",
             keywords::max_size = 16 * 1024 * 1024,
-            keywords::max_files = 16));
+            keywords::max_files = 4));
     sink->locked_backend()->scan_for_files();
     sink->locked_backend()->enable_final_rotation(false);
     sink->set_formatter(expr::stream

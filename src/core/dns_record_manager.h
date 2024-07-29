@@ -111,10 +111,9 @@ public:
 
     dns_record_stats stats();
 
-    bool has_any_record(const string &domain);
-
     std::string dump();
 
+    std::string add_blacklist_ip();
 
 private:
     void schedule_stats();

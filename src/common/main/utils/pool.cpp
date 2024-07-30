@@ -11,8 +11,8 @@ struct CHUNK_2048 {};
 typedef boost::singleton_pool<CHUNK_2048, sizeof(uint8_t) * 2048, POOL_CONFIG> CHUNK_2048_POOL;
 struct CHUNK_4096 {};
 typedef boost::singleton_pool<CHUNK_4096, sizeof(uint8_t) * 4096, POOL_CONFIG> CHUNK_4096_POOL;
-struct CHUNK_1024_64 {};
-typedef boost::singleton_pool<CHUNK_1024_64, sizeof(uint8_t) * 1024 * 64, POOL_CONFIG> CHUNK_1024_64_POOL;
+struct CHUNK_1024_16 {};
+typedef boost::singleton_pool<CHUNK_1024_16, sizeof(uint8_t) * 1024 * 16, POOL_CONFIG> CHUNK_1024_16_POOL;
 #undef POOL_CONFIG
 namespace st {
     namespace mem {
@@ -33,9 +33,9 @@ namespace st {
             } else if (size <= 4096) {
                 mallocNum.fetch_add(4096);
                 return std::make_pair((uint8_t *) CHUNK_4096_POOL::malloc(), 4096);
-            } else if (size <= 1024 * 64) {
-                mallocNum.fetch_add(1024 * 64);
-                return std::make_pair((uint8_t *) CHUNK_1024_64_POOL::malloc(), 1024 * 64);
+            } else if (size <= 1024 * 16) {
+                mallocNum.fetch_add(1024 * 16);
+                return std::make_pair((uint8_t *) CHUNK_1024_16_POOL::malloc(), 1024 * 16);
             } else {
                 throw std::runtime_error("over mem pool limit");
             }
@@ -53,9 +53,9 @@ namespace st {
             } else if (size <= 4096) {
                 freeNum.fetch_add(4096);
                 CHUNK_4096_POOL::free(ptr);
-            } else if (size <= 1024 * 64) {
-                freeNum.fetch_add(1024 * 64);
-                CHUNK_1024_64_POOL::free(ptr);
+            } else if (size <= 1024 * 16) {
+                freeNum.fetch_add(1024 * 16);
+                CHUNK_1024_16_POOL::free(ptr);
             } else {
                 throw std::runtime_error("over mem pool limit");
             }

@@ -12,16 +12,13 @@ endif ()
 find_package(OpenSSL 1.0.2 REQUIRED)
 find_package(Boost 1.66.0 REQUIRED COMPONENTS system filesystem thread program_options log log_setup)
 find_package(leveldb REQUIRED)
+find_package(Protobuf REQUIRED)
+message("protobuf:${Protobuf_LITE_LIBRARY}")
+message("protobuf:${Protobuf_LIBRARY}")
 #protobuf
-if (NOT OPENWRT)
-    add_custom_target(
-            st-dns-proto
-            COMMAND protoc -I=${CMAKE_CURRENT_LIST_DIR}/src/core/protocol --cpp_out=${CMAKE_CURRENT_LIST_DIR}/src/core/protocol message.proto)
-    add_custom_target(
-            st-common-proto
-            COMMAND rm -f ${CMAKE_CURRENT_LIST_DIR}/src/common/proto/*.h ${CMAKE_CURRENT_LIST_DIR}/src/common/proto/*.cc
-            COMMAND protoc -I=${CMAKE_CURRENT_LIST_DIR}/src/common/proto --cpp_out=${CMAKE_CURRENT_LIST_DIR}/src/common/proto kv.proto)
-endif ()
+execute_process(COMMAND rm -f ${CMAKE_CURRENT_LIST_DIR}/src/common/proto/*.h ${CMAKE_CURRENT_LIST_DIR}/src/common/proto/*.cc)
+execute_process(COMMAND protoc -I=${CMAKE_CURRENT_LIST_DIR}/src/core/protocol --cpp_out=${CMAKE_CURRENT_LIST_DIR}/src/core/protocol message.proto)
+execute_process(COMMAND protoc -I=${CMAKE_CURRENT_LIST_DIR}/src/common/main/proto --cpp_out=${CMAKE_CURRENT_LIST_DIR}/src/common/main/proto kv.proto)
 
 #include
 include_directories(src/core)
@@ -40,8 +37,8 @@ file(GLOB_RECURSE SOURCE_UNIT_TEST_FILES src/test/unit/*.cpp)
 file(GLOB_RECURSE SOURCE_ST_UNIT_TEST_FILES src/common/test/*.cpp)
 
 add_executable(st-dns src/server/main.cpp ${SOURCE_FILES} ${SOURCE_COMMON_FILES})
-set(OTHER_LIBRARIES "rt" "leveldb::leveldb" "libprotobuf-lite.a")
-target_link_libraries(st-dns ${Boost_LIBRARIES} ${OPENSSL_LIBRARIES} ${OTHER_LIBRARIES})
+set(OTHER_LIBRARIES "rt" "leveldb::leveldb")
+target_link_libraries(st-dns ${Boost_LIBRARIES} ${OPENSSL_LIBRARIES} ${OTHER_LIBRARIES} ${Protobuf_LITE_LIBRARY})
 
 
 #install

@@ -20,16 +20,18 @@ namespace st {
             string data;
             bool success = db->Get(leveldb::ReadOptions(), key, &data).ok();
             proto::value val;
+            string result = "";
             if (success) {
                 val.ParseFromString(data);
                 if (not_expired(val)) {
-                    return val.data();
+                    result = val.data();
+                } else {
+                    this->erase(key);
                 }
-                this->erase(key);
             }
-            //            apm_logger::perf("st-dist-kv-get", {{"namespace", this->ns}, {"success", success ? "1" : "0"}},
-            //                             time::now() - begin);
-            return "";
+            apm_logger::perf("st-dist-kv-get", {{"namespace", this->ns}, {"success", success ? "1" : "0"}},
+                             time::now() - begin, 10U);
+            return result;
         }
         bool disk_kv::not_expired(const proto::value &val) {
             return val.expire() == 0 || val.expire() < utils::time::now() / 1000;
@@ -46,8 +48,8 @@ namespace st {
                 val.set_expire(expire);
             }
             bool success = db->Put(leveldb::WriteOptions(), key, val.SerializeAsString()).ok();
-            //            apm_logger::perf("st-dist-kv-put", {{"namespace", this->ns}, {"success", success ? "1" : "0"}},
-            //                             time::now() - begin);
+            apm_logger::perf("st-dist-kv-put", {{"namespace", this->ns}, {"success", success ? "1" : "0"}},
+                             time::now() - begin, 10);
         }
         void disk_kv::erase(const std::string &key) { db->Delete(leveldb::WriteOptions(), key); }
         void disk_kv::clear() {
@@ -58,10 +60,10 @@ namespace st {
             delete it;
         }
         disk_kv::disk_kv(const std::string &ns, uint32_t max_size) : abstract_kv(ns, max_size) {
-            options.create_if_missing = true;
             st::utils::file::mkdirs(KV_FOLDER);
-            leveldb::Status status = leveldb::DB::Open(options, KV_FOLDER + ns, &db);
+            options.create_if_missing = true;
             options.block_cache = leveldb::NewLRUCache(max_size);
+            leveldb::Status status = leveldb::DB::Open(options, KV_FOLDER + ns, &db);
             assert(status.ok());
         }
         void disk_kv::list(std::function<void(const std::string &, const std::string &)> consumer) {

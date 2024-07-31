@@ -26,8 +26,8 @@ int main(int argc, char *argv[]) {
         confPath = argv[2];
         inputConfigPath = true;
     } else {
-        for (auto path : availablePaths) {
-            if (st::utils::file::exit(path + "/config.json")) {
+        for (const auto &path : availablePaths) {
+            if (st::utils::file::exists(path + "/config.json")) {
                 confPath = path;
                 break;
             }
@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
         file::pid(pidFile);
         startServer(confPath);
     } else {
-        string serviceOP = "";
+        string serviceOP;
         if (inputConfigPath && argc == 5 && string(argv[3]) == "-d") {
             serviceOP = string(argv[4]);
         } else if (!inputConfigPath && argc == 3 && string(argv[1]) == "-d") {

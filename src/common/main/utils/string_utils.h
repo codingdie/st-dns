@@ -8,21 +8,29 @@
 #include <string>
 #include <vector>
 #include <boost/algorithm/string.hpp>
+#include <boost/uuid/uuid.hpp>           // uuid class
+#include <boost/uuid/uuid_generators.hpp>// generators
+#include <boost/uuid/uuid_io.hpp>        // streaming operators etc.
 
 namespace st {
     namespace utils {
         namespace strutils {
-            static std::vector<std::string> split(const std::string &str,
-                                                  const std::string &split) {
+            inline std::vector<std::string> split(const std::string &str,
+                                                  const std::string &separator, const uint32_t &start, const uint32_t &spit_cnt) {
                 std::vector<std::string> result;
                 if (!str.empty()) {
-                    uint64_t pos = 0;
+                    uint64_t pos = start;
                     uint64_t lastPos = 0;
-                    while ((pos = str.find(split, pos)) != str.npos) {
+                    uint64_t s_cnt = 0;
+                    while ((pos = str.find(separator, pos)) != str.npos) {
                         std::string line = str.substr(lastPos, (pos - lastPos));
-                        pos += split.length();
+                        pos += separator.length();
                         lastPos = pos;
                         result.emplace_back(line);
+                        s_cnt++;
+                        if (spit_cnt != 0 && s_cnt >= spit_cnt) {
+                            break;
+                        }
                     }
 
                     std::string line = str.substr(lastPos, (str.length() - lastPos));
@@ -30,6 +38,10 @@ namespace st {
                 }
 
                 return result;
+            }
+            inline std::vector<std::string> split(const std::string &str,
+                                                  const std::string &separator) {
+                return split(str, separator, 0, 0);
             }
             inline void trim(std::string &str) {
                 boost::trim(str);
@@ -47,6 +59,11 @@ namespace st {
                     result += value;
                 }
                 return result;
+            }
+            static std::string uuid() {
+                static boost::uuids::random_generator generator;
+                boost::uuids::uuid uuid = generator();
+                return to_string(uuid);
             }
         }// namespace strutils
     }    // namespace utils

@@ -3,10 +3,10 @@
 //
 
 #include "dns_record_manager.h"
-#include "config.h"
 #include <random>
 #include <vector>
 #include "protocol/message.pb.h"
+#include "config.h"
 
 void dns_record_manager::add(const string &domain, const vector<uint32_t> &ips, const string &dns_server, const int expire) {
     st::dns::proto::records dns_records = get_dns_records_pb(domain);
@@ -24,28 +24,26 @@ void dns_record_manager::add(const string &domain, const vector<uint32_t> &ips, 
     logger::INFO << "add dns cache" << domain << ipv4::ips_to_str(ips) << "from" << dns_server << "expire" << expire << END;
 }
 
-bool dns_record_manager::has_any_record(const string &domain) {
-    return get_dns_records_pb(domain).map_size() > 0;
-}
-
 dns_record dns_record_manager::resolve(const string &domain) {
-    auto records = this->get_dns_records_pb(domain);
-    return transform(records);
+    auto begin = time::now();
+    const dns_record &record = transform(this->get_dns_records_pb(domain));
+    apm_logger::perf("st-dns-resolve-from-cache", {}, st::utils::time::now() - begin);
+    return record;
 }
 dns_record dns_record_manager::transform(const st::dns::proto::records &records) {
+    auto begin = time::now();
     dns_record record;
     record.domain = records.domain();
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
     vector<dns_ip_record> ip_records;
     uint8_t server_order = 0;
-    for (auto server : st::dns::config::INSTANCE.servers) {
+    vector<remote_dns_server *> servers = remote_dns_server::select_servers(record.domain, st::dns::config::INSTANCE.servers);
+    for (auto server : servers) {
         auto serverId = server->id();
         server_order++;
         if (records.map().contains(serverId)) {
             st::dns::proto::record t_record = records.map().at(serverId);
-            vector<uint32_t> ips(t_record.ips().begin(), t_record.ips().end());
-            shuffle(ips.begin(), ips.end(), default_random_engine(seed));
-            for (auto ip : ips) {
+            for (auto ip : t_record.ips()) {
                 dns_ip_record tmp;
                 tmp.ip = ip;
                 tmp.forbid = false;
@@ -55,6 +53,7 @@ dns_record dns_record_manager::transform(const st::dns::proto::records &records)
                 tmp.expire_time = t_record.expire();
                 tmp.server_order = server_order;
                 ip_records.emplace_back(tmp);
+                record.servers.emplace(serverId);
             }
         }
     }
@@ -64,10 +63,13 @@ dns_record dns_record_manager::transform(const st::dns::proto::records &records)
     string server;
     for (auto &item : ip_records) {
         if (item.match_area && !item.forbid) {
-            record.trusted_ip_count++;
             if (!server.empty() && item.server != server) {
                 continue;
             }
+            if (std::find(record.ips.begin(), record.ips.end(), item.ip) != record.ips.end()) {
+                continue;
+            }
+            record.trusted_ip_count++;
             record.ips.emplace_back(item.ip);
             server = item.server;
         }
@@ -75,9 +77,13 @@ dns_record dns_record_manager::transform(const st::dns::proto::records &records)
     }
     if (record.ips.empty()) {
         for (auto &item : ip_records) {
+            if (std::find(record.ips.begin(), record.ips.end(), item.ip) != record.ips.end()) {
+                continue;
+            }
             record.ips.emplace_back(item.ip);
         }
     }
+    shuffle(record.ips.begin(), record.ips.end(), default_random_engine(seed));
 
     if (!ip_records.empty()) {
         record.match_area = ip_records[0].match_area;
@@ -85,6 +91,7 @@ dns_record dns_record_manager::transform(const st::dns::proto::records &records)
         record.server = ip_records[0].server;
         record.expire = ip_records[0].expire;
     }
+    apm_logger::perf("st-dns-record-transform", {}, time::now() - begin);
     return record;
 }
 
@@ -102,12 +109,15 @@ dns_record_manager::dns_record_manager() : db("st-dns-record", 2 * 1024 * 1024),
 
 
 st::dns::proto::records dns_record_manager::get_dns_records_pb(const string &domain) {
+    auto begin = time::now();
     string data = db.get(domain);
     st::dns::proto::records record;
     if (!data.empty()) {
         record.ParseFromString(data);
     }
     record.set_domain(domain);
+    apm_logger::perf("st-dns-get-pb-record", {}, time::now() - begin);
+
     return record;
 }
 dns_record_manager &dns_record_manager::uniq() {
@@ -136,6 +146,7 @@ vector<dns_record> dns_record::transform(const st::dns::proto::records &records)
                         break;
                     }
                 }
+                record.expire = item.expire() < (time::now() / 1000);
                 result.emplace_back(record);
             }
         }
@@ -187,7 +198,7 @@ dns_record_stats dns_record_manager::stats() {
 
 string dns_record::serialize() const {
     return server + "\t" + domain + "\t" + to_string(expire_time) + "\t" + to_string(match_area) + "\t" +
-           st::utils::ipv4::ips_to_str(ips) + "\t" + to_string(expire) + "\t";
+           st::utils::ipv4::ips_to_str(ips) + "\t" + to_string(expire);
 }
 
 st::dns::proto::reverse_record dns_record_manager::reverse_resolve(uint32_t ip) {

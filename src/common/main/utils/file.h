@@ -27,15 +27,8 @@ namespace st {
                 return false;
             }
 
-            inline bool exit(const string &path) {
-                bool exits = false;
-                fstream fileStream;
-                fileStream.open(path, ios::in);
-                if (fileStream) {
-                    exits = true;
-                }
-                fileStream.close();
-                return exits;
+            inline bool exists(const string &path) {
+                return boost::filesystem::is_regular_file(path);
             }
             inline void del(const string &path) {
                 boost::filesystem::path bpath(path);
@@ -66,7 +59,7 @@ namespace st {
                             return false;
                         }
                     }
-                    if (!exit(path)) {
+                    if (!exists(path)) {
                         ofstream fout;
                         fout.open(path, ios::app);
                         if (fout.is_open()) {
@@ -107,7 +100,41 @@ namespace st {
                 }
                 return result;
             }
+            inline uint32_t limit_file_cnt(const string &path, const uint32_t limit) {
+                vector<pair<std::time_t, boost::filesystem::path>> files;
+                for (const auto &it : boost::filesystem::directory_iterator(path)) {
+                    if (is_regular(it.path())) {
+                        files.emplace_back(last_write_time(it.path()), it.path());
+                    }
+                }
+                std::sort(files.begin(), files.end(), [](pair<std::time_t, boost::filesystem::path> &a, pair<std::time_t, boost::filesystem::path> &b) {
+                    return a.first < b.first;
+                });
+                uint32_t need_delete_cnt = files.size() > limit ? files.size() - limit : 0;
+                uint32_t result = need_delete_cnt;
+                if (need_delete_cnt > 0) {
+                    for (const auto &item : files) {
+                        boost::filesystem::remove(item.second);
+                        logger::INFO << "delete file" << item.second.string() << item.first << END;
+                        need_delete_cnt--;
+                        if (need_delete_cnt <= 0) {
+                            break;
+                        }
+                    }
+                }
+
+                return result;
+            }
+            inline uint32_t get_file_cnt(const string &path) {
+                uint32_t cnt = 0;
+                for (const auto &it : boost::filesystem::directory_iterator(path)) {
+                    if (is_regular(it.path())) {
+                        cnt++;
+                    }
+                }
+                return cnt;
+            }
         }// namespace file
-    }    // namespace utils
+    }// namespace utils
 }// namespace st
 #endif//ST_FILEUTILS_H

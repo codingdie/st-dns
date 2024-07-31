@@ -4,7 +4,6 @@
 
 #ifndef ST_UTILS_H
 #define ST_UTILS_H
-#include "utils/area_ip.h"
 #include "utils/asio.h"
 #include "utils/avg_counter.h"
 #include "utils/base64.h"
@@ -23,6 +22,9 @@
 #include <string>
 #include "console/udp_console.h"
 #include "console/client.h"
+#include "utils/http.h"
+#include "utils/area_ip.h"
+
 using namespace st::utils;
 using namespace st;
 

@@ -3,3 +3,7 @@ build
 .vscode/settings.json
 cmake-build-debug
 .idea
+/src/common/main/proto/kv.pb.cc
+/src/common/main/proto/kv.pb.h
+/src/core/protocol/message.pb.cc
+/src/core/protocol/message.pb.h

@@ -15,36 +15,21 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <boost/log/sources/global_logger_storage.hpp>
+#include <boost/log/sources/severity_logger.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/log/core.hpp>
+#include <boost/log/expressions/keyword.hpp>
+
+BOOST_LOG_GLOBAL_LOGGER(perf_file_logger, boost::log::sources::severity_logger_mt<>)
+BOOST_LOG_GLOBAL_LOGGER(normal_file_logger, boost::log::sources::severity_logger_mt<>)
+BOOST_LOG_ATTRIBUTE_KEYWORD(log_type_attr, "LOG_TYPE", std::string)
 
 static const char *const SPLIT = " ";
 using namespace std;
 namespace st {
     namespace utils {
-        class udp_log_server {
-        public:
-            string ip;
-            uint16_t port = 0;
-            bool is_valid() const;
-        };
-        class udp_logger {
-        public:
-            static udp_logger INSTANCE;
-            udp_logger();
-            ~udp_logger();
-            void log(const udp_log_server &server, const string &str);
 
-        private:
-            boost::asio::io_context ctx;
-            boost::asio::io_context::work *worker;
-            std::thread *th;
-        };
-        class std_logger {
-        public:
-            string tag;
-            static std_logger INSTANCE;
-            std_logger();
-            static void log(const string &str, ostream *st);
-        };
         class logger {
         private:
             string levelName;
@@ -52,12 +37,12 @@ namespace st {
             string str;
             static thread_local boost::asio::io_context ctxThreadLocal;
             void append_str(const string &info);
-            void do_log(const string &time, ostream &st, const string &line);
-            ostream *get_std();
             void do_log();
+            void do_log(string line) const;
 
         public:
             void static init(boost::property_tree::ptree &config);
+            void static disable();
             static thread_local uint64_t traceId;
             enum MASK { ENDL };
             static thread_local logger DEBUG;
@@ -66,8 +51,8 @@ namespace st {
             static thread_local logger ERROR;
 
             static uint32_t LEVEL;
-            static udp_log_server UDP_LOG_SERVER;
-            static string tag;
+            static string TAG;
+            static bool INITED;
 
             explicit logger(string levelName, uint32_t level);
 
@@ -95,15 +80,18 @@ namespace st {
 #define END st::utils::logger::MASK::ENDL
         class apm_logger {
         public:
-            static void enable(const string &udpServerIP, uint16_t udpServerPort);
+            static void init();
             static void disable();
             static void perf(const string &name, unordered_map<string, string> &&dimensions, uint64_t cost,
-                             uint64_t count);
+                             uint64_t count, uint64_t sample);
             static void perf(const string &name, unordered_map<string, string> &&dimensions,
                              unordered_map<string, int64_t> &&counts);
+            static void perf(const string &name, unordered_map<string, string> &&dimensions, uint64_t cost,
+                             uint64_t sample);
 
             static void perf(const string &name, unordered_map<string, string> &&dimensions, uint64_t cost);
-            apm_logger(const string &name);
+            explicit apm_logger(const string &name);
+            virtual ~apm_logger();
             void start();
             void step(const string &step);
             void end();
@@ -111,23 +99,25 @@ namespace st {
             void add_dimension(const string name, const V &value) {
                 this->dimensions.put<V>(name, value);
             }
-            void add_metric(const string &name, const long &value) { this->metrics.put<long>(name, value); }
+            void add_metric(const string &name, const uint64_t &value) { this->metrics.put<uint64_t>(name, value); }
 
         private:
-            static unordered_map<string, unordered_map<string, unordered_map<string, unordered_map<string, long>>>>
+            static unordered_map<string, unordered_map<string, unordered_map<string, unordered_map<string, uint64_t>>>>
                     STATISTICS;
-            static udp_log_server UDP_LOG_SERVER;
             static boost::asio::deadline_timer LOG_TIMER;
             static boost::asio::io_context IO_CONTEXT;
+            static std::mutex APM_LOCK;
             static boost::asio::io_context::work *IO_CONTEXT_WORK;
-            static std::thread *LOG_THREAD;
+            static std::vector<std::thread *> LOG_THREADS;
             static void schedule_log();
-            static void accumulate_metric(unordered_map<string, long> &metric, long value);
+            static void accumulate_metric(unordered_map<string, uint64_t> &metric, uint64_t value, uint64_t sample);
 
             boost::property_tree::ptree dimensions;
             boost::property_tree::ptree metrics;
             uint64_t start_time;
             uint64_t last_step_time;
+            static bool is_sample(uint64_t sample);
+            static void report_apm_log_local();
         };
     }// namespace utils
 }// namespace st

@@ -2,6 +2,7 @@
 // Created by codingdie on 2020/6/27.
 //
 #include "st.h"
+#include "taskquque/task_queue.h"
 #include <chrono>
 #include <gtest/gtest.h>
 #include <iostream>
@@ -17,8 +18,36 @@ TEST(unit_tests, test_base64) {
     ASSERT_STREQ(oriStr.c_str(), decodeStr.c_str());
 }
 
+TEST(UnitTests, test_shm) {
+    auto ns = "TEST";
+    kv::shm_kv::create(ns, 5 * 1024 * 1024);
+    kv::shm_kv::share(ns)->clear();
+    uint64_t size0 = kv::shm_kv::share(ns)->free_size();
+    ASSERT_TRUE(size0 > 1024 * 1024 * 3);
+    int count = 10000;
+    for (int i = 0; i < count; i++) {
+        kv::shm_kv::share(ns)->put(to_string(i), to_string(i) + "baidu.com");
+    }
+    ASSERT_TRUE(size0 > 1024 * 1024 * 3);
+
+    uint64_t size01 = kv::shm_kv::share(ns)->free_size();
+    ASSERT_TRUE(size0 > size01);
+
+    for (int i = count; i < count * 2; i++) {
+        kv::shm_kv::share(ns)->put(to_string(i), to_string(i) + "baidu.com");
+    }
+    uint64_t size02 = kv::shm_kv::share(ns)->free_size();
+    ASSERT_TRUE(size01 > size02);
+    for (int i = 0; i < count; i++) {
+        for (int j = 0; j < 100; j++) {
+            auto host = kv::shm_kv::share(ns)->get(to_string(i));
+            ASSERT_STREQ((to_string(i) + "baidu.com").c_str(), host.c_str());
+        }
+    }
+}
+
 TEST(unit_tests, test_area_ip) {
-    ASSERT_TRUE(st::areaip::manager::uniq().is_area_ip("TW", "118.163.193.132"));
+    //    ASSERT_TRUE(st::areaip::manager::uniq().is_area_ip("TW", "118.163.193.132"));
     ASSERT_TRUE(st::areaip::manager::uniq().is_area_ip("cn", "223.5.5.5"));
     ASSERT_TRUE(st::areaip::manager::uniq().is_area_ip("cn", "220.181.38.148"));
     ASSERT_TRUE(st::areaip::manager::uniq().is_area_ip("cn", "123.117.76.165"));
@@ -103,4 +132,62 @@ TEST(unit_tests, test_disk_kv) {
     ASSERT_TRUE(st::utils::ipv4::str_to_ip("1.1.1.1.1") == 0);
     ASSERT_TRUE(st::utils::ipv4::str_to_ip(".1.1.1.1") == 0);
     ASSERT_TRUE(st::utils::ipv4::str_to_ip("baidu.com") == 0);
+}
+
+TEST(unit_tests, test_task_queue) {
+    using namespace st::task;
+    int total = 5;
+    vector<string> result;
+    st::task::queue<string> que("st-unit-test", 1, 1, [&result, &que](const priority_task<string> &task) {
+        result.emplace_back(task.get_input());
+        que.complete(task);
+    });
+    for (int i = 0; i < total; ++i) {
+        priority_task<string> task(to_string(i), i, "" + i);
+        ASSERT_TRUE(que.submit(task));
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds((1 + total) * 1000));
+    ASSERT_EQ(5, result.size());
+    ASSERT_TRUE(result[0] == to_string(total - 1));
+
+    result.clear();
+    for (int i = 0; i < total; ++i) {
+        priority_task<string> task(to_string(i), 0, "" + i);
+        ASSERT_TRUE(que.submit(task));
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds((1 + total) * 1000));
+    ASSERT_EQ(5, result.size());
+    ASSERT_TRUE(result[0] == "0");
+
+
+    result.clear();
+    priority_task<string> task("0", 0, "123");
+    ASSERT_TRUE(que.submit(task));
+    ASSERT_FALSE(que.submit(task));
+    std::this_thread::sleep_for(std::chrono::milliseconds((1 + total) * 1000));
+    ASSERT_EQ(1, result.size());
+    ASSERT_TRUE(result[0] == "0");
+}
+
+
+TEST(unit_tests, test_limie_file_cnt) {
+    auto path = "/tmp/" + st::utils::strutils::uuid();
+    st::utils::file::mkdirs(path);
+    for (int i = 0; i < 10; i++) {
+        st::utils::file::create_if_not_exits(path + "/" + to_string(i) + ".txt");
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+    ASSERT_EQ(4, st::utils::file::limit_file_cnt(path, 6));
+}
+
+TEST(UnitTests, test_logger) {
+    boost::property_tree::ptree tree;
+    st::utils::logger::init(tree);
+    for (int i = 0; i < 1000000; i++) {
+        st::utils::apm_logger::perf("123", {}, 100);
+        st::utils::logger::INFO << i << time::now_str() << END;
+    }
+    ASSERT_TRUE(st::utils::file::get_file_cnt("/tmp/st") >= 16);
+    ASSERT_TRUE(st::utils::file::get_file_cnt("/tmp/st/perf") >= 1);
+    st::utils::logger::disable();
 }

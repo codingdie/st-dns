@@ -49,7 +49,6 @@ void st::dns::config::load(const string &base_conf_dir) {
                 }
                 dns_server->dns_cache_expire = stoi(server_node.get("dns_cache_expire", to_string(this->dns_cache_expire)));
                 dns_server->timeout = server_node.get("timeout", 100);
-                dns_server->area_resolve_optimize = server_node.get("area_resolve_optimize", true);
 
                 auto areas_node = server_node.get_child_optional("areas");
                 if (areas_node.is_initialized()) {

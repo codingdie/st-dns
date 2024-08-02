@@ -356,8 +356,7 @@ void dns_server::schedule() {
     for (auto &server : config.servers) {
         if (std::find(server->areas.begin(), server->areas.end(), "LAN") == server->areas.end()) {
             vector<pair<string, uint16_t>> result;
-            server->resolve_optimize_areas.clear();
-            for (const auto &area : st::command::proxy::get_ip_available_proxy_areas(server->ip)) {
+\            for (const auto &area : st::command::proxy::get_ip_available_proxy_areas(server->ip)) {
                 if (areaip::manager::is_match_areas(server->areas, area)) {
                     uint16_t a_port = st::command::proxy::register_area_port(server->ip, server->port, area);
                     if (a_port > 0) {

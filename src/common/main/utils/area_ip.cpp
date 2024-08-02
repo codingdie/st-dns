@@ -22,8 +22,8 @@ namespace st {
             return instance;
         }
         manager::manager()
-            : last_load_ip_info_time(time::now()), last_load_area_ips_time(time::now()), ctx(), sche_ctx(),
-              random_engine(time::now()) {
+            : random_engine(time::now()), last_load_ip_info_time(time::now()), last_load_area_ips_time(time::now()),
+              ctx(), sche_ctx() {
             ctx_work = new boost::asio::io_context::work(ctx);
             sche_ctx_work = new boost::asio::io_context::work(sche_ctx);
             th = new thread([this]() { this->ctx.run(); });
@@ -114,7 +114,7 @@ namespace st {
             return default_caches.find(areaCode) != default_caches.end();
         }
 
-        bool manager::async_load_area_ips(const string &area_code) {
+        void manager::async_load_area_ips(const string &area_code) {
             if (!has_load_area_ips(area_code) && time::now() - last_load_area_ips_time.load() > 1000) {
                 last_load_area_ips_time = time::now();
                 ctx.post([this, area_code]() { this->load_area_ips(area_code); });
@@ -175,7 +175,7 @@ namespace st {
             ctx.post([this, ip]() {
                 if (ips.emplace(ip).second) {
                     std::function<void(const uint32_t &ip)> do_load_ip_info = [this](const uint32_t &ip) {
-                        string net_area = "";
+                        string net_area;
                         {
                             std::lock_guard<std::mutex> lg(net_lock);
                             net_area = get_area(ip, net_caches);
@@ -233,7 +233,7 @@ namespace st {
         }
 
         string manager::get_area(const uint32_t &ip, const unordered_map<string, vector<area_ip_range>> &caches) {
-            if (ip != 0) {
+            if (ip > 0) {
                 for (auto it = caches.begin(); it != caches.end(); it++) {
                     string area = (*it).first;
                     if (is_area_ip(area, ip, caches)) {
@@ -251,7 +251,6 @@ namespace st {
             return "";
         }
         string manager::get_area(const uint32_t &ip, bool async_load_net) {
-            auto begin = time::now();
             string area;
             if (ip != 0) {
                 {

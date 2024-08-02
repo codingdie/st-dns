@@ -354,7 +354,7 @@ void dns_server::sync_dns_record_from_remote(const string &host, const std::func
 }
 void dns_server::schedule() {
     for (auto &server : config.servers) {
-        if (server->area_resolve_optimize && std::find(server->areas.begin(), server->areas.end(), "LAN") == server->areas.end()) {
+        if (std::find(server->areas.begin(), server->areas.end(), "LAN") == server->areas.end()) {
             vector<pair<string, uint16_t>> result;
             server->resolve_optimize_areas.clear();
             for (const auto &area : st::command::proxy::get_ip_available_proxy_areas(server->ip)) {
@@ -362,7 +362,7 @@ void dns_server::schedule() {
                     uint16_t a_port = st::command::proxy::register_area_port(server->ip, server->port, area);
                     if (a_port > 0) {
                         result.emplace_back(area, a_port);
-                        logger::INFO << server->id() << "resolve_optimize_areas area sync" << area << a_port << END;
+                        logger::INFO << server->id() << "resolve optimize areas area sync" << area << a_port << END;
                     }
                 }
                 st::areaip::manager::uniq().load_area_ips(area);

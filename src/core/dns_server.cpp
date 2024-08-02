@@ -358,12 +358,14 @@ void dns_server::schedule() {
             vector<pair<string, uint16_t>> result;
             server->resolve_optimize_areas.clear();
             for (const auto &area : st::command::proxy::get_ip_available_proxy_areas(server->ip)) {
-                uint16_t a_port = st::command::proxy::register_area_port(server->ip, server->port, area);
-                if (a_port > 0) {
-                    result.emplace_back(area, a_port);
+                if (areaip::manager::is_match_areas(server->areas, area)) {
+                    uint16_t a_port = st::command::proxy::register_area_port(server->ip, server->port, area);
+                    if (a_port > 0) {
+                        result.emplace_back(area, a_port);
+                        logger::INFO << server->id() << "resolve_optimize_areas area sync" << area << a_port << END;
+                    }
                 }
                 st::areaip::manager::uniq().load_area_ips(area);
-                logger::INFO << server->id() << "resolve_optimize_areas area sync" << area << a_port << END;
             }
             server->resolve_optimize_areas = result;
         }

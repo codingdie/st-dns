@@ -354,7 +354,7 @@ void dns_server::sync_dns_record_from_remote(const string &host, const std::func
 }
 void dns_server::schedule() {
     for (auto &server : config.servers) {
-        if (server->area_resolve_optimize) {
+        if (server->area_resolve_optimize && std::find(server->areas.begin(), server->areas.end(), "LAN") == server->areas.end()) {
             vector<pair<string, uint16_t>> result;
             server->resolve_optimize_areas.clear();
             for (const auto &area : st::command::proxy::get_ip_available_proxy_areas(server->ip)) {
@@ -370,7 +370,7 @@ void dns_server::schedule() {
             server->resolve_optimize_areas = result;
         }
     }
-    schedule_timer->expires_from_now(boost::posix_time::seconds(30));
+    schedule_timer->expires_from_now(boost::posix_time::seconds(5));
     schedule_timer->async_wait([=](boost::system::error_code ec) {
         schedule();
     });

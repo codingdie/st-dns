@@ -27,7 +27,7 @@ public:
     vector<string> areas;
     int timeout = 100;
     int dns_cache_expire = 10 * 60;
-    bool area_resolve_optimize = false;
+    bool area_resolve_optimize = true;
     vector<pair<string, uint16_t>> resolve_optimize_areas;
 
 

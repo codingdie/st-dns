@@ -9,15 +9,15 @@ namespace st {
     namespace command {
         namespace dns {
             static vector<string> reverse_resolve(uint32_t ip) {
+                vector<string> res;
                 auto cm = "dns reverse resolve --ip=" + ipv4::ip_to_str(ip);
                 auto result = st::console::client::command("127.0.0.1", 5757, cm, 10);
                 if (result.first) {
-                    return strutils::split(result.second, ",");
-                } else {
-                    return {};
+                    res = strutils::split(result.second, ",");
                 }
+                return res;
             }
         }// namespace dns
-    }    // namespace command
+    }// namespace command
 }// namespace st
 #endif//ST_DNS_COMMAND_H

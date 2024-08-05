@@ -345,6 +345,7 @@ void dns_server::sync_loss_dns_record_from_remote(string &host, dns_record &reco
 }
 
 void dns_server::sync_dns_record_from_remote(const string &host, const std::function<void(dns_record record)> &complete, remote_dns_server *server) const {
+    auto begin = time::now();
     dns_multi_area_complete multi_area_complete_handler = [=](const vector<uint32_t> &ips, bool load_all) {
         apm_logger::perf("st-dns-sync-record-from-remote", {{"domain", host}, {"server", server->id()}}, time::now() - begin);
         if (!ips.empty()) {

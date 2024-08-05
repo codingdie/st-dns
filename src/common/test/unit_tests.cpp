@@ -167,6 +167,7 @@ TEST(unit_tests, test_task_queue) {
     std::this_thread::sleep_for(std::chrono::milliseconds((1 + total) * 1000));
     ASSERT_EQ(1, result.size());
     ASSERT_TRUE(result[0] == "0");
+    ASSERT_EQ(0, que.size());
 }
 
 

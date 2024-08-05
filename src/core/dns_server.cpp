@@ -13,7 +13,6 @@
 #include "dns_client.h"
 #include "st.h"
 #include "command/proxy_command.h"
-static mutex rLock;
 
 using namespace std::placeholders;
 using namespace std;
@@ -43,7 +42,7 @@ dns_server::dns_server(st::dns::config &config) : rid(time::now()),
 void dns_server::start_console() {
     console.desc.add_options()("domain", boost::program_options::value<string>()->default_value(""), "domain");
     console.desc.add_options()("ip", boost::program_options::value<string>()->default_value(""), "ip");
-    console.impl = [](const vector<string> &commands, const boost::program_options::variables_map &options) {
+    console.impl = [this](const vector<string> &commands, const boost::program_options::variables_map &options) {
         auto command = utils::strutils::join(commands, " ");
         std::pair<bool, std::string> result = make_pair(false, "not invalid command");
         string ip = options["ip"].as<string>();
@@ -87,6 +86,20 @@ void dns_server::start_console() {
             result = make_pair(true, dns_record_manager::uniq().stats().serialize());
         } else if (command == "ip area") {
             result = make_pair(true, areaip::manager::uniq().get_area(st::utils::ipv4::str_to_ip(ip)));
+        } else if (command == "dns queue list") {
+            const auto &current_all_test = sync_remote_record_task_queue.all();
+            vector<string> lines(current_all_test.size());
+            std::transform(current_all_test.begin(), current_all_test.end(), lines.begin(),
+                           [](const task::priority_task<pair<string, remote_dns_server *>> &task) {
+                               {
+                                   std::stringstream sb;
+                                   sb << task.id << '\t' << task.priority << '\t' << task.status << '\t'
+                                      << task.create_time << '\t' << task.in.first << '\t' << task.in.second->id() << '\t' << task.pk;
+                                   return sb.str();
+                               }
+                           });
+
+            return make_pair(true, strutils::join(lines, "\n"));
         }
         return result;
     };
@@ -332,7 +345,6 @@ void dns_server::sync_loss_dns_record_from_remote(string &host, dns_record &reco
 }
 
 void dns_server::sync_dns_record_from_remote(const string &host, const std::function<void(dns_record record)> &complete, remote_dns_server *server) const {
-    auto begin = time::now();
     dns_multi_area_complete multi_area_complete_handler = [=](const vector<uint32_t> &ips, bool load_all) {
         apm_logger::perf("st-dns-sync-record-from-remote", {{"domain", host}, {"server", server->id()}}, time::now() - begin);
         if (!ips.empty()) {

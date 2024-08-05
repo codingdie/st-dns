@@ -127,26 +127,29 @@ namespace st {
             }
             for (const auto &area_reg : areas) {
                 string area_code = get_area_code(area_reg);
-                async_load_area_ips(area_reg);
+                async_load_area_ips(area_code);
             }
-            auto ipArea = get_area(ip, true);
-            if (ipArea == "default") {
+            auto ip_area = get_area(ip, true);
+            if (ip_area == "default") {
                 return false;
             }
+            return is_match_areas(areas, ip_area);
+        }
+        bool manager::is_match_areas(const vector<string> &areas, const string &area) {
             for (auto areaReg : areas) {
                 bool matchNot = areaReg[0] == '!';
-                string areaCode = get_area_code(areaReg);
-                if (!matchNot && ipArea == areaCode) {
+                string area_code = get_area_code(areaReg);
+                if (!matchNot && area == area_code) {
                     return true;
                 }
-                if (matchNot && ipArea != areaCode) {
+                if (matchNot && area != area_code) {
                     return true;
                 }
             }
             return false;
         }
-        bool manager::is_area_ip(const string &areaReg, const uint32_t &ip) {
-            vector<string> areas({areaReg});
+        bool manager::is_area_ip(const string &area_reg, const uint32_t &ip) {
+            vector<string> areas({area_reg});
             return is_area_ip(areas, ip);
         }
 

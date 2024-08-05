@@ -75,15 +75,15 @@ namespace st {
             ~manager();
             bool load_area_ips(const string &area_code);
             void async_load_area_ips(const string &area_code);
-            bool is_area_ip(const string &areaReg, const uint32_t &ip);
+            bool is_area_ip(const string &area_reg, const uint32_t &ip);
             bool is_area_ip(const vector<string> &areas, const uint32_t &ip);
             bool is_area_ip(const string &areaReg, const string &ip);
             string get_area(const uint32_t &ip);
             string get_area(const uint32_t &ip, bool async_load_net);
             static manager &uniq();
             void config(const area_ip_config &config);
-
             void async_load_ip_info_from_net(const uint32_t &ip);
+            static bool is_match_areas(const vector<string> &areas, const string &area);
 
         private:
             const string IP_NET_AREA_FILE = "/etc/area-ips/IP_NET_AREA";

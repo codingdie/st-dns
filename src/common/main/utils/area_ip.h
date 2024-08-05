@@ -82,8 +82,8 @@ namespace st {
             string get_area(const uint32_t &ip, bool async_load_net);
             static manager &uniq();
             void config(const area_ip_config &config);
+
             void async_load_ip_info_from_net(const uint32_t &ip);
-            static bool is_match_areas(const vector<string> &areas, const string &area) ;
 
         private:
             const string IP_NET_AREA_FILE = "/etc/area-ips/IP_NET_AREA";

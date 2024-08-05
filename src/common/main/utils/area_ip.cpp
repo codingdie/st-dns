@@ -133,16 +133,13 @@ namespace st {
             if (ipArea == "default") {
                 return false;
             }
-            return is_match_areas(areas, ipArea);
-        }
-        bool manager::is_match_areas(const vector<string> &areas, const string &area) {
             for (auto areaReg : areas) {
                 bool matchNot = areaReg[0] == '!';
                 string areaCode = get_area_code(areaReg);
-                if (!matchNot && area == areaCode) {
+                if (!matchNot && ipArea == areaCode) {
                     return true;
                 }
-                if (matchNot && area != areaCode) {
+                if (matchNot && ipArea != areaCode) {
                     return true;
                 }
             }

@@ -3,6 +3,7 @@
 //
 
 #include "dns_server.h"
+#include "console_manager.h"
 
 #include <mutex>
 #include <string>

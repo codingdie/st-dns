@@ -13,13 +13,14 @@ find_package(OpenSSL 1.0.2 REQUIRED)
 find_package(Boost 1.66.0 REQUIRED COMPONENTS system filesystem thread program_options log log_setup)
 find_package(leveldb REQUIRED)
 find_package(Protobuf REQUIRED)
+find_program(PROTOC protoc REQUIRED)
 message("protobuf:${Protobuf_LITE_LIBRARY}")
 message("protobuf:${Protobuf_LIBRARY}")
+message("protoc: ${PROTOC}")
 #protobuf
-protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS
-    src/core/protocol/message.proto
-    src/common/main/proto/kv.proto
-)
+execute_process(COMMAND rm -f ${CMAKE_CURRENT_LIST_DIR}/src/core/protocol/*.pb.* ${CMAKE_CURRENT_LIST_DIR}/src/common/main/proto/*.pb.*)
+execute_process(COMMAND ${PROTOC} -I=${CMAKE_CURRENT_LIST_DIR}/src/core/protocol --cpp_out=${CMAKE_CURRENT_LIST_DIR}/src/core/protocol message.proto)
+execute_process(COMMAND ${PROTOC} -I=${CMAKE_CURRENT_LIST_DIR}/src/common/main/proto --cpp_out=${CMAKE_CURRENT_LIST_DIR}/src/common/main/proto kv.proto)
 
 #include
 include_directories(src/core)
@@ -31,7 +32,7 @@ ENDIF ()
 
 
 #st-dns target
-file(GLOB_RECURSE SOURCE_FILES src/core/*.cpp S src/core/*.cc)
+file(GLOB_RECURSE SOURCE_FILES src/core/*.cpp src/core/*.cc)
 file(GLOB_RECURSE SOURCE_COMMON_FILES src/common/main/*.cpp src/common/main/*.cc)
 file(GLOB_RECURSE SOURCE_INTEGRATION_TEST_FILES src/test/integration/*.cpp)
 file(GLOB_RECURSE SOURCE_UNIT_TEST_FILES src/test/unit/*.cpp)
@@ -69,9 +70,9 @@ if (NOT OPENWRT)
     add_executable(st-unit-test ${SOURCE_ST_UNIT_TEST_FILES} ${SOURCE_COMMON_FILES})
     add_executable(st-dns-unit-test ${SOURCE_UNIT_TEST_FILES} ${SOURCE_FILES} ${SOURCE_COMMON_FILES})
     add_executable(st-dns-integration-test ${SOURCE_INTEGRATION_TEST_FILES} ${SOURCE_FILES} ${SOURCE_COMMON_FILES})
-    target_link_libraries(st-unit-test gtest_main ${Boost_LIBRARIES} ${OPENSSL_LIBRARIES} ${OTHER_LIBRARIES})
-    target_link_libraries(st-dns-unit-test gtest_main ${Boost_LIBRARIES} ${OPENSSL_LIBRARIES} ${OTHER_LIBRARIES})
-    target_link_libraries(st-dns-integration-test gtest_main ${Boost_LIBRARIES} ${OPENSSL_LIBRARIES} ${OTHER_LIBRARIES})
+    target_link_libraries(st-unit-test gtest_main ${Boost_LIBRARIES} ${OPENSSL_LIBRARIES} ${OTHER_LIBRARIES} ${Protobuf_LITE_LIBRARY})
+    target_link_libraries(st-dns-unit-test gtest_main ${Boost_LIBRARIES} ${OPENSSL_LIBRARIES} ${OTHER_LIBRARIES} ${Protobuf_LITE_LIBRARY})
+    target_link_libraries(st-dns-integration-test gtest_main ${Boost_LIBRARIES} ${OPENSSL_LIBRARIES} ${OTHER_LIBRARIES} ${Protobuf_LITE_LIBRARY})
 
     include(GoogleTest)
     gtest_discover_tests(st-unit-test)

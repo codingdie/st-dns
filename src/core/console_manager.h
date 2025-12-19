@@ -8,7 +8,7 @@
 #include "st.h"
 #include "console/udp_console.h"
 #include "dns_record_manager.h"
-#include "area_ip.h"
+#include "utils/area_ip.h"
 #include "command/proxy_command.h"
 
 namespace st {

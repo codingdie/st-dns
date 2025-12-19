@@ -68,8 +68,6 @@ private:
     void sync_loss_dns_record_from_remote(string &host, dns_record &record);
 
     void schedule();
-
-    void start_console();
 };
 
 

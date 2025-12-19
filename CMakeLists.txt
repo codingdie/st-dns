@@ -25,11 +25,16 @@ if(EXISTS ${CMAKE_CURRENT_LIST_DIR}/src/core/protocol/message.pb.h AND EXISTS ${
 else()
     message("Error: Protobuf files for message.proto not generated")
 endif()
-execute_process(COMMAND ${PROTOC} -I=${CMAKE_CURRENT_LIST_DIR}/src/common/main/proto --cpp_out=${CMAKE_CURRENT_LIST_DIR}/src/common/main/proto kv.proto)
-if(EXISTS ${CMAKE_CURRENT_LIST_DIR}/src/common/main/proto/kv.pb.h AND EXISTS ${CMAKE_CURRENT_LIST_DIR}/src/common/main/proto/kv.pb.cc)
+execute_process(COMMAND ${PROTOC} -I=${CMAKE_CURRENT_LIST_DIR}/src/common/main/proto --cpp_out=${CMAKE_CURRENT_LIST_DIR}/src/common/main/proto kv.proto
+    OUTPUT_VARIABLE protoc_output
+    ERROR_VARIABLE protoc_error
+    RESULT_VARIABLE protoc_result)
+if(protoc_result EQUAL 0)
     message("Generated protobuf files: ${CMAKE_CURRENT_LIST_DIR}/src/common/main/proto/kv.pb.h ${CMAKE_CURRENT_LIST_DIR}/src/common/main/proto/kv.pb.cc")
 else()
-    message("Error: Protobuf files for kv.proto not generated")
+    message("Error: Protobuf generation for kv.proto failed with result ${protoc_result}")
+    message("Output: ${protoc_output}")
+    message("Error: ${protoc_error}")
 endif()
 
 #include

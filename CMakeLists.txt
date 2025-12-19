@@ -19,7 +19,7 @@ message("protobuf:${Protobuf_LIBRARY}")
 message("protoc: ${PROTOC}")
 #protobuf
 execute_process(COMMAND rm -f ${CMAKE_CURRENT_LIST_DIR}/src/core/protocol/*.pb.* ${CMAKE_CURRENT_LIST_DIR}/src/common/main/proto/*.pb.*)
-execute_process(COMMAND ${PROTOC} -I=${CMAKE_CURRENT_LIST_DIR}/src/core/protocol --cpp_out=${CMAKE_CURRENT_LIST_DIR}/src/core/protocol message.proto
+execute_process(COMMAND ${PROTOC} -I=${CMAKE_CURRENT_LIST_DIR}/src/core/protocol --cpp_out=${CMAKE_CURRENT_LIST_DIR}/src/core/protocol ${CMAKE_CURRENT_LIST_DIR}/src/core/protocol/message.proto
     OUTPUT_VARIABLE protoc_output_message
     ERROR_VARIABLE protoc_error_message
     RESULT_VARIABLE protoc_result_message)
@@ -30,7 +30,7 @@ else()
     message("Output: ${protoc_output_message}")
     message("Error: ${protoc_error_message}")
 endif()
-execute_process(COMMAND ${PROTOC} -I=${CMAKE_CURRENT_LIST_DIR}/src/common/main/proto --cpp_out=${CMAKE_CURRENT_LIST_DIR}/src/common/main/proto kv.proto
+execute_process(COMMAND ${PROTOC} -I=${CMAKE_CURRENT_LIST_DIR}/src/common/main/proto --cpp_out=${CMAKE_CURRENT_LIST_DIR}/src/common/main/proto ${CMAKE_CURRENT_LIST_DIR}/src/common/main/proto/kv.proto
     OUTPUT_VARIABLE protoc_output
     ERROR_VARIABLE protoc_error
     RESULT_VARIABLE protoc_result)

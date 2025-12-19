@@ -43,7 +43,6 @@ private:
     boost::asio::deadline_timer *schedule_timer;
     std::atomic<uint8_t> state;
     atomic_int64_t counter;
-    st::console::udp_console console;
     st::task::queue<pair<string, remote_dns_server *>> sync_remote_record_task_queue;
 
     void receive();
@@ -69,6 +68,8 @@ private:
     void sync_loss_dns_record_from_remote(string &host, dns_record &record);
 
     void schedule();
+
+    void start_console();
 };
 
 

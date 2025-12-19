@@ -20,7 +20,17 @@ message("protoc: ${PROTOC}")
 #protobuf
 execute_process(COMMAND rm -f ${CMAKE_CURRENT_LIST_DIR}/src/core/protocol/*.pb.* ${CMAKE_CURRENT_LIST_DIR}/src/common/main/proto/*.pb.*)
 execute_process(COMMAND ${PROTOC} -I=${CMAKE_CURRENT_LIST_DIR}/src/core/protocol --cpp_out=${CMAKE_CURRENT_LIST_DIR}/src/core/protocol message.proto)
+if(EXISTS ${CMAKE_CURRENT_LIST_DIR}/src/core/protocol/message.pb.h AND EXISTS ${CMAKE_CURRENT_LIST_DIR}/src/core/protocol/message.pb.cc)
+    message("Generated protobuf files: ${CMAKE_CURRENT_LIST_DIR}/src/core/protocol/message.pb.h ${CMAKE_CURRENT_LIST_DIR}/src/core/protocol/message.pb.cc")
+else()
+    message("Error: Protobuf files for message.proto not generated")
+endif()
 execute_process(COMMAND ${PROTOC} -I=${CMAKE_CURRENT_LIST_DIR}/src/common/main/proto --cpp_out=${CMAKE_CURRENT_LIST_DIR}/src/common/main/proto kv.proto)
+if(EXISTS ${CMAKE_CURRENT_LIST_DIR}/src/common/main/proto/kv.pb.h AND EXISTS ${CMAKE_CURRENT_LIST_DIR}/src/common/main/proto/kv.pb.cc)
+    message("Generated protobuf files: ${CMAKE_CURRENT_LIST_DIR}/src/common/main/proto/kv.pb.h ${CMAKE_CURRENT_LIST_DIR}/src/common/main/proto/kv.pb.cc")
+else()
+    message("Error: Protobuf files for kv.proto not generated")
+endif()
 
 #include
 include_directories(src/core)

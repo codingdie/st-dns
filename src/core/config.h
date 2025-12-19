@@ -60,6 +60,7 @@ namespace st {
             st::areaip::area_ip_config area_ip_config;
 
             config() = default;
+            ~config();
             void load(const string &base_conf_dir);
         };
 

@@ -7,6 +7,14 @@
 #include "command/proxy_command.h"
 #include <regex>
 st::dns::config st::dns::config::INSTANCE;
+
+st::dns::config::~config() {
+    for (auto server : servers) {
+        delete server;
+    }
+    servers.clear();
+}
+
 void st::dns::config::load(const string &base_conf_dir) {
     this->base_conf_dir = base_conf_dir;
     string config_path = base_conf_dir + "/config.json";

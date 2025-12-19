@@ -16,9 +16,10 @@ find_package(Protobuf REQUIRED)
 message("protobuf:${Protobuf_LITE_LIBRARY}")
 message("protobuf:${Protobuf_LIBRARY}")
 #protobuf
-execute_process(COMMAND rm -f ${CMAKE_CURRENT_LIST_DIR}/src/common/proto/*.h ${CMAKE_CURRENT_LIST_DIR}/src/common/proto/*.cc)
-execute_process(COMMAND protoc -I=${CMAKE_CURRENT_LIST_DIR}/src/core/protocol --cpp_out=${CMAKE_CURRENT_LIST_DIR}/src/core/protocol message.proto)
-execute_process(COMMAND protoc -I=${CMAKE_CURRENT_LIST_DIR}/src/common/main/proto --cpp_out=${CMAKE_CURRENT_LIST_DIR}/src/common/main/proto kv.proto)
+protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS
+    src/core/protocol/message.proto
+    src/common/main/proto/kv.proto
+)
 
 #include
 include_directories(src/core)

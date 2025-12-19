@@ -19,11 +19,16 @@ message("protobuf:${Protobuf_LIBRARY}")
 message("protoc: ${PROTOC}")
 #protobuf
 execute_process(COMMAND rm -f ${CMAKE_CURRENT_LIST_DIR}/src/core/protocol/*.pb.* ${CMAKE_CURRENT_LIST_DIR}/src/common/main/proto/*.pb.*)
-execute_process(COMMAND ${PROTOC} -I=${CMAKE_CURRENT_LIST_DIR}/src/core/protocol --cpp_out=${CMAKE_CURRENT_LIST_DIR}/src/core/protocol message.proto)
-if(EXISTS ${CMAKE_CURRENT_LIST_DIR}/src/core/protocol/message.pb.h AND EXISTS ${CMAKE_CURRENT_LIST_DIR}/src/core/protocol/message.pb.cc)
+execute_process(COMMAND ${PROTOC} -I=${CMAKE_CURRENT_LIST_DIR}/src/core/protocol --cpp_out=${CMAKE_CURRENT_LIST_DIR}/src/core/protocol message.proto
+    OUTPUT_VARIABLE protoc_output_message
+    ERROR_VARIABLE protoc_error_message
+    RESULT_VARIABLE protoc_result_message)
+if(protoc_result_message EQUAL 0)
     message("Generated protobuf files: ${CMAKE_CURRENT_LIST_DIR}/src/core/protocol/message.pb.h ${CMAKE_CURRENT_LIST_DIR}/src/core/protocol/message.pb.cc")
 else()
-    message("Error: Protobuf files for message.proto not generated")
+    message("Error: Protobuf generation for message.proto failed with result ${protoc_result_message}")
+    message("Output: ${protoc_output_message}")
+    message("Error: ${protoc_error_message}")
 endif()
 execute_process(COMMAND ${PROTOC} -I=${CMAKE_CURRENT_LIST_DIR}/src/common/main/proto --cpp_out=${CMAKE_CURRENT_LIST_DIR}/src/common/main/proto kv.proto
     OUTPUT_VARIABLE protoc_output

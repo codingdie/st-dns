@@ -21,7 +21,6 @@ using namespace st::dns::protocol;
 dns_server::dns_server(st::dns::config &config) : rid(time::now()),
                                                   config(config),
                                                   counter(0),
-                                                  console(config.console_ip, config.console_port),
                                                   sync_remote_record_task_queue(
                                                           "st-dns-record-sync-task",
                                                           100,
@@ -37,77 +36,16 @@ dns_server::dns_server(st::dns::config &config) : rid(time::now()),
         logger::ERROR << "bind address error" << config.ip << config.port << e.what() << END;
         exit(1);
     }
-    start_console();
+
 }
 void dns_server::start_console() {
-    console.desc.add_options()("domain", boost::program_options::value<string>()->default_value(""), "domain");
-    console.desc.add_options()("ip", boost::program_options::value<string>()->default_value(""), "ip");
-    console.impl = [this](const vector<string> &commands, const boost::program_options::variables_map &options) {
-        auto command = utils::strutils::join(commands, " ");
-        std::pair<bool, std::string> result = make_pair(false, "not invalid command");
-        string ip = options["ip"].as<string>();
-        if (command == "dns resolve") {
-            if (options.count("domain")) {
-                auto domain = options["domain"].as<string>();
-                if (!domain.empty()) {
-                    auto record = dns_record_manager::uniq().resolve(domain);
-                    result = make_pair(true, record.serialize());
-                }
-            }
-        } else if (command == "dns reverse resolve") {
-            if (!ip.empty()) {
-                auto record = dns_record_manager::uniq().reverse_resolve(st::utils::ipv4::str_to_ip(ip));
-                result = make_pair(true, join(record.domains(), ","));
-            }
-        } else if (command == "dns record get") {
-            if (options.count("domain")) {
-                auto domain = options["domain"].as<string>();
-                if (!domain.empty()) {
-                    auto records = dns_record_manager::uniq().get_dns_record_list(domain);
-                    vector<string> strs(records.size());
-                    std::transform(records.begin(), records.end(), strs.begin(), [](const dns_record &item) { return item.serialize(); });
-                    result = make_pair(true, strutils::join(strs, "\n"));
-                }
-            }
-        } else if (command == "dns record dump") {
-            result = make_pair(true, dns_record_manager::uniq().dump());
-        } else if (command == "dns record remove") {
-            if (options.count("domain")) {
-                auto domain = options["domain"].as<string>();
-                if (!domain.empty()) {
-                    dns_record_manager::uniq().remove(domain);
-                    result = make_pair(true, "");
-                }
-            }
-        } else if (command == "dns record clear") {
-            dns_record_manager::uniq().clear();
-            result = make_pair(true, "");
-        } else if (command == "dns record analyse") {
-            result = make_pair(true, dns_record_manager::uniq().stats().serialize());
-        } else if (command == "ip area") {
-            result = make_pair(true, areaip::manager::uniq().get_area(st::utils::ipv4::str_to_ip(ip)));
-        } else if (command == "dns queue list") {
-            const auto &current_all_test = sync_remote_record_task_queue.all();
-            vector<string> lines(current_all_test.size());
-            std::transform(current_all_test.begin(), current_all_test.end(), lines.begin(),
-                           [](const task::priority_task<pair<string, remote_dns_server *>> &task) {
-                               {
-                                   std::stringstream sb;
-                                   sb << task.id << '\t' << task.priority << '\t' << task.status << '\t'
-                                      << task.create_time << '\t' << task.in.first << '\t' << task.in.second->id() << '\t' << task.pk;
-                                   return sb.str();
-                               }
-                           });
-
-            return make_pair(true, strutils::join(lines, "\n"));
-        }
-        return result;
-    };
-    console.start();
+    console_manager::uniq().init(config.console_ip, config.console_port);
+    console_manager::uniq().start();
 }
 
 void dns_server::start() {
     dns_record_manager::uniq();
+    start_console();
     unsigned int cpu_count = std::thread::hardware_concurrency();
     iw = new boost::asio::io_context::work(ic);
     schedule_iw = new boost::asio::io_context::work(schedule_ic);

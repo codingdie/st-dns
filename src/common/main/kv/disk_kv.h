@@ -5,7 +5,7 @@
 #ifndef ST_DISK_KV_H
 #define ST_DISK_KV_H
 #include "abstract_kv.h"
-#include "proto/kv.pb.h"
+#include "kv.pb.h"
 #include "utils/file.h"
 #include <leveldb/db.h>
 namespace st {

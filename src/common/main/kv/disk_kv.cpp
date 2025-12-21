@@ -3,7 +3,7 @@
 //
 
 #include "disk_kv.h"
-#include "proto/kv.pb.h"
+#include "kv.pb.h"
 #include "utils/base64.h"
 #include "utils/logger.h"
 #include <leveldb/cache.h>

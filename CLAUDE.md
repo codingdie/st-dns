@@ -16,6 +16,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **不要在 commit message 中添加 Co-Authored-By 标签**
 
 
+## 额外说明
+这个项目作为openwrt package提供出去，需要同时修改插件代码，插件代码在../home-openwrt/codingdie-packages/packages/st-dns下，你需要阅读和修改此代码
+
 ## Project Overview
 
 st-dns is a smart local DNS server that supports configurable multi-server DNS chains (UDP/TCP/DoT). It intelligently resolves IPs based on geographic area restrictions, with caching and area-based optimization capabilities.

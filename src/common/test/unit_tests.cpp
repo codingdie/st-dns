@@ -134,6 +134,35 @@ TEST(unit_tests, test_disk_kv) {
     ASSERT_TRUE(st::utils::ipv4::str_to_ip("baidu.com") == 0);
 }
 
+TEST(unit_tests, test_disk_kv_expire) {
+    st::kv::disk_kv kv("test_expire", 1024 * 1024);
+    kv.clear();
+
+    // 测试永不过期的记录 (expire = 0)
+    kv.put("never_expire", "value1", 0);
+    ASSERT_STREQ("value1", kv.get("never_expire").c_str());
+
+    // 测试未过期的记录 (expire = 10秒后)
+    kv.put("not_expired", "value2", 10);
+    ASSERT_STREQ("value2", kv.get("not_expired").c_str());
+
+    // 测试已过期的记录 (expire = 1秒后)
+    kv.put("will_expire", "value3", 1);
+    ASSERT_STREQ("value3", kv.get("will_expire").c_str());
+
+    // 等待 2 秒，让记录过期
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+
+    // 已过期的记录应该返回空字符串
+    ASSERT_STREQ("", kv.get("will_expire").c_str());
+
+    // 未过期的记录应该仍然存在
+    ASSERT_STREQ("value2", kv.get("not_expired").c_str());
+
+    // 永不过期的记录应该仍然存在
+    ASSERT_STREQ("value1", kv.get("never_expire").c_str());
+}
+
 TEST(unit_tests, test_task_queue) {
     using namespace st::task;
     int total = 5;

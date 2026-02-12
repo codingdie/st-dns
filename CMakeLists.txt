@@ -12,7 +12,14 @@ endif ()
 find_package(OpenSSL 1.0.2 REQUIRED)
 find_package(Boost 1.66.0 REQUIRED COMPONENTS system filesystem thread program_options log log_setup)
 find_package(leveldb REQUIRED)
+
+# For OpenWrt cross-compilation, set protoc path before find_package
+if(OPENWRT)
+    set(Protobuf_PROTOC_EXECUTABLE "${PROTOBUF_PROTOC_EXECUTABLE}" CACHE FILEPATH "The protoc compiler" FORCE)
+endif()
+
 find_package(Protobuf REQUIRED)
+
 # Protobuf code generation
 protobuf_generate_cpp(MESSAGE_PROTO_SRCS MESSAGE_PROTO_HDRS src/core/protocol/message.proto PROTOC_OUT_DIR src/core/protocol)
 protobuf_generate_cpp(KV_PROTO_SRCS KV_PROTO_HDRS src/common/main/proto/kv.proto PROTOC_OUT_DIR src/common/main/proto)

@@ -34,7 +34,7 @@ namespace st {
             return result;
         }
         bool disk_kv::not_expired(const proto::value &val) {
-            return val.expire() == 0 || val.expire() < utils::time::now() / 1000;
+            return val.expire() == 0 || val.expire() > utils::time::now() / 1000;
         }
         void disk_kv::put(const std::string &key, const std::string &value) { this->put(key, value, 0); }
 

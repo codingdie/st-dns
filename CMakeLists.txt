@@ -12,20 +12,18 @@ endif ()
 find_package(OpenSSL 1.0.2 REQUIRED)
 find_package(Boost 1.66.0 REQUIRED COMPONENTS system filesystem thread program_options log log_setup)
 find_package(leveldb REQUIRED)
-find_package(Protobuf REQUIRED)
-if(NOT PROTOBUF_PROTOC_EXECUTABLE)
-    if(OPENWRT)
-        # For OpenWrt cross-compilation, use host protoc
-        find_program(PROTOBUF_PROTOC_EXECUTABLE protoc
-            PATHS /opt/openwrt/staging_dir/host/bin
-            NO_DEFAULT_PATH)
-        if(NOT PROTOBUF_PROTOC_EXECUTABLE)
-            find_program(PROTOBUF_PROTOC_EXECUTABLE protoc)
-        endif()
-    else()
-        find_program(PROTOBUF_PROTOC_EXECUTABLE protoc REQUIRED)
+# Set protoc path before find_package(Protobuf) to prevent it from finding the wrong one
+if(OPENWRT AND NOT PROTOBUF_PROTOC_EXECUTABLE)
+    # For OpenWrt cross-compilation, use host protoc
+    find_program(PROTOBUF_PROTOC_EXECUTABLE protoc
+        PATHS /opt/openwrt/staging_dir/host/bin
+        NO_DEFAULT_PATH)
+    if(NOT PROTOBUF_PROTOC_EXECUTABLE)
+        message(WARNING "Host protoc not found in /opt/openwrt/staging_dir/host/bin, falling back to system search")
+        find_program(PROTOBUF_PROTOC_EXECUTABLE protoc)
     endif()
 endif()
+find_package(Protobuf REQUIRED)
 message("protobuf:${Protobuf_LITE_LIBRARY}")
 message("protobuf:${Protobuf_LIBRARY}")
 message("protoc: ${PROTOBUF_PROTOC_EXECUTABLE}")

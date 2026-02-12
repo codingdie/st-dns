@@ -14,7 +14,17 @@ find_package(Boost 1.66.0 REQUIRED COMPONENTS system filesystem thread program_o
 find_package(leveldb REQUIRED)
 find_package(Protobuf REQUIRED)
 if(NOT PROTOBUF_PROTOC_EXECUTABLE)
-    find_program(PROTOBUF_PROTOC_EXECUTABLE protoc REQUIRED)
+    if(OPENWRT)
+        # For OpenWrt cross-compilation, use host protoc
+        find_program(PROTOBUF_PROTOC_EXECUTABLE protoc
+            PATHS /opt/openwrt/staging_dir/host/bin
+            NO_DEFAULT_PATH)
+        if(NOT PROTOBUF_PROTOC_EXECUTABLE)
+            find_program(PROTOBUF_PROTOC_EXECUTABLE protoc)
+        endif()
+    else()
+        find_program(PROTOBUF_PROTOC_EXECUTABLE protoc REQUIRED)
+    endif()
 endif()
 message("protobuf:${Protobuf_LITE_LIBRARY}")
 message("protobuf:${Protobuf_LIBRARY}")

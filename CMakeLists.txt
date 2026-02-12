@@ -15,8 +15,8 @@ find_package(leveldb REQUIRED)
 find_package(Protobuf REQUIRED)
 
 # Protobuf code generation
-protobuf_generate_cpp(MESSAGE_PROTO_SRCS MESSAGE_PROTO_HDRS src/core/protocol/message.proto PROTOC_OUT_DIR src/core/protocol)
-protobuf_generate_cpp(KV_PROTO_SRCS KV_PROTO_HDRS src/common/main/proto/kv.proto PROTOC_OUT_DIR src/common/main/proto)
+protobuf_generate_cpp(MESSAGE_PROTO_SRCS MESSAGE_PROTO_HDRS src/core/protocol/message.proto)
+protobuf_generate_cpp(KV_PROTO_SRCS KV_PROTO_HDRS src/common/main/proto/kv.proto)
 
 # Include directories
 include_directories(src/core)

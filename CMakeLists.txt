@@ -12,12 +12,6 @@ endif ()
 find_package(OpenSSL 1.0.2 REQUIRED)
 find_package(Boost 1.66.0 REQUIRED COMPONENTS system filesystem thread program_options log log_setup)
 find_package(leveldb REQUIRED)
-
-# For OpenWrt cross-compilation, set protoc path before find_package
-if(OPENWRT)
-    set(Protobuf_PROTOC_EXECUTABLE "${PROTOBUF_PROTOC_EXECUTABLE}" CACHE FILEPATH "The protoc compiler" FORCE)
-endif()
-
 find_package(Protobuf REQUIRED)
 
 # Protobuf code generation

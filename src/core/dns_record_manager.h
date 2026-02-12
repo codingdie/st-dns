@@ -17,7 +17,7 @@
 #include <utility>
 #include <vector>
 #include "kv/disk_kv.h"
-#include "protocol/message.pb.h"
+#include "message.pb.h"
 
 using namespace std;
 

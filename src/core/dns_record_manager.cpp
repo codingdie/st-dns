@@ -5,7 +5,7 @@
 #include "dns_record_manager.h"
 #include <random>
 #include <vector>
-#include "protocol/message.pb.h"
+#include "message.pb.h"
 #include "config.h"
 
 void dns_record_manager::add(const string &domain, const vector<uint32_t> &ips, const string &dns_server, const int expire) {

@@ -2,20 +2,6 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## 语言偏好
-
-默认使用中文进行交流和编写代码注释。
-
-## Git 配置与规范
-
-**重要：所有 Git 操作必须遵循以下规范**
-
-- 用户名：codingdie
-- 邮箱：codingdie@gmail.com
-- 所有提交必须使用此身份
-- **不要在 commit message 中添加 Co-Authored-By 标签**
-
-
 ## 额外说明
 这个项目作为openwrt package提供出去，需要同时修改插件代码，插件代码在../home-openwrt/codingdie-packages/packages/st-dns下，你需要阅读和修改此代码
 
@@ -229,3 +215,20 @@ The project is packaged in the codingdie-packages feed for OpenWrt. Build errors
 - Uses `file(GLOB_RECURSE)` to collect source files automatically
 - Protobuf files must be explicitly added to targets
 - Third-party header `httplib.h` is auto-downloaded during CMake configuration if missing
+
+## Claude 工作习惯
+
+### 语言偏好
+
+默认使用中文进行交流和编写代码注释。
+
+### Git 配置与规范
+**重要：所有 Git 操作必须遵循以下规范**
+
+- 用户名：codingdie
+- 邮箱：codingdie@gmail.com
+- 所有提交必须使用此身份
+- **不要在 commit message 中添加 Co-Authored-By 标签**
+- 修改代码后**不要自动 commit**
+- 等待用户明确说"提交"、"commit"或"push"后，再执行 `git commit` + `git push`
+- 可以使用 `git diff` 或 `git status` 查看改动，但不要自动提交

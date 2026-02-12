@@ -9,19 +9,64 @@
 #include "config.h"
 
 void dns_record_manager::add(const string &domain, const vector<uint32_t> &ips, const string &dns_server, const int expire) {
+    // 按area分组IP，并限制最多4个IP
+    const int MAX_IPS = 4;
+    vector<uint32_t> selected_ips;
+
+    if (ips.size() <= MAX_IPS) {
+        // 如果IP数量不超过4个，直接使用所有IP
+        selected_ips = ips;
+    } else {
+        // 按area分组
+        unordered_map<string, vector<uint32_t>> area_ips;
+        for (auto ip : ips) {
+            string area = areaip::manager::uniq().get_area(ip, false); // 同步获取area，不触发网络加载
+            if (area.empty()) {
+                area = "UNKNOWN"; // 未知area
+            }
+            area_ips[area].push_back(ip);
+        }
+
+        // 从不同area轮流选择IP，实现打散效果
+        vector<string> areas;
+        for (auto &pair : area_ips) {
+            areas.push_back(pair.first);
+        }
+
+        // 轮流从每个area选择一个IP，直到达到MAX_IPS
+        int area_index = 0;
+        while (selected_ips.size() < MAX_IPS) {
+            bool added = false;
+            for (size_t i = 0; i < areas.size() && selected_ips.size() < MAX_IPS; i++) {
+                string &area = areas[(area_index + i) % areas.size()];
+                auto &ip_list = area_ips[area];
+                if (!ip_list.empty()) {
+                    selected_ips.push_back(ip_list.back());
+                    ip_list.pop_back();
+                    added = true;
+                }
+            }
+            if (!added) break; // 所有area的IP都用完了
+            area_index++;
+        }
+
+        logger::DEBUG << "dns cache limit: domain=" << domain << " original_ips=" << ips.size()
+                      << " selected_ips=" << selected_ips.size() << " areas=" << areas.size() << END;
+    }
+
     st::dns::proto::records dns_records = get_dns_records_pb(domain);
     dns_records.set_domain(domain);
     st::dns::proto::record pb;
     pb.set_expire(expire + time::now() / 1000);
     pb.clear_ips();
-    for (const auto &ip : ips) {
+    for (const auto &ip : selected_ips) {
         pb.add_ips(ip);
         areaip::manager::uniq().async_load_ip_info_from_net(ip);
         add_reverse_record(ip, domain);
     }
     (*dns_records.mutable_map())[dns_server] = pb;
     db.put(domain, dns_records.SerializeAsString());
-    logger::INFO << "add dns cache" << domain << ipv4::ips_to_str(ips) << "from" << dns_server << "expire" << expire << END;
+    logger::INFO << "add dns cache" << domain << ipv4::ips_to_str(selected_ips) << "from" << dns_server << "expire" << expire << END;
 }
 
 dns_record dns_record_manager::resolve(const string &domain) {

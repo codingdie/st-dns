@@ -49,3 +49,13 @@ TEST(UnitTests, test_dns_cache) {
     ASSERT_EQ(2, records.map().at("192.168.31.1").ips_size());
     ASSERT_EQ(3, records.map().at("192.168.31.2").ips_size());
 }
+
+TEST(UnitTests, test_dns_cache_max_4_ips) {
+    // 测试超过4个IP时，只缓存4个
+    vector<uint32_t> many_ips = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    dns_record_manager::uniq().add("test-max-ips.com", many_ips, "8.8.8.8", 60);
+    const proto::records &records = dns_record_manager::uniq().get_dns_records_pb("test-max-ips.com");
+    ASSERT_EQ(1, records.map_size());
+    ASSERT_LE(records.map().at("8.8.8.8").ips_size(), 4);
+    logger::INFO << "Cached IPs count: " << records.map().at("8.8.8.8").ips_size() << END;
+}

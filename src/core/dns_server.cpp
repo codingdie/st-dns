@@ -200,7 +200,7 @@ void dns_server::query_dns_record(session *session, const std::function<void(st:
             record.server = "st-dns-force";
             record.domain = host;
             record.ips = rule->ips;
-            record.expire_time = 60;
+            record.expire_time = time::now() / 1000 + 60;
             record.match_area = true;
             session->logger.add_dimension("process_type", "force");
             logger::INFO << "force resolve" << host << st::utils::ipv4::ips_to_str(rule->ips) << END;
@@ -213,7 +213,7 @@ void dns_server::query_dns_record(session *session, const std::function<void(st:
         dns_record &record = session->record;
         record.server = "st-dns";
         record.domain = host;
-        record.expire_time = std::numeric_limits<uint64_t>::max();
+        record.expire_time = time::now() / 1000 + 60;
         session->logger.add_dimension("process_type", "local");
         complete(session);
     } else {

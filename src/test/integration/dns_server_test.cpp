@@ -76,3 +76,71 @@ TEST_F(IntegrationTests, test_dns) {
     }
     test_console();
 }
+
+TEST_F(IntegrationTests, test_force_resolve) {
+    const string server = "127.0.0.1";
+    const uint32_t port = 5353;
+    mutex lock;
+
+    // 测试精确匹配的强制解析: test.codingdie.com -> 1.2.3.4
+    {
+        lock.lock();
+        vector<uint32_t> ips;
+        dns_client::uniq().udp_dns("test.codingdie.com", server, port, 5000, [&](std::vector<uint32_t> result) {
+            ips = result;
+            lock.unlock();
+        });
+        lock.lock();
+        ASSERT_EQ(1, ips.size());
+        ASSERT_EQ(st::utils::ipv4::str_to_ip("1.2.3.4"), ips[0]);
+        logger::INFO << "Force resolve exact match: test.codingdie.com -> " << st::utils::ipv4::ips_to_str(ips) << END;
+        lock.unlock();
+    }
+
+    // 测试通配符匹配的强制解析: www.codingdie.com -> 192.168.1.100, 192.168.1.101
+    {
+        lock.lock();
+        vector<uint32_t> ips;
+        dns_client::uniq().udp_dns("www.codingdie.com", server, port, 5000, [&](std::vector<uint32_t> result) {
+            ips = result;
+            lock.unlock();
+        });
+        lock.lock();
+        ASSERT_EQ(2, ips.size());
+        ASSERT_EQ(st::utils::ipv4::str_to_ip("192.168.1.100"), ips[0]);
+        ASSERT_EQ(st::utils::ipv4::str_to_ip("192.168.1.101"), ips[1]);
+        logger::INFO << "Force resolve wildcard match: www.codingdie.com -> " << st::utils::ipv4::ips_to_str(ips) << END;
+        lock.unlock();
+    }
+
+    // 测试通配符匹配基础域名: codingdie.com -> 192.168.1.100, 192.168.1.101
+    {
+        lock.lock();
+        vector<uint32_t> ips;
+        dns_client::uniq().udp_dns("codingdie.com", server, port, 5000, [&](std::vector<uint32_t> result) {
+            ips = result;
+            lock.unlock();
+        });
+        lock.lock();
+        ASSERT_EQ(2, ips.size());
+        ASSERT_EQ(st::utils::ipv4::str_to_ip("192.168.1.100"), ips[0]);
+        ASSERT_EQ(st::utils::ipv4::str_to_ip("192.168.1.101"), ips[1]);
+        logger::INFO << "Force resolve wildcard base domain: codingdie.com -> " << st::utils::ipv4::ips_to_str(ips) << END;
+        lock.unlock();
+    }
+
+    // 测试另一个精确匹配: github.com -> 192.30.255.113
+    {
+        lock.lock();
+        vector<uint32_t> ips;
+        dns_client::uniq().udp_dns("github.com", server, port, 5000, [&](std::vector<uint32_t> result) {
+            ips = result;
+            lock.unlock();
+        });
+        lock.lock();
+        ASSERT_EQ(1, ips.size());
+        ASSERT_EQ(st::utils::ipv4::str_to_ip("192.30.255.113"), ips[0]);
+        logger::INFO << "Force resolve exact match: github.com -> " << st::utils::ipv4::ips_to_str(ips) << END;
+        lock.unlock();
+    }
+}

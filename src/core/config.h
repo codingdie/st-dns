@@ -17,6 +17,16 @@
 #include "protocol/protocol.h"
 using namespace std;
 using namespace boost::property_tree;
+
+class force_resolve_rule {
+public:
+    string pattern;
+    vector<uint32_t> ips;
+
+    force_resolve_rule(const string &pattern, const vector<uint32_t> &ips);
+    bool match(const string &domain) const;
+};
+
 class remote_dns_server {
 public:
     string ip;
@@ -57,6 +67,7 @@ namespace st {
             uint32_t dns_cache_expire = 60 * 10;
             string base_conf_dir = "/usr/local/etc/st/dns";
             vector<remote_dns_server *> servers;
+            vector<force_resolve_rule *> force_resolve_rules;
             st::areaip::area_ip_config area_ip_config;
 
             config() = default;

@@ -59,3 +59,68 @@ TEST(UnitTests, test_dns_cache_max_4_ips) {
     ASSERT_LE(records.map().at("8.8.8.8").ips_size(), 4);
     logger::INFO << "Cached IPs count: " << records.map().at("8.8.8.8").ips_size() << END;
 }
+
+TEST(UnitTests, test_force_resolve_exact_match) {
+    // 测试精确匹配
+    force_resolve_rule rule("test.codingdie.com", {st::utils::ipv4::str_to_ip("1.2.3.4")});
+
+    ASSERT_TRUE(rule.match("test.codingdie.com"));
+    ASSERT_FALSE(rule.match("www.test.codingdie.com"));
+    ASSERT_FALSE(rule.match("codingdie.com"));
+    ASSERT_FALSE(rule.match("other.com"));
+
+    logger::INFO << "Force resolve exact match test passed" << END;
+}
+
+TEST(UnitTests, test_force_resolve_wildcard_match) {
+    // 测试通配符匹配
+    force_resolve_rule rule("*.codingdie.com", {
+        st::utils::ipv4::str_to_ip("192.168.1.100"),
+        st::utils::ipv4::str_to_ip("192.168.1.101")
+    });
+
+    // 应该匹配所有子域名
+    ASSERT_TRUE(rule.match("www.codingdie.com"));
+    ASSERT_TRUE(rule.match("api.codingdie.com"));
+    ASSERT_TRUE(rule.match("test.codingdie.com"));
+
+    // 应该匹配基础域名
+    ASSERT_TRUE(rule.match("codingdie.com"));
+
+    // 不应该匹配其他域名
+    ASSERT_FALSE(rule.match("codingdie.cn"));
+    ASSERT_FALSE(rule.match("other.com"));
+    ASSERT_FALSE(rule.match("test.other.com"));
+
+    logger::INFO << "Force resolve wildcard match test passed" << END;
+}
+
+TEST(UnitTests, test_force_resolve_multi_level_wildcard) {
+    // 测试多级子域名通配符匹配
+    force_resolve_rule rule("*.example.com", {st::utils::ipv4::str_to_ip("10.0.0.1")});
+
+    ASSERT_TRUE(rule.match("a.example.com"));
+    ASSERT_TRUE(rule.match("a.b.example.com"));
+    ASSERT_TRUE(rule.match("a.b.c.example.com"));
+    ASSERT_TRUE(rule.match("example.com"));
+
+    logger::INFO << "Force resolve multi-level wildcard test passed" << END;
+}
+
+TEST(UnitTests, test_force_resolve_ips) {
+    // 测试多个IP地址
+    vector<uint32_t> ips = {
+        st::utils::ipv4::str_to_ip("192.168.1.1"),
+        st::utils::ipv4::str_to_ip("192.168.1.2"),
+        st::utils::ipv4::str_to_ip("192.168.1.3")
+    };
+
+    force_resolve_rule rule("test.com", ips);
+
+    ASSERT_EQ(3, rule.ips.size());
+    ASSERT_EQ(ips[0], rule.ips[0]);
+    ASSERT_EQ(ips[1], rule.ips[1]);
+    ASSERT_EQ(ips[2], rule.ips[2]);
+
+    logger::INFO << "Force resolve multiple IPs test passed" << END;
+}

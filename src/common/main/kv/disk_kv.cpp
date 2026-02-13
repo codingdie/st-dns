@@ -6,8 +6,31 @@
 #include "kv.pb.h"
 #include "utils/base64.h"
 #include "utils/logger.h"
+#include "utils/file.h"
 #include <leveldb/cache.h>
-static const char *const KV_FOLDER = "/var/lib/st/kv/";
+#include <unistd.h>
+#include <sys/stat.h>
+
+// 自动选择可写的目录
+static std::string get_kv_folder() {
+    std::string default_folder = "/var/lib/st/kv/";
+    std::string tmp_folder = "/tmp/st-kv/";
+
+    // 尝试创建默认目录
+    struct stat st;
+    if (stat(default_folder.c_str(), &st) == 0 || mkdir(default_folder.c_str(), 0755) == 0) {
+        // 检查是否可写
+        if (access(default_folder.c_str(), W_OK) == 0) {
+            return default_folder;
+        }
+    }
+
+    // 使用 /tmp 目录
+    st::utils::file::mkdirs(tmp_folder);
+    return tmp_folder;
+}
+
+static std::string KV_FOLDER = get_kv_folder();
 using namespace st::utils;
 namespace st {
     namespace kv {

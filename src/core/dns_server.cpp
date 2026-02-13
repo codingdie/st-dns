@@ -192,6 +192,23 @@ void dns_server::query_dns_record(session *session, const std::function<void(st:
         complete_handler(se);
     };
     auto host = session->get_host();
+
+    // 检查强制解析规则
+    for (auto rule : config.force_resolve_rules) {
+        if (rule->match(host)) {
+            dns_record &record = session->record;
+            record.server = "st-dns-force";
+            record.domain = host;
+            record.ips = rule->ips;
+            record.expire_time = std::numeric_limits<uint64_t>::max();
+            record.match_area = true;
+            session->logger.add_dimension("process_type", "force");
+            logger::INFO << "force resolve" << host << st::utils::ipv4::ips_to_str(rule->ips) << END;
+            complete(session);
+            return;
+        }
+    }
+
     if (host == "localhost") {
         dns_record &record = session->record;
         record.server = "st-dns";

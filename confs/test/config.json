@@ -75,5 +75,19 @@
         "area_json_path": "country"
       }
     ]
-  }
+  },
+  "force_resolve_rules": [
+    {
+      "pattern": "test.codingdie.com",
+      "ips": ["1.2.3.4"]
+    },
+    {
+      "pattern": "*.codingdie.com",
+      "ips": ["192.168.1.100", "192.168.1.101"]
+    },
+    {
+      "pattern": "github.com",
+      "ips": ["192.30.255.113"]
+    }
+  ]
 }

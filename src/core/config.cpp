@@ -13,6 +13,10 @@ st::dns::config::~config() {
         delete server;
     }
     servers.clear();
+    for (auto rule : force_resolve_rules) {
+        delete rule;
+    }
+    force_resolve_rules.clear();
 }
 
 void st::dns::config::load(const string &base_conf_dir) {
@@ -81,6 +85,36 @@ void st::dns::config::load(const string &base_conf_dir) {
             this->area_ip_config.load(area_ip_config_node.get());
             areaip::manager::uniq().config(this->area_ip_config);
         }
+
+        auto force_resolve_rules_node = tree.get_child_optional("force_resolve_rules");
+        if (force_resolve_rules_node.is_initialized()) {
+            for (auto it = force_resolve_rules_node.get().begin(); it != force_resolve_rules_node.get().end(); it++) {
+                auto rule_node = it->second;
+                string pattern = rule_node.get("pattern", "");
+                if (pattern.empty()) {
+                    logger::WARN << "force resolve rule pattern empty, skip!" << END;
+                    continue;
+                }
+                vector<uint32_t> ips;
+                auto ips_node = rule_node.get_child_optional("ips");
+                if (ips_node.is_initialized()) {
+                    for (auto &ip_node : ips_node.get()) {
+                        string ip_str = ip_node.second.get_value<string>();
+                        uint32_t ip = st::utils::ipv4::str_to_ip(ip_str);
+                        if (ip != 0) {
+                            ips.push_back(ip);
+                        }
+                    }
+                }
+                if (!ips.empty()) {
+                    auto *rule = new force_resolve_rule(pattern, ips);
+                    force_resolve_rules.push_back(rule);
+                    logger::INFO << "load force resolve rule" << pattern << st::utils::ipv4::ips_to_str(ips) << END;
+                } else {
+                    logger::WARN << "force resolve rule ips empty" << pattern << END;
+                }
+            }
+        }
     } else {
         logger::ERROR << "st-dns config file not exit！" << config_path << END;
         exit(1);
@@ -121,4 +155,31 @@ remote_dns_server::select_servers(const string &domain, const vector<remote_dns_
 }
 
 remote_dns_server::remote_dns_server(const string &ip, int port, const string &type) : ip(ip), port(port), type(type) {
+}
+
+force_resolve_rule::force_resolve_rule(const string &pattern, const vector<uint32_t> &ips) : pattern(pattern), ips(ips) {
+}
+
+bool force_resolve_rule::match(const string &domain) const {
+    // 精确匹配
+    if (pattern == domain) {
+        return true;
+    }
+
+    // 通配符匹配 *.example.com
+    if (pattern.size() > 2 && pattern[0] == '*' && pattern[1] == '.') {
+        string suffix = pattern.substr(1); // .example.com
+        // 检查域名是否以 .example.com 结尾
+        if (domain.size() >= suffix.size() &&
+            domain.compare(domain.size() - suffix.size(), suffix.size(), suffix) == 0) {
+            return true;
+        }
+        // 检查是否完全匹配去掉 *. 后的部分 (example.com)
+        string base = pattern.substr(2);
+        if (domain == base) {
+            return true;
+        }
+    }
+
+    return false;
 }

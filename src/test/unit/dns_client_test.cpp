@@ -9,7 +9,7 @@
 #include <vector>
 
 
-void test_dns(const string &domain, const string &server, const uint32_t port, const string &type, const unordered_set<string> areas) {
+void test_dns(const string &domain, const string &server, const uint32_t port, const string &type, const vector<pair<string, uint16_t>> areas) {
     mutex lock;
     lock.lock();
     std::vector<uint32_t> result;
@@ -33,7 +33,7 @@ void test_dns(const string &domain, const string &server, const uint32_t port, c
     ASSERT_TRUE(result.size() > 0);
     ASSERT_TRUE(resultLoadAll);
 
-    logger::INFO << domain << "ips:" << st::utils::ipv4::ips_to_str(result) << st::utils::join(areas, "/") << END;
+    logger::INFO << domain << "ips:" << st::utils::ipv4::ips_to_str(result) << END;
     lock.unlock();
 }
 void testDNS(const string &domain, const string &server, const uint32_t port, const string &type) {
@@ -71,6 +71,6 @@ TEST(UnitTests, test_tcp_tls_dns) {
 TEST(UnitTests, test_tcp_tls_dns_resolve_multi_area) {
     logger::LEVEL = 0;
     logger::INFO << st::mem::malloc_size() << st::mem::free_size() << st::mem::leak_size() << string::npos << END;
-    test_dns("www.google.com", "8.8.8.8", 853, "TCP_SSL", {"US", "JP", "HK", "TW"});
+    test_dns("www.google.com", "8.8.8.8", 853, "TCP_SSL", {{"US", 853}, {"JP", 853}, {"HK", 853}, {"TW", 853}});
     logger::INFO << st::mem::malloc_size() << st::mem::free_size() << st::mem::leak_size() << END;
 }

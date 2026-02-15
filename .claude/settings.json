@@ -3,7 +3,8 @@
     "allow": [
       "Bash(./build/st-dns-unit-test:*)",
       "Read(//home/codingdie/codes/home-openwrt/codingdie-packages/**)",
-      "Bash(./build/st-dns-integration-test:*"
+      "Bash(./build/st-dns-integration-test:*",
+      "Bash(./st-unit-test:*)"
     ]
   }
 }

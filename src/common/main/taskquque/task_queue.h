@@ -64,7 +64,10 @@ namespace st {
             void schedule_generate_key() {
                 uint16_t duration = 50;
                 generate_key_timer.expires_from_now(boost::posix_time::milliseconds(duration));
-                generate_key_timer.async_wait([this, duration](error_code ec) {
+                generate_key_timer.async_wait([this, duration](boost::system::error_code ec) {
+                    if (ec == boost::asio::error::operation_aborted) {
+                        return;
+                    }
                     key_count += max_qps * duration / 1000;
                     key_count = min(max_qps * 1.0, (double) key_count);
                     schedule_generate_key();
@@ -89,7 +92,12 @@ namespace st {
                 });
 
                 schedule_timer.expires_from_now(boost::posix_time::milliseconds(50));
-                schedule_timer.async_wait([this](error_code ec) { schedule_dispatch_task(); });
+                schedule_timer.async_wait([this](boost::system::error_code ec) {
+                    if (ec == boost::asio::error::operation_aborted) {
+                        return;
+                    }
+                    schedule_dispatch_task();
+                });
             }
 
         public:

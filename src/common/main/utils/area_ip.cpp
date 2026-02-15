@@ -392,7 +392,12 @@ namespace st {
                 logger::ERROR << "sync net area ips skip! file not exits" << END;
             }
             sync_timer->expires_from_now(boost::posix_time::seconds(10 + random_engine() % 5));
-            sync_timer->async_wait([=](boost::system::error_code ec) { this->sync_net_area_ip(); });
+            sync_timer->async_wait([=](boost::system::error_code ec) {
+                if (ec == boost::asio::error::operation_aborted) {
+                    return;
+                }
+                this->sync_net_area_ip();
+            });
         }
         void manager::config(const area_ip_config &config) { this->conf = config; }
         void area_ip_config::load(const boost::property_tree::ptree &tree) {

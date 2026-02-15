@@ -340,6 +340,9 @@ void dns_server::schedule() {
     }
     schedule_timer->expires_from_now(boost::posix_time::seconds(5));
     schedule_timer->async_wait([=](boost::system::error_code ec) {
+        if (ec == boost::asio::error::operation_aborted) {
+            return;
+        }
         schedule();
     });
 }

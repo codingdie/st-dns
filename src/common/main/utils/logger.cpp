@@ -260,6 +260,9 @@ void apm_logger::disable() {
 void apm_logger::schedule_log() {
     LOG_TIMER.expires_from_now(boost::posix_time::milliseconds(60 * 1000));
     LOG_TIMER.async_wait([=](boost::system::error_code ec) {
+        if (ec == boost::asio::error::operation_aborted) {
+            return;
+        }
         schedule_log();
         report_apm_log_local();
     });

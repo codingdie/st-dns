@@ -213,15 +213,11 @@ TEST(unit_tests, test_limie_file_cnt) {
 TEST(unit_tests, test_logger) {
     boost::property_tree::ptree tree;
     st::utils::logger::init(tree);
-    for (int i = 0; i < 50000; i++) {
+    for (int i = 0; i < 1000000; i++) {
         st::utils::apm_logger::perf("123", {}, 100);
         st::utils::logger::INFO << i << time::now_str() << END;
     }
-    ASSERT_TRUE(st::utils::file::get_file_cnt("/tmp/st") >= 1);
-    // 等待异步日志写入完成
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-    if (boost::filesystem::exists("/tmp/st/perf")) {
-        ASSERT_TRUE(st::utils::file::get_file_cnt("/tmp/st/perf") >= 1);
-    }
     st::utils::logger::disable();
+    ASSERT_TRUE(st::utils::file::get_file_cnt("/tmp/st") >= 4);
+    ASSERT_TRUE(st::utils::file::get_file_cnt("/tmp/st/perf") >= 1);
 }

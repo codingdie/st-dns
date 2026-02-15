@@ -276,5 +276,10 @@ void dns_record_manager::schedule_stats() {
         st::utils::apm_logger::perf("st-dns-stats", {}, {{"trusted_domain_count", stat.trusted_domain}, {"total_domain_count", stat.total_domain}});
     });
     schedule_timer.expires_from_now(boost::posix_time::minutes(5));
-    schedule_timer.async_wait([this](error_code ec) { schedule_stats(); });
+    schedule_timer.async_wait([this](boost::system::error_code ec) {
+        if (ec == boost::asio::error::operation_aborted) {
+            return;
+        }
+        schedule_stats();
+    });
 }

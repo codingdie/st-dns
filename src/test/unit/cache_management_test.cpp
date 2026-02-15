@@ -5,17 +5,27 @@
 
 #include <gtest/gtest.h>
 #include "dns_record_manager.h"
+#include "config.h"
 #include "st.h"
 #include <thread>
 #include <chrono>
 
+// 测试 fixture，用于加载配置
+class cache_management : public ::testing::Test {
+protected:
+    void SetUp() override {
+        // 加载测试配置
+        st::dns::config::INSTANCE.load("../confs/test");
+    }
+};
+
 // 测试缓存过期时间
-TEST(cache_management, cache_expiration) {
+TEST_F(cache_management, cache_expiration) {
     dns_record_manager::uniq().clear();
 
     // 添加一个短过期时间的记录（2秒）
     vector<uint32_t> ips = {st::utils::ipv4::str_to_ip("1.2.3.4")};
-    dns_record_manager::uniq().add("expire-test.com", ips, "8.8.8.8", 2);
+    dns_record_manager::uniq().add("expire-test.com", ips, "8_8_8_8_53", 2);
 
     // 立即查询，应该能查到
     auto records = dns_record_manager::uniq().get_dns_record_list("expire-test.com");
@@ -34,15 +44,15 @@ TEST(cache_management, cache_expiration) {
 }
 
 // 测试缓存删除功能
-TEST(cache_management, remove_cache) {
+TEST_F(cache_management, remove_cache) {
     dns_record_manager::uniq().clear();
 
     // 添加多个域名的记录
     vector<uint32_t> ips1 = {st::utils::ipv4::str_to_ip("1.1.1.1")};
     vector<uint32_t> ips2 = {st::utils::ipv4::str_to_ip("2.2.2.2")};
 
-    dns_record_manager::uniq().add("test1.com", ips1, "8.8.8.8", 600);
-    dns_record_manager::uniq().add("test2.com", ips2, "8.8.8.8", 600);
+    dns_record_manager::uniq().add("test1.com", ips1, "8_8_8_8_53", 600);
+    dns_record_manager::uniq().add("test2.com", ips2, "8_8_8_8_53", 600);
 
     // 验证两个域名都存在
     auto records1 = dns_record_manager::uniq().get_dns_record_list("test1.com");
@@ -63,15 +73,15 @@ TEST(cache_management, remove_cache) {
 }
 
 // 测试清空所有缓存
-TEST(cache_management, clear_all_cache) {
+TEST_F(cache_management, clear_all_cache) {
     dns_record_manager::uniq().clear();
 
     // 添加多个域名的记录
     vector<uint32_t> ips = {st::utils::ipv4::str_to_ip("1.1.1.1")};
 
-    dns_record_manager::uniq().add("test1.com", ips, "8.8.8.8", 600);
-    dns_record_manager::uniq().add("test2.com", ips, "8.8.8.8", 600);
-    dns_record_manager::uniq().add("test3.com", ips, "8.8.8.8", 600);
+    dns_record_manager::uniq().add("test1.com", ips, "8_8_8_8_53", 600);
+    dns_record_manager::uniq().add("test2.com", ips, "8_8_8_8_53", 600);
+    dns_record_manager::uniq().add("test3.com", ips, "8_8_8_8_53", 600);
 
     // 验证记录存在
     auto stats_before = dns_record_manager::uniq().stats();
@@ -91,7 +101,7 @@ TEST(cache_management, clear_all_cache) {
 }
 
 // 测试缓存统计功能
-TEST(cache_management, cache_stats) {
+TEST_F(cache_management, cache_stats) {
     dns_record_manager::uniq().clear();
 
     // 添加一些记录
@@ -103,8 +113,8 @@ TEST(cache_management, cache_stats) {
         st::utils::ipv4::str_to_ip("3.3.3.3")
     };
 
-    dns_record_manager::uniq().add("domain1.com", ips1, "8.8.8.8", 600);
-    dns_record_manager::uniq().add("domain2.com", ips2, "8.8.8.8", 600);
+    dns_record_manager::uniq().add("domain1.com", ips1, "8_8_8_8_53", 600);
+    dns_record_manager::uniq().add("domain2.com", ips2, "8_8_8_8_53", 600);
 
     // 获取统计信息
     auto stats = dns_record_manager::uniq().stats();
@@ -118,12 +128,12 @@ TEST(cache_management, cache_stats) {
 }
 
 // 测试缓存导出功能
-TEST(cache_management, dump_cache) {
+TEST_F(cache_management, dump_cache) {
     dns_record_manager::uniq().clear();
 
     // 添加一些记录
     vector<uint32_t> ips = {st::utils::ipv4::str_to_ip("1.2.3.4")};
-    dns_record_manager::uniq().add("dump-test.com", ips, "8.8.8.8", 600);
+    dns_record_manager::uniq().add("dump-test.com", ips, "8_8_8_8_53", 600);
 
     // 导出缓存
     std::string dump_path = dns_record_manager::uniq().dump();
@@ -136,15 +146,15 @@ TEST(cache_management, dump_cache) {
 }
 
 // 测试智能解析功能
-TEST(cache_management, smart_resolve) {
+TEST_F(cache_management, smart_resolve) {
     dns_record_manager::uniq().clear();
 
     // 添加同一个域名的多个服务器记录
     vector<uint32_t> ips1 = {st::utils::ipv4::str_to_ip("1.1.1.1")};
     vector<uint32_t> ips2 = {st::utils::ipv4::str_to_ip("2.2.2.2")};
 
-    dns_record_manager::uniq().add("smart-test.com", ips1, "8.8.8.8", 600);
-    dns_record_manager::uniq().add("smart-test.com", ips2, "114.114.114.114", 600);
+    dns_record_manager::uniq().add("smart-test.com", ips1, "8_8_8_8_53", 600);
+    dns_record_manager::uniq().add("smart-test.com", ips2, "114_114_114_114_53", 600);
 
     // 使用智能解析
     auto record = dns_record_manager::uniq().resolve("smart-test.com");
@@ -159,7 +169,7 @@ TEST(cache_management, smart_resolve) {
 }
 
 // 测试多服务器记录合并
-TEST(cache_management, multi_server_record_merge) {
+TEST_F(cache_management, multi_server_record_merge) {
     dns_record_manager::uniq().clear();
 
     // 添加同一个域名的多个服务器记录
@@ -175,9 +185,9 @@ TEST(cache_management, multi_server_record_merge) {
         st::utils::ipv4::str_to_ip("3.3.3.1")
     };
 
-    dns_record_manager::uniq().add("merge-test.com", ips1, "8.8.8.8", 600);
-    dns_record_manager::uniq().add("merge-test.com", ips2, "114.114.114.114", 600);
-    dns_record_manager::uniq().add("merge-test.com", ips3, "223.5.5.5", 600);
+    dns_record_manager::uniq().add("merge-test.com", ips1, "8_8_8_8_53", 600);
+    dns_record_manager::uniq().add("merge-test.com", ips2, "114_114_114_114_53", 600);
+    dns_record_manager::uniq().add("merge-test.com", ips3, "223_5_5_5_853", 600);
 
     // 获取所有记录
     auto records = dns_record_manager::uniq().get_dns_record_list("merge-test.com");
@@ -196,12 +206,12 @@ TEST(cache_management, multi_server_record_merge) {
 }
 
 // 测试缓存更新（相同域名和服务器）
-TEST(cache_management, cache_update) {
+TEST_F(cache_management, cache_update) {
     dns_record_manager::uniq().clear();
 
     // 第一次添加
     vector<uint32_t> ips1 = {st::utils::ipv4::str_to_ip("1.1.1.1")};
-    dns_record_manager::uniq().add("update-test.com", ips1, "8.8.8.8", 600);
+    dns_record_manager::uniq().add("update-test.com", ips1, "8_8_8_8_53", 600);
 
     auto records = dns_record_manager::uniq().get_dns_record_list("update-test.com");
     ASSERT_EQ(1, records.size());
@@ -212,7 +222,7 @@ TEST(cache_management, cache_update) {
         st::utils::ipv4::str_to_ip("2.2.2.2"),
         st::utils::ipv4::str_to_ip("3.3.3.3")
     };
-    dns_record_manager::uniq().add("update-test.com", ips2, "8.8.8.8", 600);
+    dns_record_manager::uniq().add("update-test.com", ips2, "8_8_8_8_53", 600);
 
     // 验证记录被更新
     records = dns_record_manager::uniq().get_dns_record_list("update-test.com");
@@ -223,7 +233,7 @@ TEST(cache_management, cache_update) {
 }
 
 // 测试空域名处理
-TEST(cache_management, empty_domain_handling) {
+TEST_F(cache_management, empty_domain_handling) {
     dns_record_manager::uniq().clear();
 
     // 查询不存在的域名

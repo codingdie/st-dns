@@ -5,16 +5,26 @@
 
 #include <gtest/gtest.h>
 #include "dns_record_manager.h"
+#include "config.h"
 #include "st.h"
 
+// 测试 fixture，用于加载配置
+class reverse_resolve : public ::testing::Test {
+protected:
+    void SetUp() override {
+        // 加载测试配置
+        st::dns::config::INSTANCE.load("../confs/test");
+    }
+};
+
 // 测试基本的反向解析功能
-TEST(reverse_resolve, basic_reverse_resolve) {
+TEST_F(reverse_resolve, basic_reverse_resolve) {
     dns_record_manager::uniq().clear();
 
     // 添加一个域名记录
     uint32_t ip = st::utils::ipv4::str_to_ip("1.2.3.4");
     vector<uint32_t> ips = {ip};
-    dns_record_manager::uniq().add("test.com", ips, "8.8.8.8", 600);
+    dns_record_manager::uniq().add("test.com", ips, "8_8_8_8_53", 600);
 
     // 反向解析 IP
     auto reverse_record = dns_record_manager::uniq().reverse_resolve(ip);
@@ -35,16 +45,16 @@ TEST(reverse_resolve, basic_reverse_resolve) {
 }
 
 // 测试一个 IP 对应多个域名
-TEST(reverse_resolve, one_ip_multiple_domains) {
+TEST_F(reverse_resolve, one_ip_multiple_domains) {
     dns_record_manager::uniq().clear();
 
     // 添加多个域名指向同一个 IP
     uint32_t ip = st::utils::ipv4::str_to_ip("10.0.0.1");
     vector<uint32_t> ips = {ip};
 
-    dns_record_manager::uniq().add("domain1.com", ips, "8.8.8.8", 600);
-    dns_record_manager::uniq().add("domain2.com", ips, "8.8.8.8", 600);
-    dns_record_manager::uniq().add("domain3.com", ips, "8.8.8.8", 600);
+    dns_record_manager::uniq().add("domain1.com", ips, "8_8_8_8_53", 600);
+    dns_record_manager::uniq().add("domain2.com", ips, "8_8_8_8_53", 600);
+    dns_record_manager::uniq().add("domain3.com", ips, "8_8_8_8_53", 600);
 
     // 反向解析 IP
     auto reverse_record = dns_record_manager::uniq().reverse_resolve(ip);
@@ -66,7 +76,7 @@ TEST(reverse_resolve, one_ip_multiple_domains) {
 }
 
 // 测试不存在的 IP 反向解析
-TEST(reverse_resolve, nonexistent_ip_resolve) {
+TEST_F(reverse_resolve, nonexistent_ip_resolve) {
     dns_record_manager::uniq().clear();
 
     // 反向解析一个不存在的 IP
@@ -80,7 +90,7 @@ TEST(reverse_resolve, nonexistent_ip_resolve) {
 }
 
 // 测试多个 IP 的反向解析
-TEST(reverse_resolve, multiple_ips_resolve) {
+TEST_F(reverse_resolve, multiple_ips_resolve) {
     dns_record_manager::uniq().clear();
 
     // 添加一个域名有多个 IP
@@ -89,7 +99,7 @@ TEST(reverse_resolve, multiple_ips_resolve) {
     uint32_t ip3 = st::utils::ipv4::str_to_ip("3.3.3.3");
 
     vector<uint32_t> ips = {ip1, ip2, ip3};
-    dns_record_manager::uniq().add("multi-ip.com", ips, "8.8.8.8", 600);
+    dns_record_manager::uniq().add("multi-ip.com", ips, "8_8_8_8_53", 600);
 
     // 反向解析每个 IP
     auto reverse1 = dns_record_manager::uniq().reverse_resolve(ip1);
@@ -105,20 +115,20 @@ TEST(reverse_resolve, multiple_ips_resolve) {
 }
 
 // 测试反向解析索引更新
-TEST(reverse_resolve, reverse_index_update) {
+TEST_F(reverse_resolve, reverse_index_update) {
     dns_record_manager::uniq().clear();
 
     uint32_t ip = st::utils::ipv4::str_to_ip("10.10.10.10");
     vector<uint32_t> ips = {ip};
 
     // 第一次添加
-    dns_record_manager::uniq().add("original.com", ips, "8.8.8.8", 600);
+    dns_record_manager::uniq().add("original.com", ips, "8_8_8_8_53", 600);
 
     auto reverse1 = dns_record_manager::uniq().reverse_resolve(ip);
     ASSERT_GT(reverse1.domains_size(), 0);
 
     // 添加另一个域名指向同一个 IP
-    dns_record_manager::uniq().add("new.com", ips, "8.8.8.8", 600);
+    dns_record_manager::uniq().add("new.com", ips, "8_8_8_8_53", 600);
 
     auto reverse2 = dns_record_manager::uniq().reverse_resolve(ip);
     ASSERT_GE(reverse2.domains_size(), reverse1.domains_size());
@@ -127,14 +137,14 @@ TEST(reverse_resolve, reverse_index_update) {
 }
 
 // 测试删除域名后的反向解析
-TEST(reverse_resolve, reverse_resolve_after_remove) {
+TEST_F(reverse_resolve, reverse_resolve_after_remove) {
     dns_record_manager::uniq().clear();
 
     uint32_t ip = st::utils::ipv4::str_to_ip("20.20.20.20");
     vector<uint32_t> ips = {ip};
 
     // 添加域名
-    dns_record_manager::uniq().add("remove-test.com", ips, "8.8.8.8", 600);
+    dns_record_manager::uniq().add("remove-test.com", ips, "8_8_8_8_53", 600);
 
     // 验证反向解析能找到
     auto reverse1 = dns_record_manager::uniq().reverse_resolve(ip);
@@ -153,14 +163,14 @@ TEST(reverse_resolve, reverse_resolve_after_remove) {
 }
 
 // 测试清空缓存后的反向解析
-TEST(reverse_resolve, reverse_resolve_after_clear) {
+TEST_F(reverse_resolve, reverse_resolve_after_clear) {
     dns_record_manager::uniq().clear();
 
     uint32_t ip = st::utils::ipv4::str_to_ip("30.30.30.30");
     vector<uint32_t> ips = {ip};
 
     // 添加域名
-    dns_record_manager::uniq().add("clear-test.com", ips, "8.8.8.8", 600);
+    dns_record_manager::uniq().add("clear-test.com", ips, "8_8_8_8_53", 600);
 
     // 验证反向解析能找到
     auto reverse1 = dns_record_manager::uniq().reverse_resolve(ip);
@@ -177,7 +187,7 @@ TEST(reverse_resolve, reverse_resolve_after_clear) {
 }
 
 // 测试特殊 IP 地址的反向解析
-TEST(reverse_resolve, special_ip_addresses) {
+TEST_F(reverse_resolve, special_ip_addresses) {
     dns_record_manager::uniq().clear();
 
     // 测试 0.0.0.0
@@ -188,7 +198,7 @@ TEST(reverse_resolve, special_ip_addresses) {
     // 测试 127.0.0.1
     uint32_t ip_localhost = st::utils::ipv4::str_to_ip("127.0.0.1");
     vector<uint32_t> ips = {ip_localhost};
-    dns_record_manager::uniq().add("localhost", ips, "8.8.8.8", 600);
+    dns_record_manager::uniq().add("localhost", ips, "8_8_8_8_53", 600);
 
     auto reverse_localhost = dns_record_manager::uniq().reverse_resolve(ip_localhost);
     ASSERT_GT(reverse_localhost.domains_size(), 0);
@@ -197,7 +207,7 @@ TEST(reverse_resolve, special_ip_addresses) {
 }
 
 // 测试大量域名的反向解析性能
-TEST(reverse_resolve, performance_test) {
+TEST_F(reverse_resolve, performance_test) {
     dns_record_manager::uniq().clear();
 
     uint32_t base_ip = st::utils::ipv4::str_to_ip("100.0.0.1");
@@ -206,7 +216,7 @@ TEST(reverse_resolve, performance_test) {
     vector<uint32_t> ips = {base_ip};
     for (int i = 0; i < 100; i++) {
         string domain = "perf-test-" + to_string(i) + ".com";
-        dns_record_manager::uniq().add(domain, ips, "8.8.8.8", 600);
+        dns_record_manager::uniq().add(domain, ips, "8_8_8_8_53", 600);
     }
 
     // 测试反向解析性能

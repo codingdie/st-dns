@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(./build/st-dns-unit-test:*)",
-      "Read(//home/codingdie/codes/home-openwrt/codingdie-packages/**)"
+      "Read(//home/codingdie/codes/home-openwrt/codingdie-packages/**)",
+      "Bash(./build/st-dns-integration-test:*"
     ]
   }
 }

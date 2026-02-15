@@ -41,7 +41,7 @@ void testDNS(const string &domain, const string &server, const uint32_t port, co
 }
 
 
-TEST(UnitTests, test_udp_dns) {
+TEST(unit_tests, test_udp_dns) {
     auto begin = time::now();
     for (auto i = 0; i < 10; i++) {
         testDNS("baidu.com", "114.114.114.114", 53, "UDP");
@@ -50,7 +50,7 @@ TEST(UnitTests, test_udp_dns) {
 }
 
 
-TEST(UnitTests, test_tcp_dns) {
+TEST(unit_tests, test_tcp_dns) {
     auto begin = time::now();
     for (auto i = 0; i < 10; i++) {
         testDNS("www.google.com", "8.8.8.8", 53, "TCP");
@@ -58,7 +58,7 @@ TEST(UnitTests, test_tcp_dns) {
     logger::INFO << "test_tcp_dns total cost" << time::now() - begin << END;
 }
 
-TEST(UnitTests, test_tcp_tls_dns) {
+TEST(unit_tests, test_tcp_tls_dns) {
     logger::LEVEL = 0;
     auto begin = time::now();
     for (auto i = 0; i < 10; i++) {
@@ -68,7 +68,7 @@ TEST(UnitTests, test_tcp_tls_dns) {
 }
 
 
-TEST(UnitTests, test_tcp_tls_dns_resolve_multi_area) {
+TEST(unit_tests, test_tcp_tls_dns_resolve_multi_area) {
     logger::LEVEL = 0;
     logger::INFO << st::mem::malloc_size() << st::mem::free_size() << st::mem::leak_size() << string::npos << END;
     test_dns("www.google.com", "8.8.8.8", 853, "TCP_SSL", {{"US", 853}, {"JP", 853}, {"HK", 853}, {"TW", 853}});

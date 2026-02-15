@@ -11,7 +11,7 @@
 #include <vector>
 
 
-TEST(UnitTests, test_ip_sort) {
+TEST(unit_tests, test_ip_sort) {
     unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
     vector<dns_ip_record> ip_records;
     auto create = [](uint32_t ip, bool match, bool forbid) {
@@ -36,7 +36,7 @@ TEST(UnitTests, test_ip_sort) {
 }
 
 
-TEST(UnitTests, test_dns_cache) {
+TEST(unit_tests, test_dns_cache) {
     dns_record_manager::uniq().add("test01.com", {1, 2, 3}, "192.168.31.2", 60);
     dns_record_manager::uniq().add("test01.com", {1, 2, 3}, "192.168.31.1", 60);
     dns_record_manager::uniq().add("test01.com", {1, 2}, "192.168.31.1", 60);
@@ -50,7 +50,7 @@ TEST(UnitTests, test_dns_cache) {
     ASSERT_EQ(3, records.map().at("192.168.31.2").ips_size());
 }
 
-TEST(UnitTests, test_dns_cache_max_4_ips) {
+TEST(unit_tests, test_dns_cache_max_4_ips) {
     // 测试超过4个IP时，只缓存4个
     vector<uint32_t> many_ips = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
     dns_record_manager::uniq().add("test-max-ips.com", many_ips, "8.8.8.8", 60);
@@ -60,7 +60,7 @@ TEST(UnitTests, test_dns_cache_max_4_ips) {
     logger::INFO << "Cached IPs count: " << records.map().at("8.8.8.8").ips_size() << END;
 }
 
-TEST(UnitTests, test_force_resolve_exact_match) {
+TEST(unit_tests, test_force_resolve_exact_match) {
     // 测试精确匹配
     force_resolve_rule rule("test.codingdie.com", {st::utils::ipv4::str_to_ip("1.2.3.4")});
 
@@ -72,7 +72,7 @@ TEST(UnitTests, test_force_resolve_exact_match) {
     logger::INFO << "Force resolve exact match test passed" << END;
 }
 
-TEST(UnitTests, test_force_resolve_wildcard_match) {
+TEST(unit_tests, test_force_resolve_wildcard_match) {
     // 测试通配符匹配
     force_resolve_rule rule("*.codingdie.com", {
         st::utils::ipv4::str_to_ip("192.168.1.100"),
@@ -95,7 +95,7 @@ TEST(UnitTests, test_force_resolve_wildcard_match) {
     logger::INFO << "Force resolve wildcard match test passed" << END;
 }
 
-TEST(UnitTests, test_force_resolve_multi_level_wildcard) {
+TEST(unit_tests, test_force_resolve_multi_level_wildcard) {
     // 测试多级子域名通配符匹配
     force_resolve_rule rule("*.example.com", {st::utils::ipv4::str_to_ip("10.0.0.1")});
 
@@ -107,7 +107,7 @@ TEST(UnitTests, test_force_resolve_multi_level_wildcard) {
     logger::INFO << "Force resolve multi-level wildcard test passed" << END;
 }
 
-TEST(UnitTests, test_force_resolve_ips) {
+TEST(unit_tests, test_force_resolve_ips) {
     // 测试多个IP地址
     vector<uint32_t> ips = {
         st::utils::ipv4::str_to_ip("192.168.1.1"),

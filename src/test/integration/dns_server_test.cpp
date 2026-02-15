@@ -23,7 +23,7 @@ protected:
         delete server;
     }
 };
-class IntegrationTests : public BaseTest {
+class integration_tests : public BaseTest {
 protected:
     void SetUp() override {
         BaseTest::SetUp();// Sets up the base fixture first.
@@ -70,14 +70,14 @@ void test_console() {
 }
 
 
-TEST_F(IntegrationTests, test_dns) {
+TEST_F(integration_tests, test_dns) {
     for (auto i = 0; i < 1000; i++) {
         test_dns("www.baidu.com");
     }
     test_console();
 }
 
-TEST_F(IntegrationTests, test_force_resolve) {
+TEST_F(integration_tests, test_force_resolve) {
     const string server = "127.0.0.1";
     const uint32_t port = 5353;
     mutex lock;

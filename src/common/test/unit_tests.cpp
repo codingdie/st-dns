@@ -18,7 +18,7 @@ TEST(unit_tests, test_base64) {
     ASSERT_STREQ(oriStr.c_str(), decodeStr.c_str());
 }
 
-TEST(UnitTests, test_shm) {
+TEST(unit_tests, test_shm) {
     auto ns = "TEST";
     kv::shm_kv::create(ns, 5 * 1024 * 1024);
     kv::shm_kv::share(ns)->clear();
@@ -210,7 +210,7 @@ TEST(unit_tests, test_limie_file_cnt) {
     ASSERT_EQ(4, st::utils::file::limit_file_cnt(path, 6));
 }
 
-TEST(UnitTests, test_logger) {
+TEST(unit_tests, test_logger) {
     boost::property_tree::ptree tree;
     st::utils::logger::init(tree);
     for (int i = 0; i < 1000000; i++) {

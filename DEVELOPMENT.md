@@ -195,10 +195,13 @@ vim docs/features/F002-2026-02-15.md
 - **遵循现有代码风格**: 保持与项目一致
 - **使用中文注释**: 代码注释使用中文
 - **命名规范**:
-  - 类名: PascalCase（如 `DnsServer`）
+  - 类名: snake_case（如 `dns_server`）
   - 函数名: snake_case（如 `process_session`）
   - 变量名: snake_case（如 `dns_client`）
   - 常量: UPPER_CASE（如 `MAX_TIMEOUT`）
+  - 测试套件名: snake_case（如 `server_selection`）
+  - 测试用例名: snake_case（如 `whitelist_exact_match`）
+  - **重要**: 所有新代码必须使用 snake_case 命名，不使用驼峰命名（camelCase 或 PascalCase）
 
 ### 代码组织
 
@@ -261,6 +264,35 @@ TEST(ServerSelection, WhitelistMatch_ReturnsServer)
 - [x] 边界条件测试
 - [x] 异常情况测试
 - [ ] 性能测试（可选）
+
+### 测试要求
+
+**重要**: 每个功能（Feature）必须完全通过所有相关的单元测试和集成测试才能被视为完成。
+
+- ✅ 所有单元测试必须通过
+- ✅ 所有集成测试必须通过
+- ✅ 测试失败的功能不得合并到主分支
+- ✅ 如果测试失败，必须修复代码或测试用例，直到全部通过
+
+**验证方法**:
+```bash
+# 1. 编译最新代码（必须！）
+cmake -B build -DCMAKE_BUILD_TYPE=Debug
+cmake --build build
+
+# 2. 运行所有测试（推荐）
+cd build && ctest
+
+# ctest 输出格式：
+# 成功时：100% tests passed, 0 tests failed out of X
+# 失败时：会列出失败的测试编号和名称
+
+# 也可以运行单个测试可执行文件查看详细输出
+cd build
+./st-unit-test           # Google Test 格式输出
+./st-dns-unit-test
+./st-dns-integration-test
+```
 
 ### 运行测试
 

@@ -127,7 +127,7 @@ remote_dns_server::select_servers(const string &domain, const vector<remote_dns_
     string fiDomain = st::dns::protocol::dns_domain::getFIDomain(domain);
     for (auto it = servers.begin(); it != servers.end(); it++) {
         remote_dns_server *server = *it.base();
-        if ((fiDomain == "LAN" || fiDomain == "ARPA") && find(server->areas.begin(), server->areas.end(), "LAN") == server->areas.end()) {
+        if ((fiDomain == "LAN" || fiDomain == "LOCAL" || fiDomain == "ARPA") && find(server->areas.begin(), server->areas.end(), "LAN") == server->areas.end()) {
             continue;
         }
         for (auto &regex : server->whitelist) {

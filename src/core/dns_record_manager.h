@@ -89,7 +89,7 @@ private:
     boost::asio::deadline_timer schedule_timer;
 
 public:
-    dns_record_manager();
+    dns_record_manager(const std::string &db_prefix = "st-dns");
 
     virtual ~dns_record_manager();
 

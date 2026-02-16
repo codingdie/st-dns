@@ -141,6 +141,13 @@ void dns_server::process_session(session *session) {
         ss->async_send_to(buffer(udpResponse->data, udpResponse->len), clientEndpoint,
                           [=](boost::system::error_code writeError, size_t writeSize) {
                               logger::traceId = se->get_id();
+                              if (writeError) {
+                                  logger::ERROR << "send response failed!" << "error:" << writeError.message()
+                                               << "code:" << writeError.value() << END;
+                              } else {
+                                  logger::DEBUG << "send response success!" << "size:" << writeSize
+                                               << "expected:" << udpResponse->len << END;
+                              }
                               se->logger.step("response");
                               end_session(se);
                           });

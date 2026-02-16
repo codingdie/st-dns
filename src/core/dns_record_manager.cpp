@@ -141,7 +141,7 @@ dns_record dns_record_manager::transform(const st::dns::proto::records &records)
 }
 
 
-dns_record_manager::dns_record_manager() : db("st-dns-record", 2 * 1024 * 1024), reverse("st-dns-reverse-record", 2 * 1024 * 1024),
+dns_record_manager::dns_record_manager(const std::string &db_prefix) : db(db_prefix + "-record", 2 * 1024 * 1024), reverse(db_prefix + "-reverse-record", 2 * 1024 * 1024),
                                            ic(),
                                            iw(new boost::asio::io_context::work(ic)),
                                            th(new std::thread([this]() {
@@ -222,6 +222,7 @@ void dns_record_manager::remove(const string &domain) {
 
 void dns_record_manager::clear() {
     db.clear();
+    reverse.clear();
 }
 dns_record_stats dns_record_manager::stats() {
     dns_record_stats stats;

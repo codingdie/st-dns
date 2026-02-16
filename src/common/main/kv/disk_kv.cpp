@@ -76,11 +76,16 @@ namespace st {
         }
         void disk_kv::erase(const std::string &key) { db->Delete(leveldb::WriteOptions(), key); }
         void disk_kv::clear() {
+            std::vector<std::string> keys;
             leveldb::Iterator *it = db->NewIterator(leveldb::ReadOptions());
             for (it->SeekToFirst(); it->Valid(); it->Next()) {
-                erase(it->key().ToString());
+                keys.push_back(it->key().ToString());
             }
             delete it;
+
+            for (const auto &key : keys) {
+                erase(key);
+            }
         }
         disk_kv::disk_kv(const std::string &ns, uint32_t max_size) : abstract_kv(ns, max_size) {
             st::utils::file::mkdirs(KV_FOLDER);

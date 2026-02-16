@@ -6,7 +6,8 @@
       "Bash(./build/st-dns-integration-test:*",
       "Bash(./st-unit-test:*)",
       "Bash(./st-dns-unit-test:*)",
-      "Bash(./st-dns-integration-test:*)"
+      "Bash(./st-dns-integration-test:*)",
+      "Bash(./st-dns-unit-test --gtest_filter=\"cache_management.*:reverse_resolve.*\")"
     ]
   }
 }

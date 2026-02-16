@@ -47,9 +47,9 @@ public:
 
 private:
     io_context ic;
+    boost::asio::ssl::context ssl_ctx;  // ssl_ctx 必须在 iw 和 th 之前声明，确保最后析构
     boost::asio::io_context::work *iw;
     std::thread *th;
-    boost::asio::ssl::context ssl_ctx;
     //    std::unordered_map<string, boost::asio::ssl::context *> contexts;
     //    std::unordered_map<string, SSL_SESSION *> sessions;
     //    boost::asio::ssl::context &get_context(const string &server);

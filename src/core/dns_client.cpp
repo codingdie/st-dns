@@ -418,12 +418,26 @@ std::vector<uint32_t> dns_client::parse(uint16_t length, pair<uint8_t *, uint32_
 
 
 dns_client::~dns_client() {
-    delete iw;                // 删除 work 对象，允许 io_context 退出
-    ic.stop();                // 停止 io_context
+    // 策略：删除 work，等待足够长的时间让所有异步操作完成，然后 stop
+
+    // 1. 删除 work 对象，不再接受新任务
+    delete iw;
+    iw = nullptr;
+
+    // 2. 等待 300ms，让所有异步操作（特别是 SSL shutdown 和 socket 清理）完成
+    //    这个时间需要足够长，以覆盖最慢的 SSL 握手和关闭操作
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
+    // 3. 停止 io_context，中断剩余操作
+    ic.stop();
+
+    // 4. 等待线程退出
     if (th && th->joinable()) {
-        th->join();           // 等待线程结束
+        th->join();
     }
     delete th;
+
+    // 5. ssl_ctx 会在此之后析构（因为声明顺序）
 }
 
 dns_client::dns_client() : ic(), ssl_ctx(boost::asio::ssl::context::sslv23_client) {

@@ -1,32 +1,13 @@
 //
 // Created by codingdie on 2020/6/27.
 //
-#include "dns_server.h"
-#include "dns_client.h"
+#include "integration_test_base.h"
 #include "command/dns_command.h"
-#include <gtest/gtest.h>
-class BaseTest : public ::testing::Test {
-protected:
-    dns_server *server = nullptr;
-    thread *th = nullptr;
-    void SetUp() override {
-        st::dns::config::INSTANCE.load("../confs/test");
-        dns_record_manager::uniq().clear();
-        server = new dns_server(st::dns::config::INSTANCE);
-        th = new thread([=]() { server->start(); });
-        server->wait_start();
-    }
-    void TearDown() override {
-        server->shutdown();
-        th->join();
-        delete th;
-        delete server;
-    }
-};
+
 class integration_tests : public BaseTest {
 protected:
     void SetUp() override {
-        BaseTest::SetUp();// Sets up the base fixture first.
+        BaseTest::SetUp();
     }
     void TearDown() override { BaseTest::TearDown(); }
 };

@@ -47,16 +47,34 @@ TEST(unit_tests, test_shm) {
 }
 
 TEST(unit_tests, test_area_ip) {
-    //    ASSERT_TRUE(st::areaip::manager::uniq().is_area_ip("TW", "118.163.193.132"));
-    ASSERT_TRUE(st::areaip::manager::uniq().is_area_ip("cn", "223.5.5.5"));
-    ASSERT_TRUE(st::areaip::manager::uniq().is_area_ip("cn", "220.181.38.148"));
-    ASSERT_TRUE(st::areaip::manager::uniq().is_area_ip("cn", "123.117.76.165"));
-    ASSERT_TRUE(!st::areaip::manager::uniq().is_area_ip("cn", "172.217.5.110"));
-    ASSERT_TRUE(st::areaip::manager::uniq().is_area_ip("us", "172.217.5.110"));
-    ASSERT_TRUE(st::areaip::manager::uniq().is_area_ip("jp", "114.48.198.220"));
-    ASSERT_TRUE(!st::areaip::manager::uniq().is_area_ip("us", "114.48.198.220"));
-    ASSERT_TRUE(!st::areaip::manager::uniq().is_area_ip("cn", "218.146.11.198"));
-    ASSERT_TRUE(st::areaip::manager::uniq().is_area_ip("kr", "218.146.11.198"));
+    // 辅助函数：轮询等待直到 is_area_ip 返回预期结果（或超时）
+    auto wait_for_area_ip = [](const string& area, const string& ip_str, bool expected, int timeout_ms = 6000) {
+        uint32_t ip = st::utils::ipv4::str_to_ip(ip_str);
+        auto start = std::chrono::steady_clock::now();
+        while (true) {
+            bool result = st::areaip::manager::uniq().is_area_ip(area, ip);
+            if (result == expected) {
+                return true;  // 成功
+            }
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - start).count();
+            if (elapsed > timeout_ms) {
+                return false;  // 超时
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+    };
+
+    // 首次调用触发异步加载，然后轮询等待加载完成
+    ASSERT_TRUE(wait_for_area_ip("cn", "223.5.5.5", true));
+    ASSERT_TRUE(wait_for_area_ip("cn", "220.181.38.148", true));
+    ASSERT_TRUE(wait_for_area_ip("cn", "123.117.76.165", true));
+    ASSERT_TRUE(wait_for_area_ip("cn", "172.217.5.110", false));
+    ASSERT_TRUE(wait_for_area_ip("us", "172.217.5.110", true));
+    ASSERT_TRUE(wait_for_area_ip("jp", "114.48.198.220", true));
+    ASSERT_TRUE(wait_for_area_ip("us", "114.48.198.220", false));
+    ASSERT_TRUE(wait_for_area_ip("cn", "218.146.11.198", false));
+    ASSERT_TRUE(wait_for_area_ip("kr", "218.146.11.198", true));
 }
 
 

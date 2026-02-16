@@ -5,7 +5,8 @@
       "Read(//home/codingdie/codes/home-openwrt/codingdie-packages/**)",
       "Bash(./build/st-dns-integration-test:*",
       "Bash(./st-unit-test:*)",
-      "Bash(./st-dns-unit-test:*)"
+      "Bash(./st-dns-unit-test:*)",
+      "Bash(./st-dns-integration-test:*)"
     ]
   }
 }

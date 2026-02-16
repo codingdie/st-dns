@@ -39,13 +39,17 @@ namespace st {
             sync_net_area_ip();
         }
         manager::~manager() {
-            sync_timer->cancel();
-            ctx.stop();
-            sche_ctx.stop();
-            delete sche_ctx_work;
+            sync_timer->cancel();     // 取消定时器
+            delete sche_ctx_work;     // 删除 work 对象，允许 io_context 退出
             delete ctx_work;
-            th->join();
-            sche_th->join();
+            sche_ctx.stop();          // 停止 io_context
+            ctx.stop();
+            if (th && th->joinable()) {
+                th->join();           // 等待线程结束
+            }
+            if (sche_th && sche_th->joinable()) {
+                sche_th->join();
+            }
             delete th;
             delete sync_timer;
             delete sche_th;

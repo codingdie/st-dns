@@ -144,6 +144,21 @@ boost::asio::deadline_timer apm_logger::LOG_TIMER(apm_logger::IO_CONTEXT);
 std::vector<std::thread *> apm_logger::LOG_THREADS;
 std::mutex apm_logger::APM_LOCK;
 
+// RAII 包装类，确保在程序退出时自动清理 APM 日志资源
+class apm_logger_cleanup {
+public:
+    ~apm_logger_cleanup() {
+        try {
+            apm_logger::disable();
+        } catch (...) {
+            // 忽略清理过程中的异常，避免程序崩溃
+        }
+    }
+};
+
+// 静态对象，在程序退出时自动调用析构函数
+static apm_logger_cleanup cleanup_guard;
+
 
 apm_logger::apm_logger(const string &name) { this->add_dimension("name", name); }
 

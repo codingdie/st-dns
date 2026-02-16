@@ -26,6 +26,8 @@ class dns_server {
 public:
     explicit dns_server(st::dns::config &config);
 
+    ~dns_server();
+
     void start();
 
     void wait_start();

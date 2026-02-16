@@ -264,9 +264,12 @@ void dns_record_manager::add_reverse_record(uint32_t ip, std::string domain) {
     }
 }
 dns_record_manager::~dns_record_manager() {
-    delete iw;
-    ic.stop();
-    th->join();
+    schedule_timer.cancel();  // 取消定时器，避免阻塞线程退出
+    delete iw;                // 删除 work 对象，允许 io_context 退出
+    ic.stop();                // 停止 io_context
+    if (th && th->joinable()) {
+        th->join();           // 等待线程结束
+    }
     delete th;
 }
 void dns_record_manager::schedule_stats() {

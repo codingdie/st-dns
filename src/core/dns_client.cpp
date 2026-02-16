@@ -418,9 +418,11 @@ std::vector<uint32_t> dns_client::parse(uint16_t length, pair<uint8_t *, uint32_
 
 
 dns_client::~dns_client() {
-    ic.stop();
-    delete iw;
-    th->join();
+    delete iw;                // 删除 work 对象，允许 io_context 退出
+    ic.stop();                // 停止 io_context
+    if (th && th->joinable()) {
+        th->join();           // 等待线程结束
+    }
     delete th;
 }
 

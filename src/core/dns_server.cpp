@@ -71,17 +71,44 @@ void dns_server::start() {
     logger::INFO << "st-dns end" << END;
 }
 
+dns_server::~dns_server() {
+    // 析构函数：在线程已经退出后，安全地删除资源
+    // 注意：iw 和 schedule_iw 可能已经在 shutdown() 中删除
+    if (iw != nullptr) {
+        delete iw;
+    }
+    if (schedule_iw != nullptr) {
+        delete schedule_iw;
+    }
+    if (schedule_timer != nullptr) {
+        delete schedule_timer;
+    }
+    if (ss != nullptr) {
+        delete ss;
+    }
+}
+
 void dns_server::shutdown() {
+    // shutdown 负责停止操作并等待线程退出
     this->state = 2;
+
+    // 1. 取消所有pending的操作
     ss->cancel();
     schedule_timer->cancel();
+
+    // 2. 删除 work 对象，让 io_context 可以退出
+    delete iw;
+    iw = nullptr;
+    delete schedule_iw;
+    schedule_iw = nullptr;
+
+    // 3. 停止 io_context（此时 run() 会返回）
     ic.stop();
     schedule_ic.stop();
+
+    // 4. 关闭 socket
     ss->close();
-    delete iw;
-    delete schedule_iw;
-    delete schedule_timer;
-    delete ss;
+
     apm_logger::disable();
     logger::INFO << "st-dns server stopped, listen at" << config.ip + ":" + to_string(config.port) << END;
 }
@@ -179,12 +206,15 @@ void dns_server::end_session(session *session) {
     session->logger.end();
 
     logger::INFO << "dns request process" << session->process_type << (success ? "success!" : "failed!");
-    logger::INFO << "type" << session->get_query_type();
-    if (!session->request.get_host().empty()) {
-        logger::INFO << "domain" << session->request.get_host();
-    }
-    if (!session->record.ips.empty()) {
-        logger::INFO << st::utils::ipv4::ips_to_str(session->record.ips) << session->record.server;
+    // 只有在请求被成功解析后才记录信息
+    if (session->request.query_zone != nullptr) {
+        logger::INFO << "type" << session->get_query_type();
+        if (!session->request.get_host().empty()) {
+            logger::INFO << "domain" << session->request.get_host();
+        }
+        if (!session->record.ips.empty()) {
+            logger::INFO << st::utils::ipv4::ips_to_str(session->record.ips) << session->record.server;
+        }
     }
     logger::INFO << "cost" << time::now() - session->get_time() << END;
     delete session;

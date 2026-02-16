@@ -238,6 +238,10 @@ void dns_server::query_dns_record(session *session, const std::function<void(st:
             record.match_area = true;
             session->logger.add_dimension("process_type", "force");
             logger::INFO << "force resolve" << host << st::utils::ipv4::ips_to_str(rule->ips) << END;
+
+            // 缓存 force_resolve 记录并建立反向索引
+            dns_record_manager::uniq().add(host, rule->ips, "st-dns-force", 60);
+
             complete(session);
             return;
         }

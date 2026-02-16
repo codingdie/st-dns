@@ -34,12 +34,18 @@ void test_console() {
     string ip = st::dns::config::INSTANCE.console_ip;
     int console_port = st::dns::config::INSTANCE.console_port;
     auto begin = time::now();
+    // 使用 force_resolve 规则中的域名，避免依赖外部网络
     for (auto i = 0; i < 10000; i++) {
-        auto result = console::client::command(ip, console_port, "dns resolve --domain=www.baidu.com", 1000);
+        auto result = console::client::command(ip, console_port, "dns resolve --domain=test.codingdie.com", 1000);
         ASSERT_TRUE(result.first);
     }
+
+    // 等待缓存和反向索引建立完成
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
+    // 使用 force_resolve 规则中的 IP (test.codingdie.com -> 1.2.3.4)
     for (auto i = 0; i < 10000; i++) {
-        const vector<string> &ips = command::dns::reverse_resolve(st::utils::ipv4::str_to_ip("110.242.68.3"));
+        const vector<string> &ips = command::dns::reverse_resolve(st::utils::ipv4::str_to_ip("1.2.3.4"));
         ASSERT_FALSE(ips.empty());
     }
     logger::INFO << "command avg time" << (time::now() - begin) * 1.0 / 20000 << END;
@@ -52,8 +58,9 @@ void test_console() {
 
 
 TEST_F(integration_tests, test_dns) {
+    // 使用 force_resolve 规则中的域名，避免依赖外部网络
     for (auto i = 0; i < 1000; i++) {
-        test_dns("www.baidu.com");
+        test_dns("test.codingdie.com");
     }
     test_console();
 }

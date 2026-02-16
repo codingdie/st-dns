@@ -129,14 +129,12 @@ udp_response::udp_response(uint8_t *data, uint64_t len) : basic_data(data, len) 
 udp_response::udp_response(udp_request &request, dns_record &record, uint32_t expire) : basic_data(1024) {
     int finalLen = 0;
     vector<uint32_t> ips = record.ips;
-    logger::DEBUG << "udp_response construct: record.ips.size=" << record.ips.size() << END;
     if (ips.size() >= 5) {
         ips.assign(record.ips.begin(), record.ips.begin() + 5);
     }
 
     auto curData = this->data;
     bool hasRecord = !ips.empty();
-    logger::DEBUG << "udp_response construct: ips.size=" << ips.size() << "hasRecord=" << hasRecord << END;
 
     //header
     this->header = dns_header::generateAnswer(curData, request.header->id, request.query_zone != nullptr ? request.query_zone->querys.size() : 0, ips.size());
@@ -150,7 +148,6 @@ udp_response::udp_response(udp_request &request, dns_record &record, uint32_t ex
     }
     //answer
     if (hasRecord) {
-        logger::DEBUG << "udp_response construct: generating answers, ips.size=" << ips.size() << END;
         for (auto it = ips.begin(); it != ips.end(); it++) {
             if (finalLen + dns_resource_zone::DEFAULT_SINGLE_IP_LEN >= dns_resource_zone::MAX_LEN) {
                 logger::WARN << "udp_response construct: answer size limit reached" << END;
@@ -161,15 +158,12 @@ udp_response::udp_response(udp_request &request, dns_record &record, uint32_t ex
             curData += pResourceZone->len;
             finalLen += pResourceZone->len;
             this->ips.emplace_back(*it);
-            logger::DEBUG << "udp_response construct: added answer, ip=" << st::utils::ipv4::ip_to_str(*it)
-                         << "finalLen=" << finalLen << END;
         }
     } else {
         logger::WARN << "udp_response construct: hasRecord=false, no answers generated" << END;
     }
 
     this->len = finalLen;
-    logger::DEBUG << "udp_response construct: final len=" << finalLen << "answerZones.size=" << this->answerZones.size() << END;
 }
 
 void tcp_response::parse(uint64_t maxReadable) {

@@ -144,9 +144,6 @@ void dns_server::process_session(session *session) {
                               if (writeError) {
                                   logger::ERROR << "send response failed!" << "error:" << writeError.message()
                                                << "code:" << writeError.value() << END;
-                              } else {
-                                  logger::DEBUG << "send response success!" << "size:" << writeSize
-                                               << "expected:" << udpResponse->len << END;
                               }
                               se->logger.step("response");
                               end_session(se);

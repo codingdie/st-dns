@@ -33,20 +33,26 @@ void test_dns(const string &domain) {
 void test_console() {
     string ip = st::dns::config::INSTANCE.console_ip;
     int console_port = st::dns::config::INSTANCE.console_port;
+
+    // 先通过 console 命令解析一次 www.baidu.com，确保缓存中有记录
+    auto init_result = console::client::command(ip, console_port, "dns resolve --domain=www.baidu.com", 1000);
+    ASSERT_TRUE(init_result.first) << "Initial DNS resolve failed";
+
+    // 从缓存中读取解析结果，获取实际的 IP
+    dns_record record = dns_record_manager::uniq().resolve("www.baidu.com");
+    ASSERT_FALSE(record.ips.empty()) << "www.baidu.com should have been cached after console resolve";
+    uint32_t test_ip = record.ips[0]; // 使用第一个解析出的 IP
+    logger::INFO << "Using IP for reverse resolve test: " << st::utils::ipv4::ip_to_str(test_ip) << END;
+
     auto begin = time::now();
-    // 使用 force_resolve 规则中的域名，避免依赖外部网络
     for (auto i = 0; i < 10000; i++) {
-        auto result = console::client::command(ip, console_port, "dns resolve --domain=test.codingdie.com", 1000);
+        auto result = console::client::command(ip, console_port, "dns resolve --domain=www.baidu.com", 1000);
         ASSERT_TRUE(result.first);
     }
-
-    // 等待缓存和反向索引建立完成
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
-
-    // 使用 force_resolve 规则中的 IP (test.codingdie.com -> 1.2.3.4)
+    // 使用实际解析出的 IP 进行反向解析测试
     for (auto i = 0; i < 10000; i++) {
-        const vector<string> &ips = command::dns::reverse_resolve(st::utils::ipv4::str_to_ip("1.2.3.4"));
-        ASSERT_FALSE(ips.empty());
+        const vector<string> &ips = command::dns::reverse_resolve(test_ip);
+        ASSERT_FALSE(ips.empty()) << "Reverse resolve should find domain for IP: " << st::utils::ipv4::ip_to_str(test_ip);
     }
     logger::INFO << "command avg time" << (time::now() - begin) * 1.0 / 20000 << END;
 
@@ -58,9 +64,8 @@ void test_console() {
 
 
 TEST_F(integration_tests, test_dns) {
-    // 使用 force_resolve 规则中的域名，避免依赖外部网络
     for (auto i = 0; i < 1000; i++) {
-        test_dns("test.codingdie.com");
+        test_dns("www.baidu.com");
     }
     test_console();
 }

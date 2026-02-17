@@ -291,7 +291,8 @@ void dns_record_manager::schedule_stats() {
     });
     schedule_timer.expires_from_now(boost::posix_time::minutes(5));
     schedule_timer.async_wait([this](boost::system::error_code ec) {
-        if (ec == boost::asio::error::operation_aborted) {
+        // 任何错误都直接返回，避免访问可能已析构的对象
+        if (ec) {
             return;
         }
         schedule_stats();

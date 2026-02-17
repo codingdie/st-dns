@@ -407,7 +407,8 @@ namespace st {
             }
             sync_timer->expires_from_now(boost::posix_time::seconds(10 + random_engine() % 5));
             sync_timer->async_wait([=](boost::system::error_code ec) {
-                if (ec == boost::asio::error::operation_aborted) {
+                // 任何错误都直接返回，避免访问可能已析构的对象
+                if (ec) {
                     return;
                 }
                 this->sync_net_area_ip();

@@ -54,9 +54,8 @@ void dns_client::udp_dns(const string &domain, const std::string &dns_server, ui
         socket->shutdown(boost::asio::socket_base::shutdown_both, ec);
         socket->cancel(ec);
         socket->close(ec);
-        ic.post([=]() {
-            delete socket;
-        });
+        // 通过 ic.post 延迟删除，确保 async_receive_from 的 aborted 回调先执行完
+        ic.post([=]() { delete socket; });
     });
     socket->async_send_to(buffer(dns_request.data, dns_request.len),
                           udp::endpoint(make_address_v4(dns_server), port), [=](boost::system::error_code error, size_t size) {
@@ -93,7 +92,7 @@ void dns_client::tcp_tls_dns(const string &domain, const std::string &dns_server
     uint16_t dnsId = dns_request->header->id;
     string log_tag = to_string(dnsId) + " tcp_tls_dns " + dns_server + ":" + to_string(o_port) + " " + domains[0] + (area.second == 0 ? "" : " " + area.first + "/" + to_string(area.second));
 
-    auto *socket = new boost::asio::ssl::stream<tcp::socket>(ic, ssl_ctx);
+    auto *socket = new boost::asio::ssl::stream<tcp::socket>(ic, *ssl_ctx);
     socket->set_verify_mode(ssl::verify_none);
     boost::system::error_code ec;
     socket->next_layer().open(server_endpoint.protocol(), ec);
@@ -418,29 +417,21 @@ std::vector<uint32_t> dns_client::parse(uint16_t length, pair<uint8_t *, uint32_
 
 
 dns_client::~dns_client() {
-    // 策略：删除 work，等待足够长的时间让所有异步操作完成，然后 stop
-
-    // 1. 删除 work 对象，不再接受新任务
     delete iw;
     iw = nullptr;
-
-    // 2. 等待 300ms，让所有异步操作（特别是 SSL shutdown 和 socket 清理）完成
-    //    这个时间需要足够长，以覆盖最慢的 SSL 握手和关闭操作
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
-
-    // 3. 停止 io_context，中断剩余操作
-    ic.stop();
-
-    // 4. 等待线程退出
     if (th && th->joinable()) {
         th->join();
     }
     delete th;
-
-    // 5. ssl_ctx 会在此之后析构（因为声明顺序）
+    // ssl_ctx 必须在线程退出后、OPENSSL_cleanup 之前销毁
+    delete ssl_ctx;
+    ssl_ctx = nullptr;
+    // 主动清理 OpenSSL，避免 atexit 阶段与 tcmalloc 冲突导致 SEGFAULT
+    OPENSSL_cleanup();
 }
 
-dns_client::dns_client() : ic(), ssl_ctx(boost::asio::ssl::context::sslv23_client) {
+dns_client::dns_client() : ic() {
+    ssl_ctx = new boost::asio::ssl::context(boost::asio::ssl::context::sslv23_client);
     iw = new boost::asio::io_context::work(ic);
     th = new thread([=]() {
         this->ic.run();

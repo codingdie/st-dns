@@ -1,5 +1,6 @@
 # Project exclude paths
 /build
+/Testing
 .vscode/settings.json
 cmake-build-debug
 .idea

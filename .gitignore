@@ -1,5 +1,6 @@
 # Project exclude paths
 /build
+/build-asan
 /Testing
 .vscode/settings.json
 cmake-build-debug

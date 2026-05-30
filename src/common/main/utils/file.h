@@ -45,6 +45,7 @@ namespace st {
                     std::cerr << error << std::endl;
                     return false;
                 }
+                return true;
             }
 
             inline bool create_if_not_exits(const string &path) {
@@ -100,7 +101,7 @@ namespace st {
                 }
                 return result;
             }
-            inline uint32_t limit_file_cnt(const string &path, const uint32_t limit) {
+            inline uint32_t limit_file_cnt(const string &path, const uint32_t limit, bool log_delete = true) {
                 vector<pair<std::time_t, boost::filesystem::path>> files;
                 for (const auto &it : boost::filesystem::directory_iterator(path)) {
                     if (is_regular(it.path())) {
@@ -115,7 +116,9 @@ namespace st {
                 if (need_delete_cnt > 0) {
                     for (const auto &item : files) {
                         boost::filesystem::remove(item.second);
-                        logger::INFO << "delete file" << item.second.string() << item.first << END;
+                        if (log_delete) {
+                            logger::INFO << "delete file" << item.second.string() << item.first << END;
+                        }
                         need_delete_cnt--;
                         if (need_delete_cnt <= 0) {
                             break;

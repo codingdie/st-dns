@@ -9,17 +9,32 @@
 #include "config.h"
 
 void dns_record_manager::add(const string &domain, const vector<uint32_t> &ips, const string &dns_server, const int expire) {
+    lock_guard<mutex> lock(record_lock);
+    unordered_set<uint32_t> current_blacklist;
+    {
+        lock_guard<mutex> blacklist_guard(blacklist_lock);
+        current_blacklist = blacklist_ips;
+    }
+
+    vector<uint32_t> allowed_ips;
+    allowed_ips.reserve(ips.size());
+    for (auto ip : ips) {
+        if (current_blacklist.find(ip) == current_blacklist.end()) {
+            allowed_ips.emplace_back(ip);
+        }
+    }
+
     // 按area分组IP，并限制最多4个IP
     const int MAX_IPS = 4;
     vector<uint32_t> selected_ips;
 
-    if (ips.size() <= MAX_IPS) {
+    if (allowed_ips.size() <= MAX_IPS) {
         // 如果IP数量不超过4个，直接使用所有IP
-        selected_ips = ips;
+        selected_ips = allowed_ips;
     } else {
         // 按area分组
         unordered_map<string, vector<uint32_t>> area_ips;
-        for (auto ip : ips) {
+        for (auto ip : allowed_ips) {
             string area = areaip::manager::uniq().get_area(ip, false); // 同步获取area，不触发网络加载
             if (area.empty()) {
                 area = "UNKNOWN"; // 未知area
@@ -51,6 +66,7 @@ void dns_record_manager::add(const string &domain, const vector<uint32_t> &ips, 
         }
 
         logger::DEBUG << "dns cache limit: domain=" << domain << " original_ips=" << ips.size()
+                      << " allowed_ips=" << allowed_ips.size()
                       << " selected_ips=" << selected_ips.size() << " areas=" << areas.size() << END;
     }
 
@@ -89,6 +105,9 @@ dns_record dns_record_manager::transform(const st::dns::proto::records &records)
         if (records.map().contains(serverId)) {
             st::dns::proto::record t_record = records.map().at(serverId);
             for (auto ip : t_record.ips()) {
+                if (dns_record_manager::uniq().is_blacklist_ip(ip)) {
+                    continue;
+                }
                 dns_ip_record tmp;
                 tmp.ip = ip;
                 tmp.forbid = false;
@@ -181,7 +200,14 @@ vector<dns_record> dns_record::transform(const st::dns::proto::records &records)
             if (records.map().contains(serverId)) {
                 auto item = records.map().at(serverId);
                 dns_record record;
-                record.ips = vector<uint32_t>(item.ips().begin(), item.ips().end());
+                for (auto ip : item.ips()) {
+                    if (!dns_record_manager::uniq().is_blacklist_ip(ip)) {
+                        record.ips.emplace_back(ip);
+                    }
+                }
+                if (record.ips.empty()) {
+                    continue;
+                }
                 record.expire_time = item.expire();
                 record.server = serverId;
                 record.domain = records.domain();
@@ -216,13 +242,16 @@ std::string dns_record_manager::dump() {
     return path;
 }
 void dns_record_manager::remove(const string &domain) {
+    lock_guard<mutex> lock(record_lock);
     db.erase(domain);
 }
 
 
 void dns_record_manager::clear() {
+    lock_guard<mutex> lock(record_lock);
     db.clear();
     reverse.clear();
+    set_blacklist_ips({});
 }
 dns_record_stats dns_record_manager::stats() {
     dns_record_stats stats;
@@ -262,6 +291,109 @@ void dns_record_manager::add_reverse_record(uint32_t ip, std::string domain) {
         record.add_domains(domain);
         reverse.put(to_string(ip), record.SerializeAsString());
     }
+}
+
+void dns_record_manager::set_blacklist_ips(const unordered_set<uint32_t> &ips) {
+    lock_guard<mutex> lock(blacklist_lock);
+    blacklist_ips = ips;
+}
+
+unordered_set<uint32_t> dns_record_manager::get_blacklist_ips() {
+    lock_guard<mutex> lock(blacklist_lock);
+    return blacklist_ips;
+}
+
+bool dns_record_manager::is_blacklist_ip(uint32_t ip) {
+    lock_guard<mutex> lock(blacklist_lock);
+    return blacklist_ips.find(ip) != blacklist_ips.end();
+}
+
+void dns_record_manager::sync_blacklist_ips(const unordered_set<uint32_t> &ips) {
+    unordered_set<uint32_t> added_ips;
+    {
+        lock_guard<mutex> lock(blacklist_lock);
+        for (const auto &ip : ips) {
+            if (blacklist_ips.find(ip) == blacklist_ips.end()) {
+                added_ips.emplace(ip);
+            }
+        }
+        blacklist_ips = ips;
+    }
+    if (!added_ips.empty()) {
+        remove_blacklist_ips(added_ips);
+    }
+}
+
+void dns_record_manager::remove_blacklist_ips(const unordered_set<uint32_t> &ips) {
+    lock_guard<mutex> lock(record_lock);
+    uint32_t domain_count = 0;
+    for (auto ip : ips) {
+        auto reverse_record = reverse_resolve(ip);
+        for (const auto &domain : reverse_record.domains()) {
+            if (remove_ip_from_domain(domain, ip)) {
+                domain_count++;
+            }
+        }
+        reverse.erase(to_string(ip));
+    }
+    if (!ips.empty()) {
+        logger::INFO << "remove blacklist ips from dns cache"
+                     << "ip_count" << ips.size()
+                     << "domain_count" << domain_count << END;
+    }
+}
+
+bool dns_record_manager::remove_ip_from_domain(const string &domain, uint32_t ip) {
+    string data = db.get(domain);
+    if (data.empty()) {
+        return false;
+    }
+
+    st::dns::proto::records records;
+    records.ParseFromString(data);
+    if (records.domain().empty()) {
+        return false;
+    }
+
+    bool changed = false;
+    auto *record_map = records.mutable_map();
+    vector<string> empty_servers;
+    for (auto &server_record : *record_map) {
+        auto *record = &server_record.second;
+        vector<uint32_t> keep_ips;
+        bool server_changed = false;
+        for (auto record_ip : record->ips()) {
+            if (record_ip == ip) {
+                server_changed = true;
+            } else {
+                keep_ips.emplace_back(record_ip);
+            }
+        }
+        if (server_changed) {
+            changed = true;
+            record->clear_ips();
+            for (auto keep_ip : keep_ips) {
+                record->add_ips(keep_ip);
+            }
+            if (keep_ips.empty()) {
+                empty_servers.emplace_back(server_record.first);
+            }
+        }
+    }
+
+    if (!changed) {
+        return false;
+    }
+
+    for (const auto &server : empty_servers) {
+        record_map->erase(server);
+    }
+    if (record_map->empty()) {
+        db.erase(domain);
+    } else {
+        db.put(domain, records.SerializeAsString());
+    }
+    return true;
 }
 dns_record_manager::~dns_record_manager() {
     // 1. 取消定时器

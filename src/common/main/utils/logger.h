@@ -81,7 +81,7 @@ namespace st {
         class apm_logger {
         public:
             static void init();
-            static void disable();
+            static void disable(bool report_status_log = true);
             static void perf(const string &name, unordered_map<string, string> &&dimensions, uint64_t cost,
                              uint64_t count, uint64_t sample);
             static void perf(const string &name, unordered_map<string, string> &&dimensions,
@@ -117,7 +117,7 @@ namespace st {
             uint64_t start_time;
             uint64_t last_step_time;
             static bool is_sample(uint64_t sample);
-            static void report_apm_log_local();
+            static void report_apm_log_local(bool report_status_log = true);
         };
     }// namespace utils
 }// namespace st

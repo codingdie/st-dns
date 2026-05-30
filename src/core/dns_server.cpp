@@ -360,6 +360,11 @@ void dns_server::sync_dns_record_from_remote(const string &host, const std::func
     }
 }
 void dns_server::schedule() {
+    auto blacklist_result = st::command::proxy::get_blacklist_ips();
+    if (blacklist_result.first) {
+        dns_record_manager::uniq().sync_blacklist_ips(blacklist_result.second);
+    }
+
     for (auto &server : config.servers) {
         if (std::find(server->areas.begin(), server->areas.end(), "LAN") == server->areas.end()) {
             vector<pair<string, uint16_t>> result;

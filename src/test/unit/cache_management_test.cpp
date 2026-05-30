@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 #include "dns_record_manager.h"
 #include "config.h"
+#include "command/proxy_command.h"
 #include "st.h"
 #include <thread>
 #include <chrono>
@@ -16,6 +17,13 @@ protected:
     void SetUp() override {
         // 加载测试配置
         st::dns::config::INSTANCE.load("../confs/test");
+    }
+};
+
+class blacklist_cleanup_guard {
+public:
+    ~blacklist_cleanup_guard() {
+        dns_record_manager::uniq().set_blacklist_ips({});
     }
 };
 
@@ -245,4 +253,88 @@ TEST_F(cache_management, empty_domain_handling) {
     ASSERT_EQ(0, record.ips.size());
 
     logger::INFO << "Empty domain handling test passed" << END;
+}
+
+// 测试 ST Proxy 黑名单输出解析，只取每行第一列 IP
+TEST_F(cache_management, parse_proxy_blacklist_ips) {
+    string response = "1.1.1.1\texample.com,www.example.com\n"
+                      "invalid-ip\tbad.example.com\n"
+                      "1a.2.3.4\tbad2.example.com\n"
+                      "999999999999999999999999999999.1.1.1\tbad3.example.com\n"
+                      "0.0.0.0\tzero.example.com\n"
+                      "2.2.2.2\n";
+
+    auto ips = st::command::proxy::parse_blacklist_ips(response);
+
+    ASSERT_EQ(3, ips.size());
+    ASSERT_TRUE(ips.find(st::utils::ipv4::str_to_ip("1.1.1.1")) != ips.end());
+    ASSERT_TRUE(ips.find(st::utils::ipv4::str_to_ip("0.0.0.0")) != ips.end());
+    ASSERT_TRUE(ips.find(st::utils::ipv4::str_to_ip("2.2.2.2")) != ips.end());
+}
+
+// 测试按反向索引清理黑名单 IP，不需要全量扫描 DNS 缓存
+TEST_F(cache_management, remove_blacklist_ips_by_reverse_index) {
+    dns_record_manager::uniq().clear();
+    dns_record_manager::uniq().set_blacklist_ips({});
+
+    uint32_t blocked_ip = st::utils::ipv4::str_to_ip("1.1.1.1");
+    uint32_t keep_ip = st::utils::ipv4::str_to_ip("2.2.2.2");
+    vector<uint32_t> ips = {blocked_ip, keep_ip};
+
+    dns_record_manager::uniq().add("blacklist-clean-test.com", ips, "8_8_8_8_53", 600);
+
+    dns_record_manager::uniq().remove_blacklist_ips({blocked_ip});
+
+    auto records = dns_record_manager::uniq().get_dns_record_list("blacklist-clean-test.com");
+    ASSERT_FALSE(records.empty());
+    bool found_keep_ip = false;
+    for (const auto &record : records) {
+        for (auto ip : record.ips) {
+            ASSERT_NE(blocked_ip, ip);
+            if (ip == keep_ip) {
+                found_keep_ip = true;
+            }
+        }
+    }
+    ASSERT_TRUE(found_keep_ip);
+}
+
+// 测试缓存刷新时不会把仍在黑名单里的 IP 重新写回缓存
+TEST_F(cache_management, add_skips_current_blacklist_ips) {
+    dns_record_manager::uniq().clear();
+    dns_record_manager::uniq().set_blacklist_ips({});
+    blacklist_cleanup_guard cleanup;
+
+    uint32_t blocked_ip = st::utils::ipv4::str_to_ip("5.5.5.5");
+    uint32_t keep_ip = st::utils::ipv4::str_to_ip("6.6.6.6");
+    dns_record_manager::uniq().set_blacklist_ips({blocked_ip});
+
+    dns_record_manager::uniq().add("blacklist-add-test.com", {blocked_ip, keep_ip}, "8_8_8_8_53", 600);
+
+    auto records = dns_record_manager::uniq().get_dns_record_list("blacklist-add-test.com");
+    ASSERT_FALSE(records.empty());
+    ASSERT_EQ(1, records[0].ips.size());
+    ASSERT_EQ(keep_ip, records[0].ips[0]);
+
+    auto reverse_record = dns_record_manager::uniq().reverse_resolve(blocked_ip);
+    ASSERT_EQ(0, reverse_record.domains_size());
+}
+
+// 测试解析返回前兜底过滤内存黑名单
+TEST_F(cache_management, resolve_filters_blacklist_ips) {
+    dns_record_manager::uniq().clear();
+    dns_record_manager::uniq().set_blacklist_ips({});
+    blacklist_cleanup_guard cleanup;
+
+    uint32_t blocked_ip = st::utils::ipv4::str_to_ip("3.3.3.3");
+    uint32_t keep_ip = st::utils::ipv4::str_to_ip("4.4.4.4");
+    vector<uint32_t> ips = {blocked_ip, keep_ip};
+
+    dns_record_manager::uniq().add("blacklist-filter-test.com", ips, "8_8_8_8_53", 600);
+    dns_record_manager::uniq().set_blacklist_ips({blocked_ip});
+
+    auto record = dns_record_manager::uniq().resolve("blacklist-filter-test.com");
+
+    ASSERT_EQ(1, record.ips.size());
+    ASSERT_EQ(keep_ip, record.ips[0]);
 }

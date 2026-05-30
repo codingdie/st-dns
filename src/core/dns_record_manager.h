@@ -87,6 +87,9 @@ private:
     boost::asio::io_context::work *iw;
     std::thread *th;
     boost::asio::deadline_timer schedule_timer;
+    mutex record_lock;
+    mutex blacklist_lock;
+    unordered_set<uint32_t> blacklist_ips;
 
 public:
     dns_record_manager(const std::string &db_prefix = "st-dns");
@@ -115,10 +118,22 @@ public:
 
     std::string add_blacklist_ip();
 
+    void set_blacklist_ips(const unordered_set<uint32_t> &ips);
+
+    void sync_blacklist_ips(const unordered_set<uint32_t> &ips);
+
+    unordered_set<uint32_t> get_blacklist_ips();
+
+    bool is_blacklist_ip(uint32_t ip);
+
+    void remove_blacklist_ips(const unordered_set<uint32_t> &ips);
+
 private:
     void schedule_stats();
 
     void add_reverse_record(uint32_t ip, std::string domain);
+
+    bool remove_ip_from_domain(const string &domain, uint32_t ip);
 
     static dns_record transform(const st::dns::proto::records &records);
 };

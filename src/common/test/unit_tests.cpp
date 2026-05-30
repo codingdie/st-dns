@@ -239,3 +239,31 @@ TEST(unit_tests, test_logger) {
     ASSERT_TRUE(st::utils::file::get_file_cnt("/tmp/st") >= 4);
     ASSERT_TRUE(st::utils::file::get_file_cnt("/tmp/st/perf") >= 1);
 }
+
+TEST(unit_tests, apm_logger_disable_can_skip_status_log) {
+    boost::property_tree::ptree tree;
+    st::utils::logger::init(tree);
+    st::utils::apm_logger::perf("skip-status-log", {}, 100);
+
+    st::utils::apm_logger::disable(false);
+
+    ASSERT_TRUE(st::utils::file::get_file_cnt("/tmp/st/perf") >= 1);
+}
+
+TEST(unit_tests, logger_disable_keeps_apm_status_log) {
+    const string log_path = "/tmp/st/logger-status-test.log";
+    if (st::utils::file::exists(log_path)) {
+        st::utils::file::del(log_path);
+    }
+
+    boost::property_tree::ptree tree;
+    tree.put("log.tag", "logger-status-test");
+    st::utils::logger::init(tree);
+    st::utils::apm_logger::perf("status-log", {}, 100);
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    st::utils::logger::disable();
+
+    string log_content = st::utils::file::read(log_path);
+    ASSERT_NE(string::npos, log_content.find("apm log report at"));
+}

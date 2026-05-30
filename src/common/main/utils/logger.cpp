@@ -149,7 +149,7 @@ class apm_logger_cleanup {
 public:
     ~apm_logger_cleanup() {
         try {
-            apm_logger::disable();
+            apm_logger::disable(false);
         } catch (...) {
             // 忽略清理过程中的异常，避免程序崩溃
         }
@@ -251,6 +251,7 @@ void apm_logger::perf(const string &name, unordered_map<string, string> &&dimens
 }
 
 void apm_logger::init() {
+    IO_CONTEXT.restart();
     IO_CONTEXT_WORK = new boost::asio::io_context::work(IO_CONTEXT);
     unsigned int cpu_count = std::thread::hardware_concurrency();
     for (auto i = 0; i < cpu_count; i++) {
@@ -259,7 +260,7 @@ void apm_logger::init() {
     }
     schedule_log();
 }
-void apm_logger::disable() {
+void apm_logger::disable(bool report_status_log) {
     if (IO_CONTEXT_WORK != nullptr) {
         IO_CONTEXT.stop();
         delete IO_CONTEXT_WORK;
@@ -268,8 +269,9 @@ void apm_logger::disable() {
             th->join();
             delete th;
         }
+        LOG_THREADS.clear();
     }
-    report_apm_log_local();
+    report_apm_log_local(report_status_log);
 }
 
 void apm_logger::schedule_log() {
@@ -282,7 +284,7 @@ void apm_logger::schedule_log() {
         report_apm_log_local();
     });
 }
-void apm_logger::report_apm_log_local() {
+void apm_logger::report_apm_log_local(bool report_status_log) {
     unordered_map<string, unordered_map<string, unordered_map<string, unordered_map<string, uint64_t>>>>
             metric_duplicate;
     auto begin = time::now();
@@ -297,7 +299,7 @@ void apm_logger::report_apm_log_local() {
     auto folder = "/tmp/st/perf/";
     auto filename = folder + time::now_str("%Y-%m-%d-%H-%M") + "." + logger::TAG + ".perf." + strutils::uuid();
     file::create_if_not_exits(filename);
-    file::limit_file_cnt(folder, 200);
+    file::limit_file_cnt(folder, 200, report_status_log);
     ofstream fs(filename);
     if (fs) {
         for (auto &it0 : metric_duplicate) {
@@ -327,8 +329,10 @@ void apm_logger::report_apm_log_local() {
         fs.flush();
         fs.close();
     }
-    uint64_t cost = time::now() - begin;
-    logger::INFO << "apm log report at" << time::now_str() << "cost" << cost << END;
+    if (report_status_log) {
+        uint64_t cost = time::now() - begin;
+        logger::INFO << "apm log report at" << time::now_str() << "cost" << cost << END;
+    }
 }
 apm_logger::~apm_logger() {}
 

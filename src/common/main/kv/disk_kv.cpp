@@ -8,32 +8,33 @@
 #include "utils/logger.h"
 #include "utils/file.h"
 #include <leveldb/cache.h>
-#include <unistd.h>
-#include <sys/stat.h>
+#include <cstdlib>
 
-// 自动选择可写的目录
-static std::string get_kv_folder() {
-    std::string default_folder = "/var/lib/st/kv/";
-    std::string tmp_folder = "/tmp/st-kv/";
+static const char *const KV_FOLDER = "/var/lib/st/kv/";
+static const char *const KV_FOLDER_TMP = "/tmp/st/kv/";
 
-    // 尝试创建默认目录
-    struct stat st;
-    if (stat(default_folder.c_str(), &st) == 0 || mkdir(default_folder.c_str(), 0755) == 0) {
-        // 检查是否可写
-        if (access(default_folder.c_str(), W_OK) == 0) {
-            return default_folder;
-        }
-    }
-
-    // 使用 /tmp 目录
-    st::utils::file::mkdirs(tmp_folder);
-    return tmp_folder;
-}
-
-static std::string KV_FOLDER = get_kv_folder();
 using namespace st::utils;
 namespace st {
     namespace kv {
+        static string normalize_kv_folder(const char *folder) {
+            string path = folder;
+            if (!path.empty() && path.back() != '/') {
+                path.push_back('/');
+            }
+            return path;
+        }
+
+        static vector<string> kv_folders() {
+            vector<string> folders;
+            const char *env_folder = std::getenv("ST_KV_FOLDER");
+            if (env_folder != nullptr && env_folder[0] != '\0') {
+                folders.emplace_back(normalize_kv_folder(env_folder));
+            }
+            folders.emplace_back(KV_FOLDER);
+            folders.emplace_back(KV_FOLDER_TMP);
+            return folders;
+        }
+
         disk_kv::~disk_kv() {
             delete db;
             delete options.block_cache;
@@ -88,10 +89,18 @@ namespace st {
             }
         }
         disk_kv::disk_kv(const std::string &ns, uint32_t max_size) : abstract_kv(ns, max_size) {
-            st::utils::file::mkdirs(KV_FOLDER);
             options.create_if_missing = true;
             options.block_cache = leveldb::NewLRUCache(max_size);
-            leveldb::Status status = leveldb::DB::Open(options, KV_FOLDER + ns, &db);
+            leveldb::Status status;
+            for (const auto &folder : kv_folders()) {
+                if (!st::utils::file::mkdirs(folder)) {
+                    continue;
+                }
+                status = leveldb::DB::Open(options, folder + ns, &db);
+                if (status.ok()) {
+                    break;
+                }
+            }
             assert(status.ok());
         }
         void disk_kv::list(std::function<void(const std::string &, const std::string &)> consumer) {

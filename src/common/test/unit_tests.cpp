@@ -421,6 +421,24 @@ TEST(unit_tests, logger_init_disable_is_idempotent) {
     ASSERT_EQ(perf_file_count_before, st::utils::file::get_file_cnt("/tmp/st/perf"));
 }
 
+TEST(unit_tests, area_ip_sync_reports_load_net_ip_info_health_metric) {
+    const int health_metric_count_before = perf_log_match_count("\"source\":\"cache-sync\"");
+
+    boost::property_tree::ptree tree;
+    tree.put("log.tag", "area-ip-health-test");
+    st::utils::logger::init(tree);
+    st::utils::apm_logger::init();
+    st::areaip::manager::uniq().start();
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    st::areaip::manager::uniq().stop();
+    st::utils::apm_logger::disable(false);
+    st::utils::logger::disable();
+
+    ASSERT_EQ(health_metric_count_before + 1, perf_log_match_count("\"source\":\"cache-sync\""));
+    ASSERT_TRUE(perf_log_contains("\"name\":\"load-net-ip-info\""));
+    ASSERT_TRUE(perf_log_contains("\"success\":1"));
+}
+
 TEST(unit_tests, apm_init_disable_is_idempotent) {
     const string first_metric_name = "apm-first-" + st::utils::strutils::uuid();
     const string second_metric_name = "apm-second-" + st::utils::strutils::uuid();

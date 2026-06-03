@@ -467,6 +467,7 @@ namespace st {
             if (timer == nullptr) {
                 return;
             }
+            apm_logger::perf("load-net-ip-info", {{"success", "1"}, {"source", "cache-sync"}}, 0);
             unordered_set<string> final_record;
             ifstream in(IP_NET_AREA_FILE);
             if (in) {

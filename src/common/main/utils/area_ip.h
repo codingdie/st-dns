@@ -9,6 +9,8 @@
 #include "logger.h"
 #include "shell.h"
 #include "string_utils.h"
+#include <atomic>
+#include <memory>
 #include <iostream>
 #include <mutex>
 #include <unordered_map>
@@ -73,6 +75,9 @@ namespace st {
         public:
             manager();
             ~manager();
+            void start();
+            void stop();
+            bool started();
             bool load_area_ips(const string &area_code);
             void async_load_area_ips(const string &area_code);
             bool is_area_ip(const string &area_reg, const uint32_t &ip);
@@ -92,28 +97,37 @@ namespace st {
             unordered_map<string, vector<area_ip_range>> default_caches;
             unordered_map<uint32_t, string> net_caches;
             unordered_set<uint32_t> ips;
+            unordered_map<uint32_t, uint64_t> ip_lifecycle_ids;
+            unordered_map<uint32_t, std::shared_ptr<boost::asio::deadline_timer>> pending_ip_timers;
             mutex default_lock;
             mutex net_lock;
+            mutex ips_lock;
             std::atomic_uint64_t last_load_ip_info_time;
             std::atomic_uint64_t last_load_area_ips_time;
             boost::asio::io_context ctx;
             boost::asio::io_context::work *ctx_work = nullptr;
             std::thread *th = nullptr;
+            mutex runtime_lock;
+            std::atomic_bool runtime_started{false};
+            bool runtime_stopping = false;
 
             boost::asio::io_context sche_ctx;
             boost::asio::io_context::work *sche_ctx_work = nullptr;
             std::thread *sche_th = nullptr;
-            boost::asio::deadline_timer *sync_timer;
+            std::shared_ptr<boost::asio::deadline_timer> sync_timer;
             bool is_area_ip(const string &areaCode, const uint32_t &ip,
                             const unordered_map<string, vector<area_ip_range>> &caches);
             string get_area(const uint32_t &ip, const unordered_map<string, vector<area_ip_range>> &caches);
             string get_area(const uint32_t &ip, const unordered_map<uint32_t, string> &caches);
             static string get_area_code(const string &areaReg);
             string download_area_ips(const string &area_code);
-            void sync_net_area_ip();
+            void sync_net_area_ip(uint64_t lifecycle_id);
             string load_ip_info(const uint32_t &ip);
             string load_ip_info(const uint32_t &ip, const area_ip_net_interface &interface);
             bool has_load_area_ips(const string &areaCode);
+            bool mark_ip_loading(const uint32_t &ip, uint64_t lifecycle_id);
+            void finish_ip_loading(const uint32_t &ip, uint64_t lifecycle_id);
+            std::atomic_uint64_t runtime_lifecycle_id{0};
         };
     }// namespace areaip
 }// namespace st

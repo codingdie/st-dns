@@ -7,17 +7,14 @@
 #include <chrono>
 #include <thread>
 #include <vector>
+#include <future>
 
 
 void test_dns(const string &domain, const string &server, const uint32_t port, const string &type, const vector<pair<string, uint16_t>> areas) {
-    mutex lock;
-    lock.lock();
-    std::vector<uint32_t> result;
-    bool resultLoadAll = false;
+    std::promise<pair<std::vector<uint32_t>, bool>> promise;
+    auto future = promise.get_future();
     auto complete = [&](std::vector<uint32_t> ips, bool loadAll) {
-        result = ips;
-        resultLoadAll = loadAll;
-        lock.unlock();
+        promise.set_value({ips, loadAll});
     };
     if (type == "TCP") {
         dns_client::uniq().tcp_dns(domain, server, port, 10000, areas, complete);
@@ -28,13 +25,14 @@ void test_dns(const string &domain, const string &server, const uint32_t port, c
             complete(ips, true);
         });
     }
-    lock.lock();
+    auto async_result = future.get();
+    auto result = async_result.first;
+    auto resultLoadAll = async_result.second;
     std::this_thread::sleep_for(std::chrono::seconds(1));
     ASSERT_TRUE(result.size() > 0);
     ASSERT_TRUE(resultLoadAll);
 
     logger::INFO << domain << "ips:" << st::utils::ipv4::ips_to_str(result) << END;
-    lock.unlock();
 }
 void testDNS(const string &domain, const string &server, const uint32_t port, const string &type) {
     test_dns(domain, server, port, type, {});

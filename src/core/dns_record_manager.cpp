@@ -395,24 +395,29 @@ bool dns_record_manager::remove_ip_from_domain(const string &domain, uint32_t ip
     }
     return true;
 }
-dns_record_manager::~dns_record_manager() {
-    // 1. 取消定时器
+void dns_record_manager::shutdown() {
+    if (stopped.exchange(true)) {
+        return;
+    }
+
     schedule_timer.cancel();
 
-    // 2. 删除 work 对象
     delete iw;
+    iw = nullptr;
 
-    // 3. 等待 50ms，让异步回调完成
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-    // 4. 停止 io_context
     ic.stop();
 
-    // 5. 等待线程退出
     if (th && th->joinable()) {
         th->join();
     }
     delete th;
+    th = nullptr;
+}
+
+dns_record_manager::~dns_record_manager() {
+    shutdown();
 }
 void dns_record_manager::schedule_stats() {
     ic.post([this]() {

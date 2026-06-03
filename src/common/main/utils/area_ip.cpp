@@ -24,11 +24,6 @@ namespace st {
         manager::manager()
             : random_engine(time::now()), last_load_ip_info_time(time::now()), last_load_area_ips_time(time::now()),
               ctx(), sche_ctx() {
-            ctx_work = new boost::asio::io_context::work(ctx);
-            sche_ctx_work = new boost::asio::io_context::work(sche_ctx);
-            th = new thread([this]() { this->ctx.run(); });
-            sche_th = new thread([this]() { this->sche_ctx.run(); });
-            sync_timer = new boost::asio::deadline_timer(sche_ctx);
             vector<area_ip_range> ip_ranges;
             ip_ranges.emplace_back(area_ip_range::parse("192.168.0.0/16", "LAN"));
             ip_ranges.emplace_back(area_ip_range::parse("10.0.0.0/8", "LAN"));
@@ -36,33 +31,99 @@ namespace st {
             ip_ranges.emplace_back(area_ip_range::parse("0.0.0.0/8", "LAN"));
             default_caches.emplace("LAN", ip_ranges);
             file::create_if_not_exits(IP_NET_AREA_FILE);
-            sync_net_area_ip();
         }
-        manager::~manager() {
-            // 1. 取消定时器
-            sync_timer->cancel();
-
-            // 2. 删除 work 对象
-            delete sche_ctx_work;
-            delete ctx_work;
-
-            // 3. 等待 50ms，让异步回调完成
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
-
-            // 4. 停止 io_context
+        void manager::start() {
+            lock_guard<mutex> lock_guard(runtime_lock);
+            if (runtime_started.load() || runtime_stopping) {
+                return;
+            }
+            auto lifecycle_id = runtime_lifecycle_id.fetch_add(1) + 1;
+            last_load_ip_info_time = time::now();
+            last_load_area_ips_time = time::now();
+            {
+                std::lock_guard<std::mutex> ips_guard(ips_lock);
+                ips.clear();
+                ip_lifecycle_ids.clear();
+                pending_ip_timers.clear();
+            }
+            ctx.restart();
+            sche_ctx.restart();
+            ctx_work = new boost::asio::io_context::work(ctx);
+            sche_ctx_work = new boost::asio::io_context::work(sche_ctx);
+            std::atomic_store(&sync_timer, std::make_shared<boost::asio::deadline_timer>(sche_ctx));
+            th = new thread([this]() { this->ctx.run(); });
+            sche_th = new thread([this]() { this->sche_ctx.run(); });
+            runtime_started.store(true);
+            sync_net_area_ip(lifecycle_id);
+        }
+        bool manager::started() {
+            return runtime_started.load();
+        }
+        void manager::stop() {
+            thread *ctx_thread = nullptr;
+            thread *sche_thread = nullptr;
+            boost::asio::io_context::work *ctx_work_ptr = nullptr;
+            boost::asio::io_context::work *sche_ctx_work_ptr = nullptr;
+            std::shared_ptr<boost::asio::deadline_timer> timer;
+            vector<std::shared_ptr<boost::asio::deadline_timer>> ip_timers;
+            {
+                lock_guard<mutex> lock_guard(runtime_lock);
+                if (!runtime_started.load() || runtime_stopping) {
+                    return;
+                }
+                runtime_stopping = true;
+                runtime_started.store(false);
+                runtime_lifecycle_id.fetch_add(1);
+                timer = std::atomic_load(&sync_timer);
+                ctx_thread = th;
+                sche_thread = sche_th;
+                ctx_work_ptr = ctx_work;
+                sche_ctx_work_ptr = sche_ctx_work;
+                th = nullptr;
+                sche_th = nullptr;
+                ctx_work = nullptr;
+                sche_ctx_work = nullptr;
+                std::atomic_store(&sync_timer, std::shared_ptr<boost::asio::deadline_timer>());
+                {
+                    std::lock_guard<std::mutex> ips_guard(ips_lock);
+                    for (auto &entry : pending_ip_timers) {
+                        ip_timers.emplace_back(entry.second);
+                    }
+                    pending_ip_timers.clear();
+                }
+            }
+            if (timer != nullptr) {
+                timer->cancel();
+            }
+            for (auto &ip_timer : ip_timers) {
+                if (ip_timer != nullptr) {
+                    ip_timer->cancel();
+                }
+            }
             sche_ctx.stop();
             ctx.stop();
-
-            // 5. 等待线程退出
-            if (th && th->joinable()) {
-                th->join();
+            delete sche_ctx_work_ptr;
+            delete ctx_work_ptr;
+            if (ctx_thread && ctx_thread->joinable()) {
+                ctx_thread->join();
             }
-            if (sche_th && sche_th->joinable()) {
-                sche_th->join();
+            if (sche_thread && sche_thread->joinable()) {
+                sche_thread->join();
             }
-            delete th;
-            delete sync_timer;
-            delete sche_th;
+            delete ctx_thread;
+            delete sche_thread;
+            {
+                std::lock_guard<std::mutex> ips_guard(ips_lock);
+                ips.clear();
+                ip_lifecycle_ids.clear();
+            }
+            {
+                lock_guard<mutex> lock_guard(runtime_lock);
+                runtime_stopping = false;
+            }
+        }
+        manager::~manager() {
+            stop();
         }
 
         string manager::get_area_code(const string &areaReg) {
@@ -98,7 +159,7 @@ namespace st {
         bool manager::load_area_ips(const string &area_code) {
             string areaCode = get_area_code(area_code);
             std::lock_guard<std::mutex> lg(default_lock);
-            if (has_load_area_ips(areaCode)) {
+            if (default_caches.find(areaCode) != default_caches.end()) {
                 return true;
             } else {
                 string path = download_area_ips(areaCode);
@@ -125,13 +186,43 @@ namespace st {
             return true;
         }
         bool manager::has_load_area_ips(const string &areaCode) {
+            std::lock_guard<std::mutex> lg(default_lock);
             return default_caches.find(areaCode) != default_caches.end();
         }
 
+        bool manager::mark_ip_loading(const uint32_t &ip, uint64_t lifecycle_id) {
+            std::lock_guard<std::mutex> lg(ips_lock);
+            if (!ips.emplace(ip).second) {
+                return false;
+            }
+            ip_lifecycle_ids[ip] = lifecycle_id;
+            return true;
+        }
+
+        void manager::finish_ip_loading(const uint32_t &ip, uint64_t lifecycle_id) {
+            std::lock_guard<std::mutex> lg(ips_lock);
+            auto lifecycle_it = ip_lifecycle_ids.find(ip);
+            if (lifecycle_it == ip_lifecycle_ids.end() || lifecycle_it->second != lifecycle_id) {
+                return;
+            }
+            pending_ip_timers.erase(ip);
+            ip_lifecycle_ids.erase(lifecycle_it);
+            ips.erase(ip);
+        }
+
         void manager::async_load_area_ips(const string &area_code) {
+            auto lifecycle_id = runtime_lifecycle_id.load();
             if (!has_load_area_ips(area_code) && time::now() - last_load_area_ips_time.load() > 1000) {
+                if (!started()) {
+                    return;
+                }
                 last_load_area_ips_time = time::now();
-                ctx.post([this, area_code]() { this->load_area_ips(area_code); });
+                ctx.post([this, area_code, lifecycle_id]() {
+                    if (!runtime_started.load() || runtime_lifecycle_id.load() != lifecycle_id) {
+                        return;
+                    }
+                    this->load_area_ips(area_code);
+                });
             }
         }
 
@@ -189,9 +280,16 @@ namespace st {
             return "";
         }
         void manager::async_load_ip_info_from_net(const uint32_t &ip) {
-            ctx.post([this, ip]() {
-                if (ips.emplace(ip).second) {
-                    std::function<void(const uint32_t &ip)> do_load_ip_info = [this](const uint32_t &ip) {
+            if (!started()) {
+                return;
+            }
+            auto lifecycle_id = runtime_lifecycle_id.load();
+            ctx.post([this, ip, lifecycle_id]() {
+                if (!runtime_started.load() || runtime_lifecycle_id.load() != lifecycle_id) {
+                    return;
+                }
+                if (mark_ip_loading(ip, lifecycle_id)) {
+                    std::function<void(const uint32_t &ip)> do_load_ip_info = [this, lifecycle_id](const uint32_t &ip) {
                         string net_area;
                         {
                             std::lock_guard<std::mutex> lg(net_lock);
@@ -212,7 +310,7 @@ namespace st {
                         } else {
                             logger::INFO << "async load ip info skipped!" << st::utils::ipv4::ip_to_str(ip) << END;
                         }
-                        ips.erase(ip);
+                        finish_ip_loading(ip, lifecycle_id);
                     };
                     uint64_t now_time = time::now();
                     if (last_load_ip_info_time.load() <= now_time) {
@@ -221,15 +319,34 @@ namespace st {
                         last_load_ip_info_time.fetch_add(1000L / NET_QPS);
                     }
                     if (last_load_ip_info_time.load() > now_time) {
-                        auto *delay = new boost::asio::deadline_timer(ctx);
+                        auto delay = std::make_shared<boost::asio::deadline_timer>(ctx);
+                        {
+                            std::lock_guard<std::mutex> lg(ips_lock);
+                            pending_ip_timers[ip] = delay;
+                        }
                         delay->expires_from_now(
                                 boost::posix_time::milliseconds(last_load_ip_info_time.load() - now_time));
-                        delay->async_wait([=](boost::system::error_code ec) {
+                        delay->async_wait([this, delay, do_load_ip_info, ip, lifecycle_id](boost::system::error_code ec) {
+                            {
+                                std::lock_guard<std::mutex> lg(ips_lock);
+                                auto it = pending_ip_timers.find(ip);
+                                if (it != pending_ip_timers.end() && it->second == delay) {
+                                    pending_ip_timers.erase(it);
+                                }
+                            }
+                            if (!runtime_started.load() || runtime_lifecycle_id.load() != lifecycle_id) {
+                                finish_ip_loading(ip, lifecycle_id);
+                                return;
+                            }
                             ctx.post(boost::bind(do_load_ip_info, ip));
-                            delete delay;
                         });
                     } else {
-                        ctx.post(boost::bind(do_load_ip_info, ip));
+                        ctx.post([=]() {
+                            if (!runtime_started.load() || runtime_lifecycle_id.load() != lifecycle_id) {
+                                return;
+                            }
+                            do_load_ip_info(ip);
+                        });
                     }
                 }
             });
@@ -342,7 +459,14 @@ namespace st {
             return "";
         }
 
-        void manager::sync_net_area_ip() {
+        void manager::sync_net_area_ip(uint64_t lifecycle_id) {
+            if (!runtime_started.load() || runtime_lifecycle_id.load() != lifecycle_id) {
+                return;
+            }
+            auto timer = std::atomic_load(&sync_timer);
+            if (timer == nullptr) {
+                return;
+            }
             unordered_set<string> final_record;
             ifstream in(IP_NET_AREA_FILE);
             if (in) {
@@ -405,30 +529,28 @@ namespace st {
                 file::create_if_not_exits(IP_NET_AREA_FILE);
                 logger::ERROR << "sync net area ips skip! file not exits" << END;
             }
-            sync_timer->expires_from_now(boost::posix_time::seconds(10 + random_engine() % 5));
-            sync_timer->async_wait([=](boost::system::error_code ec) {
+            timer->expires_from_now(boost::posix_time::seconds(10 + random_engine() % 5));
+            timer->async_wait([=](boost::system::error_code ec) {
                 // 任何错误都直接返回，避免访问可能已析构的对象
-                if (ec) {
+                if (ec || !runtime_started.load() || runtime_lifecycle_id.load() != lifecycle_id) {
                     return;
                 }
-                this->sync_net_area_ip();
+                this->sync_net_area_ip(lifecycle_id);
             });
         }
         void manager::config(const area_ip_config &config) { this->conf = config; }
         void area_ip_config::load(const boost::property_tree::ptree &tree) {
             auto interfaces_node = tree.get_child("interfaces");
-            if (!interfaces_node.empty()) {
-                this->interfaces.clear();
-                for (auto it = interfaces_node.begin(); it != interfaces_node.end(); it++) {
-                    auto interface_node = it->second;
-                    area_ip_net_interface in;
-                    in.area_json_path = interface_node.get("area_json_path", "");
-                    in.url = interface_node.get("url", "");
-                    if (in.url.empty() || in.area_json_path.empty()) {
-                        continue;
-                    }
-                    this->interfaces.emplace_back(in);
+            this->interfaces.clear();
+            for (auto it = interfaces_node.begin(); it != interfaces_node.end(); it++) {
+                auto interface_node = it->second;
+                area_ip_net_interface in;
+                in.area_json_path = interface_node.get("area_json_path", "");
+                in.url = interface_node.get("url", "");
+                if (in.url.empty() || in.area_json_path.empty()) {
+                    continue;
                 }
+                this->interfaces.emplace_back(in);
             }
         }
 

@@ -13,8 +13,14 @@ namespace st {
         }
         void udp_console::start() { receive(); }
         void udp_console::receive() {
+            if (stopped.load()) {
+                return;
+            }
             socket.async_receive_from(
                     buffer(command_buffer, 1024), client_endpoint, [=](boost::system::error_code code, size_t size) {
+                        if (code == boost::asio::error::operation_aborted || stopped.load()) {
+                            return;
+                        }
                         command_buffer[size] = '\0';
                         string command = command_buffer;
                         strutils::trim(command);
@@ -29,15 +35,33 @@ namespace st {
                     });
         }
         void udp_console::send_response(const string &result) {
+            if (stopped.load()) {
+                return;
+            }
             copy(result.c_str(), response_buffer, result.length());
             socket.async_send_to(buffer(response_buffer, result.length()), client_endpoint,
-                                 [=](boost::system::error_code code, size_t size) { receive(); });
+                                 [=](boost::system::error_code code, size_t size) {
+                                     if (code != boost::asio::error::operation_aborted && !stopped.load()) {
+                                         receive();
+                                     }
+                                 });
         }
-        udp_console::~udp_console() {
+        void udp_console::stop() {
+            if (stopped.exchange(true)) {
+                return;
+            }
+            boost::system::error_code ignored_ec;
+            socket.cancel(ignored_ec);
+            socket.close(ignored_ec);
             ic.stop();
             delete iw;
+            iw = nullptr;
             th->join();
             delete th;
+            th = nullptr;
+        }
+        udp_console::~udp_console() {
+            stop();
         }
         pair<vector<std::string>, boost::program_options::variables_map>
         udp_console::parse_command(const string &command) const {

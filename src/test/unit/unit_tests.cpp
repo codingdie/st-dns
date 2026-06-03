@@ -124,3 +124,29 @@ TEST(unit_tests, test_force_resolve_ips) {
 
     logger::INFO << "Force resolve multiple IPs test passed" << END;
 }
+
+TEST(unit_tests, config_load_unload_is_repeatable) {
+    st::dns::config::INSTANCE.unload();
+
+    for (int i = 0; i < 2; i++) {
+        st::dns::config::INSTANCE.load("../confs/test");
+
+        ASSERT_TRUE(st::dns::config::INSTANCE.loaded);
+        ASSERT_FALSE(st::dns::config::INSTANCE.servers.empty());
+        ASSERT_FALSE(st::dns::config::INSTANCE.force_resolve_rules.empty());
+        ASSERT_TRUE(st::areaip::manager::uniq().started());
+
+        st::dns::config::INSTANCE.unload();
+
+        ASSERT_FALSE(st::dns::config::INSTANCE.loaded);
+        ASSERT_TRUE(st::dns::config::INSTANCE.servers.empty());
+        ASSERT_TRUE(st::dns::config::INSTANCE.force_resolve_rules.empty());
+        ASSERT_FALSE(st::areaip::manager::uniq().started());
+        ASSERT_EQ("127.0.0.1", st::dns::config::INSTANCE.ip);
+        ASSERT_EQ(53, st::dns::config::INSTANCE.port);
+        ASSERT_EQ("127.0.0.1", st::dns::config::INSTANCE.console_ip);
+        ASSERT_EQ(5757, st::dns::config::INSTANCE.console_port);
+        ASSERT_EQ(60 * 10, st::dns::config::INSTANCE.dns_cache_expire);
+        ASSERT_EQ("/usr/local/etc/st/dns", st::dns::config::INSTANCE.base_conf_dir);
+    }
+}

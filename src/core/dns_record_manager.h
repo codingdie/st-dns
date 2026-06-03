@@ -7,6 +7,7 @@
 
 #include "st.h"
 
+#include <atomic>
 #include <iostream>
 #include <mutex>
 
@@ -90,6 +91,7 @@ private:
     mutex record_lock;
     mutex blacklist_lock;
     unordered_set<uint32_t> blacklist_ips;
+    std::atomic_bool stopped{false};
 
 public:
     dns_record_manager(const std::string &db_prefix = "st-dns");
@@ -97,6 +99,8 @@ public:
     virtual ~dns_record_manager();
 
     static dns_record_manager &uniq();
+
+    void shutdown();
 
     void add(const string &domain, const vector<uint32_t> &ips, const string &dns_server, int expire);
 

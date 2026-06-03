@@ -107,9 +107,12 @@ namespace st {
             static boost::asio::deadline_timer LOG_TIMER;
             static boost::asio::io_context IO_CONTEXT;
             static std::mutex APM_LOCK;
+            static std::mutex APM_STATE_LOCK;
             static boost::asio::io_context::work *IO_CONTEXT_WORK;
             static std::vector<std::thread *> LOG_THREADS;
-            static void schedule_log();
+            static std::atomic<uint64_t> LIFECYCLE_ID;
+            static std::atomic_bool INITED;
+            static void schedule_log(uint64_t lifecycle_id);
             static void accumulate_metric(unordered_map<string, uint64_t> &metric, uint64_t value, uint64_t sample);
 
             boost::property_tree::ptree dimensions;

@@ -25,6 +25,8 @@ namespace st {
 
             void start();
 
+            void shutdown();
+
             ~console_manager();
         };
     }// namespace dns

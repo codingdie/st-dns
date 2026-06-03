@@ -69,10 +69,18 @@ namespace st {
             vector<remote_dns_server *> servers;
             vector<force_resolve_rule *> force_resolve_rules;
             st::areaip::area_ip_config area_ip_config;
+            bool loaded = false;
 
             config() = default;
+            config(const config &other);
+            config &operator=(const config &other);
             ~config();
             void load(const string &base_conf_dir);
+            void unload();
+
+        private:
+            bool runtime_owner = true;
+            void copy_from(const config &other);
         };
 
     }// namespace dns

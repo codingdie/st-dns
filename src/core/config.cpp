@@ -8,18 +8,75 @@
 #include <regex>
 st::dns::config st::dns::config::INSTANCE;
 
+st::dns::config::config(const config &other) {
+    runtime_owner = false;
+    copy_from(other);
+}
+
+st::dns::config &st::dns::config::operator=(const config &other) {
+    if (this == &other) {
+        return *this;
+    }
+    bool current_runtime_owner = runtime_owner;
+    unload();
+    runtime_owner = current_runtime_owner;
+    copy_from(other);
+    return *this;
+}
+
 st::dns::config::~config() {
+    unload();
+}
+
+void st::dns::config::unload() {
+    if (!loaded) {
+        return;
+    }
+    if (runtime_owner) {
+        st::areaip::manager::uniq().stop();
+        st::utils::apm_logger::disable();
+        st::utils::logger::disable();
+    }
+
     for (auto server : servers) {
         delete server;
     }
     servers.clear();
+
     for (auto rule : force_resolve_rules) {
         delete rule;
     }
     force_resolve_rules.clear();
+
+    ip = "127.0.0.1";
+    port = 53;
+    console_ip = "127.0.0.1";
+    console_port = 5757;
+    dns_cache_expire = 60 * 10;
+    base_conf_dir = "/usr/local/etc/st/dns";
+    loaded = false;
+}
+
+void st::dns::config::copy_from(const config &other) {
+    ip = other.ip;
+    port = other.port;
+    console_ip = other.console_ip;
+    console_port = other.console_port;
+    dns_cache_expire = other.dns_cache_expire;
+    base_conf_dir = other.base_conf_dir;
+    area_ip_config = other.area_ip_config;
+
+    for (auto server : other.servers) {
+        servers.emplace_back(new remote_dns_server(*server));
+    }
+    for (auto rule : other.force_resolve_rules) {
+        force_resolve_rules.emplace_back(new force_resolve_rule(*rule));
+    }
+    loaded = other.loaded;
 }
 
 void st::dns::config::load(const string &base_conf_dir) {
+    unload();
     this->base_conf_dir = base_conf_dir;
     string config_path = base_conf_dir + "/config.json";
     if (st::utils::file::exists(config_path)) {
@@ -31,6 +88,7 @@ void st::dns::config::load(const string &base_conf_dir) {
             exit(1);
         }
         logger::init(tree);
+        st::utils::apm_logger::init();
         this->ip = tree.get("ip", string("127.0.0.1"));
         this->port = tree.get("port", port);
         this->console_port = tree.get("console_port", console_port);
@@ -85,6 +143,7 @@ void st::dns::config::load(const string &base_conf_dir) {
             this->area_ip_config.load(area_ip_config_node.get());
             areaip::manager::uniq().config(this->area_ip_config);
         }
+        st::areaip::manager::uniq().start();
 
         auto force_resolve_rules_node = tree.get_child_optional("force_resolve_rules");
         if (force_resolve_rules_node.is_initialized()) {
@@ -115,6 +174,7 @@ void st::dns::config::load(const string &base_conf_dir) {
                 }
             }
         }
+        loaded = true;
     } else {
         logger::ERROR << "st-dns config file not exit！" << config_path << END;
         exit(1);

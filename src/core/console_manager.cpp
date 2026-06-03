@@ -10,6 +10,7 @@ st::dns::console_manager &st::dns::console_manager::uniq() {
 }
 
 void st::dns::console_manager::init(const std::string &ip, uint16_t port) {
+    shutdown();
     console = new st::console::udp_console(ip, port);
     console->desc.add_options()("domain", boost::program_options::value<string>()->default_value(""), "domain");
     console->desc.add_options()("ip", boost::program_options::value<string>()->default_value(""), "ip");
@@ -72,8 +73,14 @@ void st::dns::console_manager::start() {
     }
 }
 
-st::dns::console_manager::~console_manager() {
+void st::dns::console_manager::shutdown() {
     if (console != nullptr) {
+        console->stop();
         delete console;
+        console = nullptr;
     }
+}
+
+st::dns::console_manager::~console_manager() {
+    shutdown();
 }

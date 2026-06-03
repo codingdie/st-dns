@@ -39,11 +39,11 @@ private:
     st::dns::config config;
     udp::socket *ss = nullptr;
     io_context ic;
-    boost::asio::io_context::work *iw;
+    boost::asio::io_context::work *iw = nullptr;
     io_context schedule_ic;
-    boost::asio::io_context::work *schedule_iw;
-    boost::asio::deadline_timer *schedule_timer;
-    std::atomic<uint8_t> state;
+    boost::asio::io_context::work *schedule_iw = nullptr;
+    boost::asio::deadline_timer *schedule_timer = nullptr;
+    std::atomic<uint8_t> state{0};
     atomic_int64_t counter;
     st::task::queue<pair<string, remote_dns_server *>> sync_remote_record_task_queue;
 

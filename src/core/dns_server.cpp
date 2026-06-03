@@ -91,25 +91,35 @@ dns_server::~dns_server() {
 void dns_server::shutdown() {
     // shutdown 负责停止操作并等待线程退出
     this->state = 2;
+    console_manager::uniq().shutdown();
 
     // 1. 取消所有pending的操作
-    ss->cancel();
-    schedule_timer->cancel();
+    if (ss != nullptr) {
+        ss->cancel();
+    }
+    if (schedule_timer != nullptr) {
+        schedule_timer->cancel();
+    }
 
     // 2. 删除 work 对象，让 io_context 可以退出
-    delete iw;
-    iw = nullptr;
-    delete schedule_iw;
-    schedule_iw = nullptr;
+    if (iw != nullptr) {
+        delete iw;
+        iw = nullptr;
+    }
+    if (schedule_iw != nullptr) {
+        delete schedule_iw;
+        schedule_iw = nullptr;
+    }
 
     // 3. 停止 io_context（此时 run() 会返回）
     ic.stop();
     schedule_ic.stop();
 
     // 4. 关闭 socket
-    ss->close();
+    if (ss != nullptr) {
+        ss->close();
+    }
 
-    apm_logger::disable();
     logger::INFO << "st-dns server stopped, listen at" << config.ip + ":" + to_string(config.port) << END;
 }
 
@@ -119,13 +129,18 @@ void dns_server::wait_start() {
     }
 }
 void dns_server::receive() {
+    if (state == 2 || ss == nullptr || !ss->is_open()) {
+        return;
+    }
     uint64_t id = rid.fetch_add(1);
     logger::traceId = id;
     auto *session = new st::dns::session(id);
     ss->async_receive_from(buffer(session->request.data, session->request.len),
                            session->client_endpoint,
                            [=](boost::system::error_code errorCode, std::size_t size) {
-                               receive();
+                               if (state != 2) {
+                                   receive();
+                               }
                                logger::traceId = session->get_id();
                                logger::DEBUG << "dns request" << ++counter << "received!" << END;
                                session->set_time(time::now());
@@ -139,6 +154,8 @@ void dns_server::receive() {
                                        logger::ERROR << "invalid dns request: parse error" << END;
                                        end_session(session);
                                    }
+                               } else if (errorCode == boost::asio::error::operation_aborted || state == 2) {
+                                   delete session;
                                } else {
                                    logger::ERROR << "invalid dns request: net error" << END;
                                    end_session(session);

@@ -16,6 +16,7 @@ namespace st {
             boost::program_options::options_description desc;
 
             void start();
+            void stop();
             virtual ~udp_console();
 
         private:
@@ -25,6 +26,7 @@ namespace st {
             boost::asio::io_context::work *iw;
             udp::socket socket;
             std::thread *th = nullptr;
+            std::atomic_bool stopped{false};
             char command_buffer[1024];
             char response_buffer[10240];
             boost::asio::ip::udp::endpoint client_endpoint;

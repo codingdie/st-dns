@@ -18,6 +18,10 @@ protected:
         // 加载测试配置
         st::dns::config::INSTANCE.load("../confs/test");
     }
+
+    void TearDown() override {
+        st::dns::config::INSTANCE.unload();
+    }
 };
 
 class blacklist_cleanup_guard {

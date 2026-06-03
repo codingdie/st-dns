@@ -9,6 +9,7 @@
 
 #include "pool.h"
 #include <boost/property_tree/json_parser.hpp>
+#include <fstream>
 #include <iostream>
 #include <random>
 #include <regex>
@@ -58,6 +59,7 @@ boost::property_tree::ptree fromJson(const string &json) {
     return pt;
 }
 static std::mutex logMutex;
+static bool commonAttributesAdded = false;
 
 thread_local logger logger::DEBUG("DEBUG", 0);
 thread_local logger logger::WARN("WARN", 1);
@@ -143,6 +145,9 @@ boost::asio::io_context::work *apm_logger::IO_CONTEXT_WORK = nullptr;
 boost::asio::deadline_timer apm_logger::LOG_TIMER(apm_logger::IO_CONTEXT);
 std::vector<std::thread *> apm_logger::LOG_THREADS;
 std::mutex apm_logger::APM_LOCK;
+std::mutex apm_logger::APM_STATE_LOCK;
+std::atomic<uint64_t> apm_logger::LIFECYCLE_ID(0);
+std::atomic_bool apm_logger::INITED(false);
 
 apm_logger::apm_logger(const string &name) { this->add_dimension("name", name); }
 
@@ -157,7 +162,14 @@ void apm_logger::end() {
     this->add_metric("count", (uint64_t) 1);
     boost::property_tree::ptree &c_dimensions = this->dimensions;
     boost::property_tree::ptree &c_metrics = this->metrics;
-    IO_CONTEXT.post([c_dimensions, c_metrics]() {
+    uint64_t lifecycle_id = LIFECYCLE_ID.load();
+    if (!INITED.load()) {
+        return;
+    }
+    IO_CONTEXT.post([c_dimensions, c_metrics, lifecycle_id]() {
+        if (LIFECYCLE_ID.load() != lifecycle_id) {
+            return;
+        }
         string name = c_dimensions.get<string>("name");
         string dimensionsId = base64::encode(to_json(c_dimensions));
         for (auto it = c_metrics.begin(); it != c_metrics.end(); it++) {
@@ -195,8 +207,15 @@ void apm_logger::perf(const string &name, unordered_map<string, string> &&dimens
 }
 void apm_logger::perf(const string &name, unordered_map<string, string> &&dimensions, uint64_t cost, uint64_t count,
                       uint64_t sample) {
+    uint64_t lifecycle_id = LIFECYCLE_ID.load();
+    if (!INITED.load()) {
+        return;
+    }
     if (is_sample(sample)) {
         IO_CONTEXT.post([=]() {
+            if (LIFECYCLE_ID.load() != lifecycle_id) {
+                return;
+            }
             boost::property_tree::ptree pt;
             for (auto &dimension : dimensions) {
                 pt.put(dimension.first, dimension.second);
@@ -219,7 +238,14 @@ bool apm_logger::is_sample(uint64_t sample) {
 
 void apm_logger::perf(const string &name, unordered_map<string, string> &&dimensions,
                       unordered_map<string, int64_t> &&counts) {
+    uint64_t lifecycle_id = LIFECYCLE_ID.load();
+    if (!INITED.load()) {
+        return;
+    }
     IO_CONTEXT.post([=]() {
+        if (LIFECYCLE_ID.load() != lifecycle_id) {
+            return;
+        }
         boost::property_tree::ptree pt;
         for (auto &dimension : dimensions) {
             pt.put(dimension.first, dimension.second);
@@ -235,36 +261,62 @@ void apm_logger::perf(const string &name, unordered_map<string, string> &&dimens
 }
 
 void apm_logger::init() {
+    std::lock_guard<std::mutex> lg(APM_STATE_LOCK);
+    if (INITED.load()) {
+        return;
+    }
+    uint64_t lifecycle_id = ++LIFECYCLE_ID;
     IO_CONTEXT.restart();
     IO_CONTEXT_WORK = new boost::asio::io_context::work(IO_CONTEXT);
     unsigned int cpu_count = std::thread::hardware_concurrency();
-    for (auto i = 0; i < cpu_count; i++) {
+    if (cpu_count == 0) {
+        cpu_count = 1;
+    }
+    for (unsigned int i = 0; i < cpu_count; i++) {
         auto *th = new std::thread([&]() { IO_CONTEXT.run(); });
         LOG_THREADS.emplace_back(th);
     }
-    schedule_log();
+    schedule_log(lifecycle_id);
+    INITED.store(true);
 }
 void apm_logger::disable(bool report_status_log) {
-    if (IO_CONTEXT_WORK != nullptr) {
-        IO_CONTEXT.stop();
-        delete IO_CONTEXT_WORK;
-        IO_CONTEXT_WORK = nullptr;
-        for (thread *th : LOG_THREADS) {
-            th->join();
-            delete th;
+    vector<thread *> threads;
+    {
+        std::lock_guard<std::mutex> lg(APM_STATE_LOCK);
+        if (!INITED.load()) {
+            return;
         }
-        LOG_THREADS.clear();
+        INITED.store(false);
+        if (IO_CONTEXT_WORK != nullptr) {
+            boost::system::error_code ec;
+            LOG_TIMER.cancel(ec);
+            delete IO_CONTEXT_WORK;
+            IO_CONTEXT_WORK = nullptr;
+            threads.swap(LOG_THREADS);
+        }
+    }
+    for (thread *th : threads) {
+        th->join();
+        delete th;
+    }
+    {
+        std::lock_guard<std::mutex> lg(APM_STATE_LOCK);
+        ++LIFECYCLE_ID;
     }
     report_apm_log_local(report_status_log);
+    IO_CONTEXT.restart();
 }
 
-void apm_logger::schedule_log() {
+void apm_logger::schedule_log(uint64_t lifecycle_id) {
     LOG_TIMER.expires_from_now(boost::posix_time::milliseconds(60 * 1000));
     LOG_TIMER.async_wait([=](boost::system::error_code ec) {
+        if (LIFECYCLE_ID.load() != lifecycle_id) {
+            return;
+        }
         if (ec == boost::asio::error::operation_aborted) {
             return;
         }
-        schedule_log();
+        schedule_log(lifecycle_id);
         report_apm_log_local();
     });
 }
@@ -321,21 +373,24 @@ void apm_logger::report_apm_log_local(bool report_status_log) {
 apm_logger::~apm_logger() {}
 
 void logger::disable() {
-    apm_logger::disable();
+    std::lock_guard<std::mutex> lg(logMutex);
     boost::shared_ptr<logging::core> core = logging::core::get();
     core->flush();
     core->remove_all_sinks();
     core->reset_filter();
+    INITED = false;
 }
 
 void logger::init(boost::property_tree::ptree &tree) {
+    std::lock_guard<std::mutex> lg(logMutex);
     auto logConfig = tree.get_child_optional("log");
     if (logConfig.is_initialized()) {
         logger::LEVEL = logConfig.get().get<int>("level", 1);
         logger::TAG = logConfig.get().get<string>("tag", "default");
     }
-    apm_logger::init();
+    file::mkdirs("/tmp/st");
     boost::shared_ptr<logging::core> core = logging::core::get();
+    core->flush();
     core->remove_all_sinks();
     core->reset_filter();
     typedef sinks::asynchronous_sink<sinks::text_file_backend> sink_t;
@@ -355,6 +410,9 @@ void logger::init(boost::property_tree::ptree &tree) {
                         << expr::format_date_time<boost::posix_time::ptime>("TimeStamp", "%Y-%m-%d %H:%M:%S.%f")
                         << " " << expr::smessage);
     core->add_sink(sink);
-    logging::add_common_attributes();
+    if (!commonAttributesAdded) {
+        logging::add_common_attributes();
+        commonAttributesAdded = true;
+    }
     logger::INITED = true;
 }

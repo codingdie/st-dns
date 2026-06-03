@@ -5,9 +5,53 @@
 #include "taskquque/task_queue.h"
 #include <chrono>
 #include <gtest/gtest.h>
+#include <fstream>
 #include <iostream>
 #include <thread>
 #include <vector>
+
+namespace {
+    bool perf_log_contains(const string &needle) {
+        const string perf_dir = "/tmp/st/perf";
+        if (!boost::filesystem::exists(perf_dir)) {
+            return false;
+        }
+        for (const auto &entry : boost::filesystem::directory_iterator(perf_dir)) {
+            if (!boost::filesystem::is_regular_file(entry.path())) {
+                continue;
+            }
+            std::ifstream input(entry.path().string().c_str());
+            std::string line;
+            while (std::getline(input, line)) {
+                if (line.find(needle) != string::npos) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    int perf_log_match_count(const string &needle) {
+        const string perf_dir = "/tmp/st/perf";
+        int match_count = 0;
+        if (!boost::filesystem::exists(perf_dir)) {
+            return match_count;
+        }
+        for (const auto &entry : boost::filesystem::directory_iterator(perf_dir)) {
+            if (!boost::filesystem::is_regular_file(entry.path())) {
+                continue;
+            }
+            std::ifstream input(entry.path().string().c_str());
+            std::string line;
+            while (std::getline(input, line)) {
+                if (line.find(needle) != string::npos) {
+                    match_count++;
+                }
+            }
+        }
+        return match_count;
+    }
+}
 
 
 TEST(unit_tests, test_base64) {
@@ -47,6 +91,16 @@ TEST(unit_tests, test_shm) {
 }
 
 TEST(unit_tests, test_area_ip) {
+    st::utils::file::mkdirs("/etc/area-ips");
+    {
+        std::ofstream area_file("/etc/area-ips/IP_NET_AREA", std::ios::out | std::ios::trunc);
+        area_file << "223.5.5.5\tCN\n";
+        area_file << "220.181.38.148\tCN\n";
+        area_file << "123.117.76.165\tCN\n";
+        area_file << "172.217.5.110\tUS\n";
+        area_file << "114.48.198.220\tJP\n";
+    }
+    st::areaip::manager::uniq().start();
     // 辅助函数：轮询等待直到 is_area_ip 返回预期结果（或超时）
     auto wait_for_area_ip = [](const string& area, const string& ip_str, bool expected, int timeout_ms = 6000) {
         uint32_t ip = st::utils::ipv4::str_to_ip(ip_str);
@@ -75,16 +129,78 @@ TEST(unit_tests, test_area_ip) {
     ASSERT_TRUE(wait_for_area_ip("us", "114.48.198.220", false));
     ASSERT_TRUE(wait_for_area_ip("cn", "218.146.11.198", false));
     ASSERT_TRUE(wait_for_area_ip("kr", "218.146.11.198", true));
+    st::areaip::manager::uniq().stop();
+}
+
+TEST(unit_tests, area_ip_start_stop_is_idempotent) {
+    st::areaip::manager manager;
+
+    ASSERT_FALSE(manager.started());
+    ASSERT_EQ("LAN", manager.get_area(st::utils::ipv4::str_to_ip("192.168.1.1")));
+    manager.async_load_ip_info_from_net(st::utils::ipv4::str_to_ip("8.8.8.8"));
+    ASSERT_FALSE(manager.started());
+
+    manager.start();
+    ASSERT_TRUE(manager.started());
+
+    manager.start();
+    ASSERT_TRUE(manager.started());
+
+    manager.stop();
+    ASSERT_FALSE(manager.started());
+
+    manager.stop();
+    ASSERT_FALSE(manager.started());
+
+    manager.start();
+    ASSERT_TRUE(manager.started());
+
+    manager.stop();
+    ASSERT_FALSE(manager.started());
+}
+
+TEST(unit_tests, area_ip_stop_cleans_pending_delay_timers) {
+    st::areaip::manager manager;
+
+    for (int i = 0; i < 5; i++) {
+        manager.start();
+        ASSERT_TRUE(manager.started());
+
+        manager.async_load_ip_info_from_net(st::utils::ipv4::str_to_ip("8.8.8.8"));
+        manager.async_load_ip_info_from_net(st::utils::ipv4::str_to_ip("1.1.1.1"));
+
+        manager.stop();
+        ASSERT_FALSE(manager.started());
+    }
+}
+
+TEST(unit_tests, area_ip_restart_ignores_old_pending_delay_handlers) {
+    st::areaip::manager manager;
+    uint32_t ip = st::utils::ipv4::str_to_ip("8.8.8.8");
+
+    for (int i = 0; i < 5; i++) {
+        manager.start();
+        manager.async_load_ip_info_from_net(ip);
+        manager.stop();
+
+        manager.start();
+        manager.async_load_ip_info_from_net(ip);
+        manager.stop();
+
+        ASSERT_FALSE(manager.started());
+    }
 }
 
 
 TEST(unit_tests, test_ip_area_network) {
+    st::areaip::manager::uniq().start();
     st::areaip::manager::uniq().is_area_ip("JP", "14.0.42.1");
     st::areaip::manager::uniq().is_area_ip("TW", "118.163.193.132");
 
     std::this_thread::sleep_for(std::chrono::seconds(5));
     bool result = st::areaip::manager::uniq().is_area_ip("JP", "14.0.42.1");
     ASSERT_TRUE(result);
+    st::areaip::manager::uniq().stop();
 }
 
 
@@ -231,11 +347,13 @@ TEST(unit_tests, test_limie_file_cnt) {
 TEST(unit_tests, test_logger) {
     boost::property_tree::ptree tree;
     st::utils::logger::init(tree);
+    st::utils::apm_logger::init();
     for (int i = 0; i < 1000000; i++) {
         st::utils::apm_logger::perf("123", {}, 100);
         st::utils::logger::INFO << i << time::now_str() << END;
     }
     st::utils::logger::disable();
+    st::utils::apm_logger::disable();
     ASSERT_TRUE(st::utils::file::get_file_cnt("/tmp/st") >= 4);
     ASSERT_TRUE(st::utils::file::get_file_cnt("/tmp/st/perf") >= 1);
 }
@@ -243,15 +361,18 @@ TEST(unit_tests, test_logger) {
 TEST(unit_tests, apm_logger_disable_can_skip_status_log) {
     boost::property_tree::ptree tree;
     st::utils::logger::init(tree);
+    st::utils::apm_logger::init();
     st::utils::apm_logger::perf("skip-status-log", {}, 100);
 
     st::utils::apm_logger::disable(false);
+    st::utils::logger::disable();
 
     ASSERT_TRUE(st::utils::file::get_file_cnt("/tmp/st/perf") >= 1);
 }
 
-TEST(unit_tests, logger_disable_keeps_apm_status_log) {
+TEST(unit_tests, logger_disable_does_not_close_apm_logger) {
     const string log_path = "/tmp/st/logger-status-test.log";
+    const string metric_name = "status-log-" + st::utils::strutils::uuid();
     if (st::utils::file::exists(log_path)) {
         st::utils::file::del(log_path);
     }
@@ -259,11 +380,67 @@ TEST(unit_tests, logger_disable_keeps_apm_status_log) {
     boost::property_tree::ptree tree;
     tree.put("log.tag", "logger-status-test");
     st::utils::logger::init(tree);
-    st::utils::apm_logger::perf("status-log", {}, 100);
+    st::utils::apm_logger::init();
+    st::utils::apm_logger::perf(metric_name, {}, 100);
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
     st::utils::logger::disable();
 
     string log_content = st::utils::file::read(log_path);
-    ASSERT_NE(string::npos, log_content.find("apm log report at"));
+    ASSERT_EQ(string::npos, log_content.find("apm log report at"));
+
+    st::utils::apm_logger::disable();
+    ASSERT_TRUE(perf_log_contains(metric_name));
+
+    // logger 已关闭，APM status log 会回退到 stdout，而不是继续写文件。
+    log_content = st::utils::file::read(log_path);
+    ASSERT_EQ(string::npos, log_content.find("apm log report at"));
+}
+
+TEST(unit_tests, logger_init_disable_is_idempotent) {
+    const string log_path = "/tmp/st/logger-idempotent.log";
+    const int perf_file_count_before = st::utils::file::get_file_cnt("/tmp/st/perf");
+
+    if (st::utils::file::exists(log_path)) {
+        st::utils::file::del(log_path);
+    }
+
+    boost::property_tree::ptree tree;
+    tree.put("log.tag", "logger-idempotent");
+
+    st::utils::logger::init(tree);
+    st::utils::logger::init(tree);
+    st::utils::logger::INFO << "logger init disable idempotent" << END;
+    st::utils::apm_logger::perf("logger-without-apm-init", {}, 100);
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    st::utils::logger::disable();
+    st::utils::logger::disable();
+
+    ASSERT_NE(string::npos,
+              st::utils::file::read(log_path).find("logger init disable idempotent"));
+    ASSERT_EQ(perf_file_count_before, st::utils::file::get_file_cnt("/tmp/st/perf"));
+}
+
+TEST(unit_tests, apm_init_disable_is_idempotent) {
+    const string first_metric_name = "apm-first-" + st::utils::strutils::uuid();
+    const string second_metric_name = "apm-second-" + st::utils::strutils::uuid();
+
+    st::utils::apm_logger::disable(false);
+    st::utils::apm_logger::disable(false);
+    st::utils::apm_logger::init();
+    st::utils::apm_logger::init();
+    st::utils::apm_logger::perf(first_metric_name, {}, 100);
+    st::utils::apm_logger::disable(false);
+    st::utils::apm_logger::disable(false);
+
+    ASSERT_EQ(1, perf_log_match_count(first_metric_name));
+
+    st::utils::apm_logger::init();
+    st::utils::apm_logger::init();
+    st::utils::apm_logger::perf(second_metric_name, {}, 100);
+    st::utils::apm_logger::disable(false);
+    st::utils::apm_logger::disable(false);
+
+    ASSERT_EQ(1, perf_log_match_count(first_metric_name));
+    ASSERT_EQ(1, perf_log_match_count(second_metric_name));
 }

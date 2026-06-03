@@ -24,5 +24,6 @@ protected:
         th->join();
         delete th;
         delete server;
+        st::dns::config::INSTANCE.unload();
     }
 };

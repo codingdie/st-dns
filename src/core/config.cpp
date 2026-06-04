@@ -117,6 +117,13 @@ void st::dns::config::load(const string &base_conf_dir) {
                         dns_server->whitelist.emplace(v.second.get_value<string>());
                     }
                 }
+                auto blacklist_node = server_node.get_child_optional("blacklist");
+                if (blacklist_node.is_initialized()) {
+                    auto blacklistArr = blacklist_node.get();
+                    for (boost::property_tree::ptree::value_type &v : blacklistArr) {
+                        dns_server->blacklist.emplace(v.second.get_value<string>());
+                    }
+                }
                 dns_server->dns_cache_expire = stoi(server_node.get("dns_cache_expire", to_string(this->dns_cache_expire)));
                 dns_server->timeout = server_node.get("timeout", 100);
 
@@ -204,8 +211,19 @@ remote_dns_server::select_servers(const string &domain, const vector<remote_dns_
                 return result;
             }
         }
-        auto blackIterator = server->blacklist.find(domain);
-        if (blackIterator != server->blacklist.end()) {
+        bool in_blacklist = false;
+        for (auto &pattern : server->blacklist) {
+            if (domain == pattern || pattern.find("." + domain) != string::npos) {
+                in_blacklist = true;
+            } else {
+                std::regex reg(pattern);
+                if (std::regex_match(domain, reg)) {
+                    in_blacklist = true;
+                }
+            }
+            if (in_blacklist) break;
+        }
+        if (in_blacklist) {
             continue;
         }
         result.emplace_back(server);

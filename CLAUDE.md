@@ -6,9 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 这个项目作为openwrt package提供出去，需要同时修改插件代码，插件代码在../home-openwrt/codingdie-packages/packages/st-dns下，你需要阅读和修改此代码
 
 ## 项目记忆
-- 线上运行主机：`192.168.31.1`
-- 日志目录：`/tmp/st`
-- 排查线上问题时，优先到该主机的上述目录捞日志
+- 线上运行机器：`192.168.31.1`
+- 线上日志目录：`/tmp/st`
+- 排查线上问题时，优先到 `192.168.31.1:/tmp/st` 拉取或查看日志
+- 当在非 `develop`、`main` 分支开发时（通常是使用 `worktree` 开发），只在当前 `worktree` 分支做本地 `commit`，不要 `push`；随后将 `develop` 分支 `rebase` 到当前 `worktree` 分支包含的提交上，再从 `develop` 执行 `push`
 
 ## Project Overview
 

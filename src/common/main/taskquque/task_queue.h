@@ -5,6 +5,7 @@
 #ifndef ST_TASK_QUEUE_H
 #define ST_TASK_QUEUE_H
 #include "st.h"
+#include <atomic>
 #include <functional>
 #include <unordered_map>
 #include <utility>
@@ -50,6 +51,7 @@ namespace st {
             thread th;
             boost::asio::deadline_timer generate_key_timer;
             boost::asio::deadline_timer schedule_timer;
+            std::atomic_bool stopped{false};
             std::mutex mutex;
             std::function<void(const st::task::priority_task<input> &)> executor;
             volatile double key_count = 0;
@@ -139,11 +141,19 @@ namespace st {
                 std::lock_guard<std::mutex> lg(mutex);
                 return tasks.size();
             }
-            ~queue() {
+            void stop() {
+                if (stopped.exchange(true)) {
+                    return;
+                }
+                boost::system::error_code ec;
+                generate_key_timer.cancel(ec);
+                schedule_timer.cancel(ec);
                 ic.stop();
                 delete iw;
+                iw = nullptr;
                 th.join();
             }
+            ~queue() { stop(); }
         };
     }// namespace task
 }// namespace st

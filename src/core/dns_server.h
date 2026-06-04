@@ -11,6 +11,7 @@
 #include "st.h"
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -45,6 +46,7 @@ private:
     boost::asio::deadline_timer *schedule_timer = nullptr;
     std::atomic<uint8_t> state{0};
     atomic_int64_t counter;
+    std::shared_ptr<std::atomic_bool> accepting_remote_sync_callbacks;
     st::task::queue<pair<string, remote_dns_server *>> sync_remote_record_task_queue;
 
     void receive();

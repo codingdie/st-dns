@@ -422,21 +422,34 @@ TEST(unit_tests, logger_init_disable_is_idempotent) {
 }
 
 TEST(unit_tests, area_ip_sync_reports_load_net_ip_info_health_metric) {
-    const int health_metric_count_before = perf_log_match_count("\"source\":\"cache-sync\"");
+    st::utils::shell::exec("rm -rf /tmp/st/perf");
+    st::utils::file::mkdirs("/tmp/st/perf");
+    st::areaip::manager::uniq().stop();
+    st::utils::apm_logger::disable(false);
+    st::utils::logger::disable();
 
     boost::property_tree::ptree tree;
     tree.put("log.tag", "area-ip-health-test");
     st::utils::logger::init(tree);
     st::utils::apm_logger::init();
     st::areaip::manager::uniq().start();
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
     st::areaip::manager::uniq().stop();
     st::utils::apm_logger::disable(false);
     st::utils::logger::disable();
 
-    ASSERT_EQ(health_metric_count_before + 1, perf_log_match_count("\"source\":\"cache-sync\""));
-    ASSERT_TRUE(perf_log_contains("\"name\":\"load-net-ip-info\""));
-    ASSERT_TRUE(perf_log_contains("\"success\":1"));
+    bool found = false;
+    for (int i = 0; i < 10; ++i) {
+        if (perf_log_match_count("\"source\":\"cache-sync\"") == 1 &&
+            perf_log_contains("\"name\":\"load-net-ip-info\"") &&
+            perf_log_contains("\"success\":1")) {
+            found = true;
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+
+    ASSERT_TRUE(found) << "cache-sync health metric not flushed in current test environment";
 }
 
 TEST(unit_tests, apm_init_disable_is_idempotent) {

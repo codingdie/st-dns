@@ -22,14 +22,21 @@ using namespace st::dns::protocol;
 dns_server::dns_server(st::dns::config &config) : rid(time::now()),
                                                   config(config),
                                                   counter(0),
+                                                  accepting_remote_sync_callbacks(std::make_shared<std::atomic_bool>(true)),
                                                   sync_remote_record_task_queue(
                                                           "st-dns-record-sync-task",
                                                           100,
                                                           100,
-                                                          [=](const st::task::priority_task<pair<string, remote_dns_server *>> &task) {
+                                                          [this](const st::task::priority_task<pair<string, remote_dns_server *>> &task) {
                                                               auto domain = task.get_input().first;
                                                               auto server = task.get_input().second;
-                                                              sync_dns_record_from_remote(domain, [=](const dns_record &record) { sync_remote_record_task_queue.complete(task); }, server);
+                                                              auto accepting_callbacks = accepting_remote_sync_callbacks;
+                                                              sync_dns_record_from_remote(domain, [this, accepting_callbacks, task](const dns_record &record) {
+                                                                  if (!accepting_callbacks->load()) {
+                                                                      return;
+                                                                  }
+                                                                  sync_remote_record_task_queue.complete(task);
+                                                              }, server);
                                                           }) {
     try {
         ss = new udp::socket(ic, udp::endpoint(boost::asio::ip::make_address_v4(config.ip), config.port));
@@ -72,6 +79,7 @@ void dns_server::start() {
 }
 
 dns_server::~dns_server() {
+    accepting_remote_sync_callbacks->store(false);
     // 析构函数：在线程已经退出后，安全地删除资源
     // 注意：iw 和 schedule_iw 可能已经在 shutdown() 中删除
     if (iw != nullptr) {
@@ -91,6 +99,7 @@ dns_server::~dns_server() {
 void dns_server::shutdown() {
     // shutdown 负责停止操作并等待线程退出
     this->state = 2;
+    accepting_remote_sync_callbacks->store(false);
     console_manager::uniq().shutdown();
 
     // 1. 取消所有pending的操作

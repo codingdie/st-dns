@@ -54,7 +54,7 @@ namespace st {
             th = new thread([this]() { this->ctx.run(); });
             sche_th = new thread([this]() { this->sche_ctx.run(); });
             runtime_started.store(true);
-            sync_net_area_ip(lifecycle_id);
+            sche_ctx.post([this, lifecycle_id]() { this->sync_net_area_ip(lifecycle_id); });
         }
         bool manager::started() {
             return runtime_started.load();

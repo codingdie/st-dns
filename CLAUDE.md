@@ -1,9 +1,10 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+本文件只补充本仓库特有约束；通用语言偏好、Git 规范、测试要求与安全规则以全局 `~/.claude/CLAUDE.md` 为准。
 
 ## 额外说明
-这个项目作为openwrt package提供出去，需要同时修改插件代码，插件代码在../home-openwrt/codingdie-packages/packages/st-dns下，你需要阅读和修改此代码
+
+这个项目作为 OpenWrt package 提供出去，需要同时修改插件代码。插件代码位于 `../home-openwrt/codingdie-packages/packages/st-dns`，处理相关需求时需要一并阅读和修改。
 
 ## 项目记忆
 - 线上运行机器：`192.168.31.1`
@@ -42,7 +43,7 @@ cmake --build build
 ```bash
 # Build and run all tests (tests only build when OPENWRT=OFF)
 cd build
-ctest
+ctest --output-on-failure -j1
 
 # Run specific test executables
 ./st-unit-test           # Common utilities tests
@@ -222,24 +223,7 @@ The project is packaged in the codingdie-packages feed for OpenWrt. Build errors
 - Protobuf files must be explicitly added to targets
 - Third-party header `httplib.h` is auto-downloaded during CMake configuration if missing
 
-## Claude 工作习惯
-
-### 语言偏好
-
-默认使用中文进行交流和编写代码注释。
-
-### Git 配置与规范
-**重要：所有 Git 操作必须遵循以下规范**
-
-- 用户名：codingdie
-- 邮箱：codingdie@gmail.com
-- 所有提交必须使用此身份
-- **不要在 commit message 中添加 Co-Authored-By 标签**
-- 修改代码后**不要自动 commit**
-- 等待用户明确说"提交"、"commit"或"push"后，再执行 `git commit` + `git push`
-- 可以使用 `git diff` 或 `git status` 查看改动，但不要自动提交
-
-### 开发流程规范
+## 开发流程规范
 
 **重要：每次开始功能开发前，必须阅读并遵循 [DEVELOPMENT.md](DEVELOPMENT.md) 中的开发流程规范**
 

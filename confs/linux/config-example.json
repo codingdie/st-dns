@@ -35,6 +35,7 @@
     }
   ],
   "dns_cache_expire": 600,
+  "forward_max_running": 32,
   "console_port": 5757,
   "console_ip": "0.0.0.0",
   "log": {

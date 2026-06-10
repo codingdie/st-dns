@@ -53,6 +53,7 @@ void st::dns::config::unload() {
     console_ip = "127.0.0.1";
     console_port = 5757;
     dns_cache_expire = 60 * 10;
+    forward_max_running = 32;
     base_conf_dir = "/usr/local/etc/st/dns";
     loaded = false;
 }
@@ -63,6 +64,7 @@ void st::dns::config::copy_from(const config &other) {
     console_ip = other.console_ip;
     console_port = other.console_port;
     dns_cache_expire = other.dns_cache_expire;
+    forward_max_running = other.forward_max_running;
     base_conf_dir = other.base_conf_dir;
     area_ip_config = other.area_ip_config;
 
@@ -94,6 +96,10 @@ void st::dns::config::load(const string &base_conf_dir) {
         this->console_port = tree.get("console_port", console_port);
         this->console_ip = tree.get("console_ip", string("127.0.0.1"));
         this->dns_cache_expire = stoi(tree.get("dns_cache_expire", to_string(this->dns_cache_expire)));
+        this->forward_max_running = tree.get("forward_max_running", this->forward_max_running);
+        if (this->forward_max_running == 0) {
+            this->forward_max_running = 32;
+        }
 
         auto servers_nodes = tree.get_child("servers");
         if (!servers_nodes.empty()) {

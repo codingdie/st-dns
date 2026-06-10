@@ -135,6 +135,7 @@ TEST(unit_tests, config_load_unload_is_repeatable) {
         ASSERT_FALSE(st::dns::config::INSTANCE.servers.empty());
         ASSERT_FALSE(st::dns::config::INSTANCE.force_resolve_rules.empty());
         ASSERT_TRUE(st::areaip::manager::uniq().started());
+        ASSERT_EQ(32, st::dns::config::INSTANCE.forward_max_running);
 
         st::dns::config::INSTANCE.unload();
 
@@ -147,6 +148,7 @@ TEST(unit_tests, config_load_unload_is_repeatable) {
         ASSERT_EQ("127.0.0.1", st::dns::config::INSTANCE.console_ip);
         ASSERT_EQ(5757, st::dns::config::INSTANCE.console_port);
         ASSERT_EQ(60 * 10, st::dns::config::INSTANCE.dns_cache_expire);
+        ASSERT_EQ(32, st::dns::config::INSTANCE.forward_max_running);
         ASSERT_EQ("/usr/local/etc/st/dns", st::dns::config::INSTANCE.base_conf_dir);
     }
 }

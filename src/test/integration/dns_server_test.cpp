@@ -3,6 +3,8 @@
 //
 #include "integration_test_base.h"
 #include "command/dns_command.h"
+#include <boost/asio.hpp>
+#include <chrono>
 #include <future>
 
 class integration_tests : public BaseTest {
@@ -125,4 +127,91 @@ TEST_F(integration_tests, test_force_resolve) {
         ASSERT_EQ(st::utils::ipv4::str_to_ip("192.30.255.113"), ips[0]);
         logger::INFO << "Force resolve exact match: github.com -> " << st::utils::ipv4::ips_to_str(ips) << END;
     }
+}
+
+static std::unique_ptr<st::dns::protocol::udp_request> build_https_query(const string &domain) {
+    std::unique_ptr<st::dns::protocol::udp_request> request(new st::dns::protocol::udp_request({domain}));
+    auto *query = request->query_zone->querys[0];
+    query->data[query->domain->len] = 0x00;
+    query->data[query->domain->len + 1] = 0x41;
+    return request;
+}
+
+TEST(integration_timeout_tests, non_a_query_uses_upstream_timeout_when_forward_capacity_available) {
+    st::dns::config::INSTANCE.load("../confs/test");
+    dns_record_manager::uniq().clear();
+    st::dns::config::INSTANCE.servers[0]->ip = "127.0.0.1";
+    st::dns::config::INSTANCE.servers[0]->port = 1;
+    st::dns::config::INSTANCE.servers[0]->timeout = 500;
+
+    auto *server = new dns_server(st::dns::config::INSTANCE, 1);
+    auto *th = new thread([=]() { server->start(); });
+    server->wait_start();
+
+    boost::asio::io_context io_context;
+    boost::asio::ip::udp::socket socket(io_context, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), 0));
+    boost::asio::ip::udp::endpoint server_endpoint(boost::asio::ip::make_address_v4("127.0.0.1"), 5353);
+
+    auto request = build_https_query("capacity.example.com");
+    auto begin = time::now();
+    socket.send_to(boost::asio::buffer(request->data, request->len), server_endpoint);
+
+    uint8_t buffer[1024] = {0};
+    boost::asio::ip::udp::endpoint response_endpoint;
+    size_t response_size = socket.receive_from(boost::asio::buffer(buffer, sizeof(buffer)), response_endpoint);
+    auto cost = time::now() - begin;
+
+    server->shutdown();
+    th->join();
+    delete th;
+    delete server;
+    st::dns::config::INSTANCE.unload();
+
+    ASSERT_GT(response_size, 0);
+    ASSERT_GE(cost, 400);
+    ASSERT_LE(cost, 800);
+}
+
+TEST(integration_timeout_tests, non_a_query_rejected_immediately_when_forward_concurrency_full) {
+    st::dns::config::INSTANCE.load("../confs/test");
+    dns_record_manager::uniq().clear();
+    st::dns::config::INSTANCE.servers[0]->ip = "127.0.0.1";
+    st::dns::config::INSTANCE.servers[0]->port = 1;
+    st::dns::config::INSTANCE.servers[0]->timeout = 500;
+
+    auto *server = new dns_server(st::dns::config::INSTANCE, 1);
+    auto *th = new thread([=]() { server->start(); });
+    server->wait_start();
+
+    boost::asio::io_context io_context;
+    boost::asio::ip::udp::endpoint server_endpoint(boost::asio::ip::make_address_v4("127.0.0.1"), 5353);
+    boost::asio::ip::udp::socket slow_socket(io_context, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), 0));
+    boost::asio::ip::udp::socket rejected_socket(io_context, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), 0));
+
+    auto slow_request = build_https_query("slow.example.com");
+    slow_socket.send_to(boost::asio::buffer(slow_request->data, slow_request->len), server_endpoint);
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    auto rejected_request = build_https_query("rejected.example.com");
+    auto begin = time::now();
+    rejected_socket.send_to(boost::asio::buffer(rejected_request->data, rejected_request->len), server_endpoint);
+
+    uint8_t rejected_buffer[1024] = {0};
+    boost::asio::ip::udp::endpoint rejected_endpoint;
+    size_t rejected_size = rejected_socket.receive_from(boost::asio::buffer(rejected_buffer, sizeof(rejected_buffer)), rejected_endpoint);
+    auto rejected_cost = time::now() - begin;
+
+    uint8_t slow_buffer[1024] = {0};
+    boost::asio::ip::udp::endpoint slow_endpoint;
+    size_t slow_size = slow_socket.receive_from(boost::asio::buffer(slow_buffer, sizeof(slow_buffer)), slow_endpoint);
+
+    server->shutdown();
+    th->join();
+    delete th;
+    delete server;
+    st::dns::config::INSTANCE.unload();
+
+    ASSERT_GT(rejected_size, 0);
+    ASSERT_GT(slow_size, 0);
+    ASSERT_LE(rejected_cost, 150);
 }

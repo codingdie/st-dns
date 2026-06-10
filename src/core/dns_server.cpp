@@ -19,25 +19,55 @@ using namespace std::placeholders;
 using namespace std;
 using namespace st::dns;
 using namespace st::dns::protocol;
-dns_server::dns_server(st::dns::config &config) : rid(time::now()),
-                                                  config(config),
-                                                  counter(0),
-                                                  accepting_remote_sync_callbacks(std::make_shared<std::atomic_bool>(true)),
-                                                  sync_remote_record_task_queue(
-                                                          "st-dns-record-sync-task",
-                                                          100,
-                                                          100,
-                                                          [this](const st::task::priority_task<pair<string, remote_dns_server *>> &task) {
-                                                              auto domain = task.get_input().first;
-                                                              auto server = task.get_input().second;
-                                                              auto accepting_callbacks = accepting_remote_sync_callbacks;
-                                                              sync_dns_record_from_remote(domain, [this, accepting_callbacks, task](const dns_record &record) {
-                                                                  if (!accepting_callbacks->load()) {
-                                                                      return;
-                                                                  }
-                                                                  sync_remote_record_task_queue.complete(task);
-                                                              }, server);
-                                                          }) {
+
+dns_server::dns_server(st::dns::config &config, uint32_t forward_max_running) : rid(time::now()),
+                                                                                config(config),
+                                                                                counter(0),
+                                                                                forward_max_running(forward_max_running > 0 ? forward_max_running : config.forward_max_running),
+                                                                                accepting_remote_sync_callbacks(std::make_shared<std::atomic_bool>(true)),
+                                                                                sync_remote_record_task_queue(
+                                                                                        "st-dns-record-sync-task",
+                                                                                        100,
+                                                                                        100,
+                                                                                        [this](const st::task::priority_task<pair<string, remote_dns_server *>> &task) {
+                                                                                            auto domain = task.get_input().first;
+                                                                                            auto server = task.get_input().second;
+                                                                                            auto accepting_callbacks = accepting_remote_sync_callbacks;
+                                                                                            sync_dns_record_from_remote(domain, [this, accepting_callbacks, task](const dns_record &record) {
+                                                                                                if (!accepting_callbacks->load()) {
+                                                                                                    return;
+                                                                                                }
+                                                                                                sync_remote_record_task_queue.complete(task);
+                                                                                            }, server);
+                                                                                        }),
+                                                                                forward_task_queue(
+                                                                                        "st-dns-forward-task",
+                                                                                        this->forward_max_running,
+                                                                                        this->forward_max_running,
+                                                                                        [this](const st::task::priority_task<forward_task_queue_param> &task) {
+                                                                                            auto param = task.get_input();
+                                                                                            auto *session = param.first;
+                                                                                            auto complete_handler = param.second;
+                                                                                            auto *server = select_forward_udp_server();
+                                                                                            if (server == nullptr) {
+                                                                                                forward_task_queue.complete(task);
+                                                                                                session->logger.add_dimension("forward_status", "no_udp_server");
+                                                                                                complete_handler(session);
+                                                                                                return;
+                                                                                            }
+                                                                                            dns_client::uniq().forward_udp(session->request,
+                                                                                                                           server->ip,
+                                                                                                                           server->port,
+                                                                                                                           server->timeout,
+                                                                                                                           [this, task, param](udp_response *response) {
+                                                                                                                               auto *session = param.first;
+                                                                                                                               auto complete_handler = param.second;
+                                                                                                                               forward_task_queue.complete(task);
+                                                                                                                               session->response = response;
+                                                                                                                               complete_handler(session);
+                                                                                                                           });
+                                                                                        },
+                                                                                        this->forward_max_running) {
     try {
         ss = new udp::socket(ic, udp::endpoint(boost::asio::ip::make_address_v4(config.ip), config.port));
     } catch (const boost::system::system_error &e) {
@@ -318,23 +348,35 @@ dns_record dns_server::query_record_from_cache(const string &host) const {
 }
 
 void dns_server::forward_dns_request(session *session, const std::function<void(st::dns::session *session)> &complete_handler) {
+    remote_dns_server *server = select_forward_udp_server();
+    if (server == nullptr) {
+        session->logger.add_dimension("forward_status", "no_udp_server");
+        complete_handler(session);
+        return;
+    }
 
-    remote_dns_server *server = nullptr;
+    st::task::priority_task<forward_task_queue_param> task(
+            make_pair(session, complete_handler),
+            MAX_PRIORITY,
+            to_string(session->get_id()));
+    if (!forward_task_queue.submit(task)) {
+        session->logger.add_dimension("forward_status", "rejected");
+        complete_handler(session);
+        return;
+    }
+
+    session->logger.add_dimension("forward_status", "accepted");
+}
+
+remote_dns_server *dns_server::select_forward_udp_server() const {
     for (auto &it : config.servers) {
         if (it->type == "UDP") {
-            server = it;
-            break;
+            return it;
         }
     }
-    if (server != nullptr) {
-        dns_client::uniq().forward_udp(session->request, server->ip, server->port, server->timeout, [=](udp_response *response) {
-            session->response = response;
-            complete_handler(session);
-        });
-    } else {
-        complete_handler(session);
-    }
+    return nullptr;
 }
+
 void dns_server::sync_dns_record_from_remote(const string &domain) {
     logger::DEBUG << "begin update dns record !" << domain << END;
     vector<remote_dns_server *> servers = remote_dns_server::select_servers(domain, config.servers);

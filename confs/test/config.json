@@ -52,6 +52,7 @@
     }
   ],
   "dns_cache_expire": 60,
+  "forward_max_running": 32,
   "area_resolve_optimize": true,
   "console_port": 5757,
   "console_ip": "0.0.0.0",

@@ -57,6 +57,7 @@ namespace st {
             volatile double key_count = 0;
             volatile double max_qps = 1;
             uint32_t max_running = 1;
+            uint32_t max_size = 0;
             uint32_t running = 0;
 
             std::unordered_map<uint64_t, st::task::priority_task<input>> tasks;
@@ -104,16 +105,20 @@ namespace st {
 
         public:
             explicit queue(string name, uint32_t speed, uint32_t max_running,
-                           const std::function<void(st::task::priority_task<input>)> &executor)
+                           const std::function<void(st::task::priority_task<input>)> &executor,
+                           uint32_t max_size = 0)
                 : name(std::move(name)), ic(), iw(new io_context::work(ic)), th([this]() { ic.run(); }),
                   generate_key_timer(ic), schedule_timer(ic), executor(executor), max_qps(speed),
-                  max_running(max_running), running(0) {
+                  max_running(max_running), max_size(max_size), running(0) {
                 schedule_generate_key();
                 schedule_dispatch_task();
             };
 
             bool submit(const st::task::priority_task<input> &task) {
                 std::lock_guard<std::mutex> lg(mutex);
+                if (max_size > 0 && tasks.size() >= max_size) {
+                    return false;
+                }
                 if (task.pk.empty() || task_pks.emplace(task.pk).second) {
                     tasks.emplace(make_pair(task.id, task));
                     p_queue.push(make_pair(task.id, task.priority));

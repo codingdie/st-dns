@@ -51,6 +51,7 @@ dns_server::dns_server(st::dns::config &config, uint32_t forward_max_running) : 
                                                                                             auto *server = select_forward_udp_server();
                                                                                             if (server == nullptr) {
                                                                                                 forward_task_queue.complete(task);
+                                                                                                session->forward_status = "no_udp_server";
                                                                                                 session->logger.add_dimension("forward_status", "no_udp_server");
                                                                                                 complete_handler(session);
                                                                                                 return;
@@ -262,6 +263,9 @@ void dns_server::end_session(session *session) {
     session->logger.end();
 
     logger::INFO << "dns request process" << session->process_type << (success ? "success!" : "failed!");
+    if (session->process_type == session::process_type::FORWARD && !session->forward_status.empty()) {
+        logger::INFO << "forward_status" << session->forward_status;
+    }
     // 只有在请求被成功解析后才记录信息
     if (session->request.query_zone != nullptr) {
         logger::INFO << "type" << session->get_query_type();
@@ -350,6 +354,7 @@ dns_record dns_server::query_record_from_cache(const string &host) const {
 void dns_server::forward_dns_request(session *session, const std::function<void(st::dns::session *session)> &complete_handler) {
     remote_dns_server *server = select_forward_udp_server();
     if (server == nullptr) {
+        session->forward_status = "no_udp_server";
         session->logger.add_dimension("forward_status", "no_udp_server");
         complete_handler(session);
         return;
@@ -360,11 +365,13 @@ void dns_server::forward_dns_request(session *session, const std::function<void(
             MAX_PRIORITY,
             to_string(session->get_id()));
     if (!forward_task_queue.submit(task)) {
+        session->forward_status = "rejected";
         session->logger.add_dimension("forward_status", "rejected");
         complete_handler(session);
         return;
     }
 
+    session->forward_status = "accepted";
     session->logger.add_dimension("forward_status", "accepted");
 }
 

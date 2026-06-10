@@ -29,6 +29,7 @@ namespace st {
             protocol::udp_request request;
             dns_record record;
             process_type process_type = QUERY;
+            string forward_status;
             protocol::udp_response *response = nullptr;
 
             session(uint64_t id);

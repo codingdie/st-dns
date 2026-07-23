@@ -68,14 +68,17 @@ void st::dns::console_manager::init(const std::string &ip, uint16_t port) {
                 auto now = time::now();
                 vector<string> lines;
                 lines.reserve(tasks.size() + 1);
-                string header = "domain                           queued_at                    elapsed     status";
+                string header = "domain                           server                   queued_at                    elapsed     status";
                 lines.emplace_back(header);
                 for (const auto &task : tasks) {
                     auto elapsed = now - task.create_time;
                     auto status_str = task.status == st::task::PENDING ? "pending" : "running";
+                    auto *server = task.in.second;
+                    string server_str = server != nullptr ? server->id() : "unknown";
                     char line[256];
-                    snprintf(line, sizeof(line), "%-32s %-26s %4llums   %s",
+                    snprintf(line, sizeof(line), "%-32s %-24s %-26s %4llums   %s",
                              task.in.first.c_str(),
+                             server_str.c_str(),
                              time::format(task.create_time).c_str(),
                              (unsigned long long) elapsed,
                              status_str);

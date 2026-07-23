@@ -79,7 +79,12 @@ dns_server::dns_server(st::dns::config &config, uint32_t forward_max_running) : 
 }
 void dns_server::start_console() {
     console_manager::uniq().init(config.console_ip, config.console_port);
+    console_manager::uniq().set_sync_queue(&sync_remote_record_task_queue);
     console_manager::uniq().start();
+}
+
+st::task::queue<pair<string, remote_dns_server *>> *dns_server::get_sync_queue() {
+    return &sync_remote_record_task_queue;
 }
 
 void dns_server::start() {

@@ -4,6 +4,8 @@
 
 #include "console_manager.h"
 
+#include <cstdio>
+
 st::dns::console_manager &st::dns::console_manager::uniq() {
     static console_manager instance;
     return instance;
@@ -14,7 +16,7 @@ void st::dns::console_manager::init(const std::string &ip, uint16_t port) {
     console = new st::console::udp_console(ip, port);
     console->desc.add_options()("domain", boost::program_options::value<string>()->default_value(""), "domain");
     console->desc.add_options()("ip", boost::program_options::value<string>()->default_value(""), "ip");
-    console->impl = [](const vector<string> &commands, const boost::program_options::variables_map &options) {
+    console->impl = [this](const vector<string> &commands, const boost::program_options::variables_map &options) {
         auto command = utils::strutils::join(commands, " ");
         std::pair<bool, std::string> result = make_pair(false, "not invalid command");
         string ip = options["ip"].as<string>();
@@ -59,12 +61,35 @@ void st::dns::console_manager::init(const std::string &ip, uint16_t port) {
         } else if (command == "ip area") {
             result = make_pair(true, areaip::manager::uniq().get_area(st::utils::ipv4::str_to_ip(ip)));
         } else if (command == "dns queue list") {
-            // Note: This requires access to sync_remote_record_task_queue, which is in dns_server
-            // For now, leave it out or pass it somehow
-            result = make_pair(false, "not implemented in singleton");
+            if (this->sync_queue == nullptr) {
+                result = make_pair(false, "sync queue not initialized");
+            } else {
+                auto tasks = this->sync_queue->all();
+                auto now = time::now();
+                vector<string> lines;
+                lines.reserve(tasks.size() + 1);
+                string header = "domain                           queued_at                    elapsed     status";
+                lines.emplace_back(header);
+                for (const auto &task : tasks) {
+                    auto elapsed = now - task.create_time;
+                    auto status_str = task.status == st::task::PENDING ? "pending" : "running";
+                    char line[256];
+                    snprintf(line, sizeof(line), "%-32s %-26s %4llums   %s",
+                             task.in.first.c_str(),
+                             time::format(task.create_time).c_str(),
+                             (unsigned long long) elapsed,
+                             status_str);
+                    lines.emplace_back(line);
+                }
+                result = make_pair(true, strutils::join(lines, "\n"));
+            }
         }
         return result;
     };
+}
+
+void st::dns::console_manager::set_sync_queue(sync_record_task_queue *queue) {
+    sync_queue = queue;
 }
 
 void st::dns::console_manager::start() {

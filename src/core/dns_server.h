@@ -74,6 +74,8 @@ private:
 
     void start_console();
 
+    st::task::queue<pair<string, remote_dns_server *>> *get_sync_queue();
+
     dns_record query_record_from_cache(const string &host) const;
 
     void sync_loss_dns_record_from_remote(string &host, dns_record &record);

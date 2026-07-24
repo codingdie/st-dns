@@ -28,7 +28,6 @@ namespace st {
             std::thread *th = nullptr;
             std::atomic_bool stopped{false};
             char command_buffer[1024];
-            char response_buffer[10240];
             boost::asio::ip::udp::endpoint client_endpoint;
 
             void receive();

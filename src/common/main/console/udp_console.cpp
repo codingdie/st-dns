@@ -38,9 +38,9 @@ namespace st {
             if (stopped.load()) {
                 return;
             }
-            copy(result.c_str(), response_buffer, result.length());
-            socket.async_send_to(buffer(response_buffer, result.length()), client_endpoint,
-                                 [=](boost::system::error_code code, size_t size) {
+            auto shared_result = std::make_shared<std::string>(result);
+            socket.async_send_to(buffer(*shared_result), client_endpoint,
+                                 [this, shared_result](boost::system::error_code code, size_t size) {
                                      if (code != boost::asio::error::operation_aborted && !stopped.load()) {
                                          receive();
                                      }

@@ -72,6 +72,15 @@ namespace st {
             st::areaip::area_ip_config area_ip_config;
             bool loaded = false;
 
+            // 自动读取系统 DNS 作为上游转发服务器（默认启用，按优先级探测 resolv.conf 路径列表）
+            bool auto_upstream_dns = true;
+            vector<string> resolv_conf_paths = {
+                    "/tmp/resolv.conf.auto",       // OpenWRT DHCP
+                    "/etc/resolv.conf",             // 标准 Linux
+                    "/tmp/resolv.conf.d/resolv.conf.auto", // 某些 OpenWRT 变体
+            };
+            vector<remote_dns_server *> system_upstream_servers;
+
             config() = default;
             config(const config &other);
             config &operator=(const config &other);
@@ -82,6 +91,7 @@ namespace st {
         private:
             bool runtime_owner = true;
             void copy_from(const config &other);
+            void load_system_dns();
         };
 
     }// namespace dns

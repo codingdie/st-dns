@@ -326,6 +326,10 @@ void dns_server::query_dns_record(session *session, const std::function<void(st:
             auto *timer = new deadline_timer(ic);
             timer->expires_from_now(boost::posix_time::milliseconds(100));
             timer->async_wait([=](boost::system::error_code ec) {
+                if (ec == boost::asio::error::operation_aborted) {
+                    delete timer;
+                    return;
+                }
                 dns_record record = query_record_from_cache(host);
                 session->record = record;
                 complete(session);
@@ -381,6 +385,11 @@ void dns_server::forward_dns_request(session *session, const std::function<void(
 }
 
 remote_dns_server *dns_server::select_forward_udp_server() const {
+    // 优先使用自动检测到的系统 DNS 上游
+    if (!config.system_upstream_servers.empty()) {
+        return config.system_upstream_servers[0];
+    }
+    // fallback: 原有逻辑，选择第一个 type=UDP 的 server
     for (auto &it : config.servers) {
         if (it->type == "UDP") {
             return it;

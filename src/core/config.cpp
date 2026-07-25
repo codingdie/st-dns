@@ -6,6 +6,8 @@
 
 #include "command/proxy_command.h"
 #include <regex>
+#include <fstream>
+#include <sstream>
 st::dns::config st::dns::config::INSTANCE;
 
 st::dns::config::config(const config &other) {
@@ -48,6 +50,11 @@ void st::dns::config::unload() {
     }
     force_resolve_rules.clear();
 
+    for (auto server : system_upstream_servers) {
+        delete server;
+    }
+    system_upstream_servers.clear();
+
     ip = "127.0.0.1";
     port = 53;
     console_ip = "127.0.0.1";
@@ -67,6 +74,8 @@ void st::dns::config::copy_from(const config &other) {
     forward_max_running = other.forward_max_running;
     base_conf_dir = other.base_conf_dir;
     area_ip_config = other.area_ip_config;
+    auto_upstream_dns = other.auto_upstream_dns;
+    resolv_conf_paths = other.resolv_conf_paths;
 
     for (auto server : other.servers) {
         servers.emplace_back(new remote_dns_server(*server));
@@ -74,7 +83,61 @@ void st::dns::config::copy_from(const config &other) {
     for (auto rule : other.force_resolve_rules) {
         force_resolve_rules.emplace_back(new force_resolve_rule(*rule));
     }
+    for (auto server : other.system_upstream_servers) {
+        system_upstream_servers.emplace_back(new remote_dns_server(*server));
+    }
     loaded = other.loaded;
+}
+
+void st::dns::config::load_system_dns() {
+    if (!auto_upstream_dns) return;
+    if (resolv_conf_paths.empty()) {
+        logger::WARN << "auto_upstream_dns is enabled but resolv_conf_paths is empty" << END;
+        return;
+    }
+
+    // 按优先级尝试每个候选路径，找到第一个存在且可读的文件
+    string best_path;
+    for (const auto &path : resolv_conf_paths) {
+        ifstream test_file(path);
+        if (test_file.is_open()) {
+            best_path = path;
+            break;
+        }
+    }
+    if (best_path.empty()) {
+        logger::WARN << "auto upstream DNS: none of the candidate resolv.conf paths found" << END;
+        return;
+    }
+
+    ifstream resolv_file(best_path);
+    string line;
+    int count = 0;
+    while (getline(resolv_file, line)) {
+        // 去除前后空格
+        size_t start = line.find_first_not_of(" \t");
+        if (start == string::npos) continue;
+        size_t end = line.find_last_not_of(" \t");
+        string trimmed = line.substr(start, end - start + 1);
+        // 跳过注释行
+        if (trimmed.empty() || trimmed[0] == '#') continue;
+        // 解析 nameserver <ip>
+        istringstream iss(trimmed);
+        string keyword, ip;
+        iss >> keyword >> ip;
+        if (keyword == "nameserver" && !ip.empty()) {
+            auto *upstream = new remote_dns_server(ip, 53, "UDP");
+            upstream->timeout = 2000;// 系统 DNS 一般在内网，2秒够用
+            system_upstream_servers.emplace_back(upstream);
+            count++;
+            logger::INFO << "auto upstream DNS detected: " << ip << END;
+        }
+    }
+    if (count == 0) {
+        logger::WARN << "no nameserver found in " << best_path << END;
+    } else {
+        logger::INFO << "loaded " << count << " upstream DNS server(s) from " << best_path << END;
+    }
 }
 
 void st::dns::config::load(const string &base_conf_dir) {
@@ -99,6 +162,18 @@ void st::dns::config::load(const string &base_conf_dir) {
         this->forward_max_running = tree.get("forward_max_running", this->forward_max_running);
         if (this->forward_max_running == 0) {
             this->forward_max_running = 32;
+        }
+        this->auto_upstream_dns = tree.get("auto_upstream_dns", true);
+        // 如果用户配置了 resolv_conf_paths 列表，则替换默认候选列表
+        auto resolv_paths_node = tree.get_child_optional("resolv_conf_paths");
+        if (resolv_paths_node.is_initialized()) {
+            this->resolv_conf_paths.clear();
+            for (auto &v : resolv_paths_node.get()) {
+                string path = v.second.get_value<string>();
+                if (!path.empty()) {
+                    this->resolv_conf_paths.push_back(path);
+                }
+            }
         }
 
         auto servers_nodes = tree.get_child("servers");
@@ -187,6 +262,7 @@ void st::dns::config::load(const string &base_conf_dir) {
                 }
             }
         }
+        load_system_dns();
         loaded = true;
     } else {
         logger::ERROR << "st-dns config file not exit！" << config_path << END;

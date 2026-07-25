@@ -9,6 +9,8 @@
 #include <chrono>
 #include <thread>
 #include <vector>
+#include <fstream>
+#include <boost/filesystem.hpp>
 
 
 TEST(unit_tests, test_ip_sort) {
@@ -151,4 +153,56 @@ TEST(unit_tests, config_load_unload_is_repeatable) {
         ASSERT_EQ(32, st::dns::config::INSTANCE.forward_max_running);
         ASSERT_EQ("/usr/local/etc/st/dns", st::dns::config::INSTANCE.base_conf_dir);
     }
+}
+
+TEST(unit_tests, config_auto_lan_udp_server_uses_system_upstream) {
+    st::dns::config::INSTANCE.unload();
+
+    auto temp_dir = boost::filesystem::temp_directory_path() /
+                    boost::filesystem::unique_path("st-dns-auto-upstream-%%%%-%%%%-%%%%");
+    boost::filesystem::create_directories(temp_dir);
+    auto resolv_path = temp_dir / "resolv.conf";
+    auto config_path = temp_dir / "config.json";
+
+    {
+        std::ofstream resolv_file(resolv_path.string());
+        resolv_file << "nameserver 10.9.8.7\n";
+    }
+
+    {
+        std::ofstream config_file(config_path.string());
+        config_file << R"({
+  "ip": "127.0.0.1",
+  "port": 5353,
+  "auto_upstream_dns": true,
+  "resolv_conf_paths": [")" << resolv_path.string() << R"("],
+  "servers": [
+    {
+      "type": "UDP",
+      "ip": "AUTO_LAN_IP",
+      "port": 53,
+      "areas": ["LAN"],
+      "timeout": "500",
+      "dns_cache_expire": 60
+    }
+  ],
+  "dns_cache_expire": 600,
+  "forward_max_running": 32,
+  "log": {
+    "level": 1,
+    "tag": "st-dns-test"
+  }
+})";
+    }
+
+    st::dns::config::INSTANCE.load(temp_dir.string());
+
+    ASSERT_EQ(1, st::dns::config::INSTANCE.servers.size());
+    ASSERT_EQ("10.9.8.7", st::dns::config::INSTANCE.servers[0]->ip);
+    ASSERT_EQ("UDP", st::dns::config::INSTANCE.servers[0]->type);
+    ASSERT_EQ(1, st::dns::config::INSTANCE.system_upstream_servers.size());
+    ASSERT_EQ("10.9.8.7", st::dns::config::INSTANCE.system_upstream_servers[0]->ip);
+
+    st::dns::config::INSTANCE.unload();
+    boost::filesystem::remove_all(temp_dir);
 }

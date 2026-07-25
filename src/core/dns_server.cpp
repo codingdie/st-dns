@@ -385,15 +385,14 @@ void dns_server::forward_dns_request(session *session, const std::function<void(
 }
 
 remote_dns_server *dns_server::select_forward_udp_server() const {
-    // 优先使用自动检测到的系统 DNS 上游
-    if (!config.system_upstream_servers.empty()) {
-        return config.system_upstream_servers[0];
-    }
-    // fallback: 原有逻辑，选择第一个 type=UDP 的 server
     for (auto &it : config.servers) {
         if (it->type == "UDP") {
             return it;
         }
+    }
+    // fallback: 没有显式 UDP 配置时，使用自动检测到的系统 DNS 上游
+    if (!config.system_upstream_servers.empty()) {
+        return config.system_upstream_servers[0];
     }
     return nullptr;
 }

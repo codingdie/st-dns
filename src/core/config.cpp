@@ -176,18 +176,44 @@ void st::dns::config::load(const string &base_conf_dir) {
             }
         }
 
+        load_system_dns();
+
         auto servers_nodes = tree.get_child("servers");
         if (!servers_nodes.empty()) {
             for (auto it = servers_nodes.begin(); it != servers_nodes.end(); it++) {
                 auto server_node = it->second;
                 string serverIp = server_node.get("ip", "");
+                int server_port = server_node.get("port", 53);
+                string type = server_node.get("type", "UDP");
+                vector<string> areas;
+                auto areas_node = server_node.get_child_optional("areas");
+                if (areas_node.is_initialized()) {
+                    auto areas_arr = areas_node.get();
+                    for (boost::property_tree::ptree::value_type &v : areas_arr) {
+                        string area = v.second.get_value<string>();
+                        if (!area.empty()) {
+                            st::areaip::manager::uniq().load_area_ips(area);
+                            areas.emplace_back(area);
+                        }
+                    }
+                }
+                if (serverIp == "AUTO_LAN_IP") {
+                    bool is_lan_udp_server = type == "UDP" && find(areas.begin(), areas.end(), "LAN") != areas.end();
+                    if (!is_lan_udp_server) {
+                        logger::ERROR << "config server ip AUTO_LAN_IP only support UDP LAN server!" << END;
+                        exit(1);
+                    }
+                    if (system_upstream_servers.empty()) {
+                        logger::ERROR << "config server ip AUTO_LAN_IP but no system upstream DNS detected!" << END;
+                        exit(1);
+                    }
+                    serverIp = system_upstream_servers[0]->ip;
+                    logger::INFO << "config UDP LAN server ip AUTO_LAN_IP resolved to" << serverIp << END;
+                }
                 if (serverIp.empty()) {
                     logger::ERROR << "config server ip empty!" << END;
                     exit(1);
                 }
-                int server_port = server_node.get("port", 53);
-                string type = server_node.get("type", "UDP");
-                string filename = remote_dns_server::generate_server_id(serverIp, server_port);
 
 
                 auto *dns_server = new remote_dns_server(serverIp, server_port, type);
@@ -208,17 +234,7 @@ void st::dns::config::load(const string &base_conf_dir) {
                 dns_server->dns_cache_expire = stoi(server_node.get("dns_cache_expire", to_string(this->dns_cache_expire)));
                 dns_server->timeout = server_node.get("timeout", 100);
 
-                auto areas_node = server_node.get_child_optional("areas");
-                if (areas_node.is_initialized()) {
-                    auto areas_arr = areas_node.get();
-                    for (boost::property_tree::ptree::value_type &v : areas_arr) {
-                        string area = v.second.get_value<string>();
-                        if (!area.empty()) {
-                            st::areaip::manager::uniq().load_area_ips(area);
-                            dns_server->areas.emplace_back(area);
-                        }
-                    }
-                }
+                dns_server->areas = areas;
                 servers.emplace_back(dns_server);
             }
         }
@@ -262,7 +278,6 @@ void st::dns::config::load(const string &base_conf_dir) {
                 }
             }
         }
-        load_system_dns();
         loaded = true;
     } else {
         logger::ERROR << "st-dns config file not exit！" << config_path << END;

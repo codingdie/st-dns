@@ -4,7 +4,7 @@
   "servers": [
     {
       "type": "UDP",
-      "ip": "192.168.31.1",
+      "ip": "AUTO_LAN_IP",
       "port": 53,
       "areas": [
         "LAN"

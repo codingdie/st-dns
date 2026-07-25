@@ -160,7 +160,7 @@ udp_response::udp_response(udp_request &request, dns_record &record, uint32_t ex
             this->ips.emplace_back(*it);
         }
     } else {
-        logger::WARN << "udp_response construct: hasRecord=false, no answers generated" << END;
+        logger::DEBUG << "udp_response construct: hasRecord=false, no answers generated" << END;
     }
 
     this->len = finalLen;

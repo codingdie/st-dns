@@ -308,7 +308,7 @@ namespace st {
                             }
 
                         } else {
-                            logger::INFO << "async load ip info skipped!" << st::utils::ipv4::ip_to_str(ip) << END;
+                            logger::DEBUG << "async load ip info skipped!" << st::utils::ipv4::ip_to_str(ip) << END;
                         }
                         finish_ip_loading(ip, lifecycle_id);
                     };

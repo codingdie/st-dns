@@ -60,6 +60,19 @@ void st::dns::console_manager::init(const std::string &ip, uint16_t port) {
             result = make_pair(true, dns_record_manager::uniq().stats().serialize());
         } else if (command == "ip area") {
             result = make_pair(true, areaip::manager::uniq().get_area(st::utils::ipv4::str_to_ip(ip)));
+        } else if (command == "dns auto lan ip") {
+            vector<string> lines;
+            for (const auto &server : st::dns::config::INSTANCE.servers) {
+                if (server->type == "UDP" &&
+                    find(server->areas.begin(), server->areas.end(), "LAN") != server->areas.end()) {
+                    lines.emplace_back(server->ip + ":" + to_string(server->port));
+                }
+            }
+            if (lines.empty()) {
+                result = make_pair(true, "未找到 LAN UDP 上游");
+            } else {
+                result = make_pair(true, strutils::join(lines, "\n"));
+            }
         } else if (command == "dns queue list") {
             if (this->sync_queue == nullptr) {
                 result = make_pair(false, "sync queue not initialized");

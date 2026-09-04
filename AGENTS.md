@@ -11,6 +11,7 @@
 - 线上运行机器：`192.168.31.1`
 - 线上日志目录：`/tmp/st`
 - 排查线上问题时，优先到 `192.168.31.1:/tmp/st` 拉取或查看日志
+- 不得修改 `st-dns` 与 `st-proxy` 的包版本字段（包括 `PKG_VERSION`、`PKG_RELEASE`）。
 - 当在非 `develop`、`main` 分支开发时（通常是使用 `worktree` 开发），只在当前 `worktree` 分支做本地 `commit`，不要 `push`；随后将 `develop` 分支 `rebase` 到当前 `worktree` 分支包含的提交上，再从 `develop` 执行 `push`
 
 ## Project Overview

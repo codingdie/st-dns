@@ -254,8 +254,13 @@ void st::dns::config::load(const string &base_conf_dir) {
             for (auto it = force_resolve_rules_node.get().begin(); it != force_resolve_rules_node.get().end(); it++) {
                 auto rule_node = it->second;
                 string pattern = rule_node.get("pattern", "");
-                if (pattern.empty()) {
-                    logger::WARN << "force resolve rule pattern empty, skip!" << END;
+                string regex_pattern = rule_node.get("regex", "");
+                if (pattern.empty() && regex_pattern.empty()) {
+                    logger::WARN << "force resolve rule pattern and regex empty, skip!" << END;
+                    continue;
+                }
+                if (!pattern.empty() && !regex_pattern.empty()) {
+                    logger::WARN << "force resolve rule pattern and regex cannot both be configured, skip!" << END;
                     continue;
                 }
                 vector<uint32_t> ips;
@@ -270,11 +275,19 @@ void st::dns::config::load(const string &base_conf_dir) {
                     }
                 }
                 if (!ips.empty()) {
-                    auto *rule = new force_resolve_rule(pattern, ips);
-                    force_resolve_rules.push_back(rule);
-                    logger::INFO << "load force resolve rule" << pattern << st::utils::ipv4::ips_to_str(ips) << END;
+                    try {
+                        auto *rule = new force_resolve_rule(pattern, ips, regex_pattern);
+                        force_resolve_rules.push_back(rule);
+                        logger::INFO << "load force resolve rule"
+                                     << (regex_pattern.empty() ? pattern : regex_pattern)
+                                     << st::utils::ipv4::ips_to_str(ips) << END;
+                    } catch (const std::regex_error &e) {
+                        logger::WARN << "force resolve rule regex invalid, skip!"
+                                     << regex_pattern << e.what() << END;
+                    }
                 } else {
-                    logger::WARN << "force resolve rule ips empty" << pattern << END;
+                    logger::WARN << "force resolve rule ips empty"
+                                 << (regex_pattern.empty() ? pattern : regex_pattern) << END;
                 }
             }
         }
@@ -332,10 +345,20 @@ remote_dns_server::select_servers(const string &domain, const vector<remote_dns_
 remote_dns_server::remote_dns_server(const string &ip, int port, const string &type) : ip(ip), port(port), type(type) {
 }
 
-force_resolve_rule::force_resolve_rule(const string &pattern, const vector<uint32_t> &ips) : pattern(pattern), ips(ips) {
+force_resolve_rule::force_resolve_rule(const string &pattern, const vector<uint32_t> &ips,
+                                       const string &regex_pattern)
+        : pattern(pattern), regex_pattern(regex_pattern), ips(ips) {
+    if (!regex_pattern.empty()) {
+        regex = std::regex(regex_pattern);
+        use_regex = true;
+    }
 }
 
 bool force_resolve_rule::match(const string &domain) const {
+    if (use_regex) {
+        return std::regex_match(domain, regex);
+    }
+
     // 精确匹配
     if (pattern == domain) {
         return true;

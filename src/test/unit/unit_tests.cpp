@@ -109,6 +109,18 @@ TEST(unit_tests, test_force_resolve_multi_level_wildcard) {
     logger::INFO << "Force resolve multi-level wildcard test passed" << END;
 }
 
+TEST(unit_tests, test_force_resolve_regex_match) {
+    force_resolve_rule rule("", {st::utils::ipv4::str_to_ip("203.0.113.10")},
+                            "^(api|www)\\.regex\\.codingdie\\.com$");
+
+    ASSERT_TRUE(rule.match("api.regex.codingdie.com"));
+    ASSERT_TRUE(rule.match("www.regex.codingdie.com"));
+    ASSERT_FALSE(rule.match("cdn.regex.codingdie.com"));
+    ASSERT_FALSE(rule.match("api.regex.codingdie.cn"));
+
+    logger::INFO << "Force resolve regex match test passed" << END;
+}
+
 TEST(unit_tests, test_force_resolve_ips) {
     // 测试多个IP地址
     vector<uint32_t> ips = {
@@ -153,6 +165,45 @@ TEST(unit_tests, config_load_unload_is_repeatable) {
         ASSERT_EQ(32, st::dns::config::INSTANCE.forward_max_running);
         ASSERT_EQ("/usr/local/etc/st/dns", st::dns::config::INSTANCE.base_conf_dir);
     }
+}
+
+TEST(unit_tests, config_invalid_force_resolve_regex_is_skipped) {
+    st::dns::config::INSTANCE.unload();
+
+    auto temp_dir = boost::filesystem::temp_directory_path() /
+                    boost::filesystem::unique_path("st-dns-invalid-regex-%%%%-%%%%-%%%%");
+    boost::filesystem::create_directories(temp_dir);
+    auto config_path = temp_dir / "config.json";
+
+    {
+        std::ofstream config_file(config_path.string());
+        config_file << R"({
+  "ip": "127.0.0.1",
+  "port": 5353,
+  "auto_upstream_dns": false,
+  "servers": [
+    {
+      "type": "UDP",
+      "ip": "127.0.0.1",
+      "port": 53,
+      "areas": ["LAN"]
+    }
+  ],
+  "force_resolve_rules": [
+    {
+      "regex": "[",
+      "ips": ["203.0.113.10"]
+    }
+  ]
+})";
+    }
+
+    st::dns::config::INSTANCE.load(temp_dir.string());
+    ASSERT_TRUE(st::dns::config::INSTANCE.loaded);
+    ASSERT_TRUE(st::dns::config::INSTANCE.force_resolve_rules.empty());
+
+    st::dns::config::INSTANCE.unload();
+    boost::filesystem::remove_all(temp_dir);
 }
 
 TEST(unit_tests, config_auto_lan_udp_server_uses_system_upstream) {

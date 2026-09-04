@@ -10,6 +10,7 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <fstream>
 #include <iostream>
+#include <regex>
 #include <string>
 #include <vector>
 
@@ -21,10 +22,15 @@ using namespace boost::property_tree;
 class force_resolve_rule {
 public:
     string pattern;
+    string regex_pattern;
     vector<uint32_t> ips;
 
-    force_resolve_rule(const string &pattern, const vector<uint32_t> &ips);
+    force_resolve_rule(const string &pattern, const vector<uint32_t> &ips, const string &regex_pattern = "");
     bool match(const string &domain) const;
+
+private:
+    bool use_regex = false;
+    std::regex regex;
 };
 
 class remote_dns_server {

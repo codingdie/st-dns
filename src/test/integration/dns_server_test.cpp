@@ -115,6 +115,19 @@ TEST_F(integration_tests, test_force_resolve) {
         logger::INFO << "Force resolve wildcard base domain: codingdie.com -> " << st::utils::ipv4::ips_to_str(ips) << END;
     }
 
+    // 测试正则匹配: api.regex.example.net -> 203.0.113.10
+    {
+        std::promise<vector<uint32_t>> promise;
+        auto future = promise.get_future();
+        dns_client::uniq().udp_dns("api.regex.example.net", server, port, 5000, [&](std::vector<uint32_t> result) {
+            promise.set_value(result);
+        });
+        auto ips = future.get();
+        ASSERT_EQ(1, ips.size());
+        ASSERT_EQ(st::utils::ipv4::str_to_ip("203.0.113.10"), ips[0]);
+        logger::INFO << "Force resolve regex match: api.regex.example.net -> " << st::utils::ipv4::ips_to_str(ips) << END;
+    }
+
     // 测试另一个精确匹配: github.com -> 192.30.255.113
     {
         std::promise<vector<uint32_t>> promise;

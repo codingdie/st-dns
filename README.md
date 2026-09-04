@@ -66,6 +66,16 @@ st-dns is a smart local dns server which support to config multi UDP/TCP/DOT DNS
             "dns_cache_expire": 600
         }
     ],
+    "force_resolve_rules": [
+        {
+            "pattern": "*.internal.example.com", //精确域名或 *. 通配符
+            "ips": ["192.168.1.100"]
+        },
+        {
+            "regex": "^(api|www)\\.example\\.com$", //与 pattern 二选一，完整匹配域名
+            "ips": ["192.168.1.101"]
+        }
+    ],
     "dns_cache_expire": 60, //client dns cache time(second)
     "area_resolve_optimize": false, //open it when st-proxy is running, it can help resolve better ip
     "log": {
@@ -85,4 +95,3 @@ st-dns is a smart local dns server which support to config multi UDP/TCP/DOT DNS
 ```
 
      
-

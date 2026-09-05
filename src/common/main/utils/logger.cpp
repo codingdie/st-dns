@@ -25,6 +25,7 @@
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 #include <boost/log/expressions.hpp>
 #include <boost/log/support/date_time.hpp>
+#include <cstdlib>
 
 using namespace std;
 using namespace st::utils;
@@ -69,6 +70,13 @@ uint32_t logger::LEVEL = 2;
 string logger::TAG = "default";
 bool logger::INITED = false;
 
+string logger::runtime_dir() {
+    const char *configured_runtime_dir = std::getenv("ST_RUNTIME_DIR");
+    if (configured_runtime_dir != nullptr && configured_runtime_dir[0] != '\0') {
+        return configured_runtime_dir;
+    }
+    return "/tmp/st";
+}
 
 void logger::do_log() {
     if (this->level < LEVEL) {
@@ -332,7 +340,7 @@ void apm_logger::report_apm_log_local(bool report_status_log) {
     if (metric_duplicate.empty()) {
         return;
     }
-    auto folder = "/tmp/st/perf/";
+    auto folder = logger::runtime_dir() + "/perf/";
     auto filename = folder + time::now_str("%Y-%m-%d-%H-%M") + "." + logger::TAG + ".perf." + strutils::uuid();
     file::create_if_not_exits(filename);
     file::limit_file_cnt(folder, 200, report_status_log);
@@ -388,7 +396,8 @@ void logger::init(boost::property_tree::ptree &tree) {
         logger::LEVEL = logConfig.get().get<int>("level", 1);
         logger::TAG = logConfig.get().get<string>("tag", "default");
     }
-    file::mkdirs("/tmp/st");
+    const string runtime_dir = logger::runtime_dir();
+    file::mkdirs(runtime_dir);
     boost::shared_ptr<logging::core> core = logging::core::get();
     core->flush();
     core->remove_all_sinks();
@@ -396,12 +405,12 @@ void logger::init(boost::property_tree::ptree &tree) {
     typedef sinks::asynchronous_sink<sinks::text_file_backend> sink_t;
     boost::shared_ptr<sinks::text_file_backend> backend =
             boost::make_shared<sinks::text_file_backend>(
-                    keywords::file_name = "/tmp/st/" + logger::TAG + ".log",
+                    keywords::file_name = runtime_dir + "/" + logger::TAG + ".log",
                     keywords::target_file_name = logger::TAG + ".log.%Y%m%d%H-%N",
                     keywords::rotation_size = 4 * 1024 * 1024);
     boost::shared_ptr<sink_t> sink(new sink_t(backend));
     sink->locked_backend()->set_file_collector(sinks::file::make_collector(
-            keywords::target = "/tmp/st",
+            keywords::target = runtime_dir,
             keywords::max_size = 16 * 1024 * 1024,
             keywords::max_files = 4));
     sink->locked_backend()->scan_for_files();

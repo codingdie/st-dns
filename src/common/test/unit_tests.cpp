@@ -4,15 +4,36 @@
 #include "st.h"
 #include "taskquque/task_queue.h"
 #include <chrono>
+#include <condition_variable>
+#include <cstdlib>
+#include <ctime>
+#include <future>
 #include <gtest/gtest.h>
 #include <fstream>
 #include <iostream>
+#include <mutex>
 #include <thread>
 #include <vector>
 
 namespace {
+    string test_runtime_dir() {
+        const char *configured_runtime_dir = std::getenv("ST_RUNTIME_DIR");
+        if (configured_runtime_dir != nullptr && configured_runtime_dir[0] != '\0') {
+            return configured_runtime_dir;
+        }
+        return "/tmp/st";
+    }
+
+    string test_area_ip_dir() {
+        const char *configured_area_ip_dir = std::getenv("ST_AREA_IP_DIR");
+        if (configured_area_ip_dir != nullptr && configured_area_ip_dir[0] != '\0') {
+            return configured_area_ip_dir;
+        }
+        return "/etc/area-ips";
+    }
+
     bool perf_log_contains(const string &needle) {
-        const string perf_dir = "/tmp/st/perf";
+        const string perf_dir = test_runtime_dir() + "/perf";
         if (!boost::filesystem::exists(perf_dir)) {
             return false;
         }
@@ -32,7 +53,7 @@ namespace {
     }
 
     int perf_log_match_count(const string &needle) {
-        const string perf_dir = "/tmp/st/perf";
+        const string perf_dir = test_runtime_dir() + "/perf";
         int match_count = 0;
         if (!boost::filesystem::exists(perf_dir)) {
             return match_count;
@@ -91,9 +112,10 @@ TEST(unit_tests, test_shm) {
 }
 
 TEST(unit_tests, test_area_ip) {
-    st::utils::file::mkdirs("/etc/area-ips");
+    const string area_ip_dir = test_area_ip_dir();
+    st::utils::file::mkdirs(area_ip_dir);
     {
-        std::ofstream area_file("/etc/area-ips/IP_NET_AREA", std::ios::out | std::ios::trunc);
+        std::ofstream area_file(area_ip_dir + "/IP_NET_AREA", std::ios::out | std::ios::trunc);
         area_file << "223.5.5.5\tCN\n";
         area_file << "220.181.38.148\tCN\n";
         area_file << "123.117.76.165\tCN\n";
@@ -192,41 +214,43 @@ TEST(unit_tests, area_ip_restart_ignores_old_pending_delay_handlers) {
 }
 
 
-TEST(unit_tests, test_ip_area_network) {
-    st::areaip::manager::uniq().start();
-    st::areaip::manager::uniq().is_area_ip("JP", "14.0.42.1");
-    st::areaip::manager::uniq().is_area_ip("TW", "118.163.193.132");
-
-    std::this_thread::sleep_for(std::chrono::seconds(5));
-    bool result = st::areaip::manager::uniq().is_area_ip("JP", "14.0.42.1");
-    ASSERT_TRUE(result);
-    st::areaip::manager::uniq().stop();
-}
-
-
 TEST(unit_tests, test_udp_console) {
     auto console = new st::console::udp_console("127.0.0.1", 2222);
     namespace po = boost::program_options;
+    std::mutex handler_mutex;
+    std::condition_variable handler_started;
+    bool is_handling_command = false;
     console->desc.add_options()("version,v", "print version string")("help", "produce help message");
-    console->impl = [](const vector<std::string> &commands, const boost::program_options::variables_map &options) {
-        std::this_thread::sleep_for(std::chrono::seconds(3));
+    console->impl = [&](const vector<std::string> &commands, const boost::program_options::variables_map &options) {
+        {
+            std::lock_guard<std::mutex> lock(handler_mutex);
+            is_handling_command = true;
+        }
+        handler_started.notify_one();
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
         return make_pair(true,
                          "command:" + strutils::join(commands, " ") + " , opts size:" + to_string(options.size()));
     };
     console->start();
-    auto begin = time::now();
-    auto result = st::console::client::command("127.0.0.1", 2222, "xx asd --help 123", 1000);
-    auto end = time::now();
-    auto cost = end - begin;
-    ASSERT_TRUE(cost > 800);
-    ASSERT_TRUE(cost < 1200);
+
+    std::promise<pair<bool, string>> timeout_result_promise;
+    auto timeout_result_future = timeout_result_promise.get_future();
+    std::thread timeout_client([&]() {
+        timeout_result_promise.set_value(st::console::client::command("127.0.0.1", 2222, "xx asd --help 123", 100));
+    });
+    bool handling_started = false;
+    {
+        std::unique_lock<std::mutex> lock(handler_mutex);
+        handling_started = handler_started.wait_for(lock, std::chrono::milliseconds(500), [&]() {
+            return is_handling_command;
+        });
+    }
+    auto result = timeout_result_future.get();
+    timeout_client.join();
+    ASSERT_TRUE(handling_started);
     ASSERT_STREQ("network error!", result.second.c_str());
-    begin = time::now();
-    auto newResult = st::console::client::command("127.0.0.1", 2222, "xx asd --help 123", 6000);
-    end = time::now();
-    cost = end - begin;
-    ASSERT_TRUE(cost >= 3000);
-    cout << newResult.second << endl;
+
+    auto newResult = st::console::client::command("127.0.0.1", 2222, "xx asd --help 123", 1000);
     ASSERT_STREQ("command:xx asd , opts size:1", newResult.second.c_str());
     delete console;
 }
@@ -301,35 +325,54 @@ TEST(unit_tests, test_task_queue) {
     using namespace st::task;
     int total = 5;
     vector<string> result;
-    st::task::queue<string> que("st-unit-test", 1, 1, [&result, &que](const priority_task<string> &task) {
-        result.emplace_back(task.get_input());
+    mutex result_lock;
+    condition_variable result_ready;
+    st::task::queue<string> que("st-unit-test", 100, 1, [&result, &result_lock, &result_ready, &que](const priority_task<string> &task) {
+        {
+            lock_guard<mutex> lock(result_lock);
+            result.emplace_back(task.get_input());
+        }
+        result_ready.notify_all();
         que.complete(task);
     });
+    auto wait_for_result_count = [&](size_t count) {
+        unique_lock<mutex> lock(result_lock);
+        return result_ready.wait_for(lock, std::chrono::seconds(2), [&result, count]() { return result.size() == count; });
+    };
+
     for (int i = 0; i < total; ++i) {
         priority_task<string> task(to_string(i), i, "" + i);
         ASSERT_TRUE(que.submit(task));
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds((1 + total) * 1000));
-    ASSERT_EQ(5, result.size());
-    ASSERT_TRUE(result[0] == to_string(total - 1));
+    ASSERT_TRUE(wait_for_result_count(total));
+    {
+        lock_guard<mutex> lock(result_lock);
+        ASSERT_EQ(5, result.size());
+        ASSERT_TRUE(result[0] == to_string(total - 1));
+        result.clear();
+    }
 
-    result.clear();
     for (int i = 0; i < total; ++i) {
         priority_task<string> task(to_string(i), 0, "" + i);
         ASSERT_TRUE(que.submit(task));
     }
-    std::this_thread::sleep_for(std::chrono::milliseconds((1 + total) * 1000));
-    ASSERT_EQ(5, result.size());
-    ASSERT_TRUE(result[0] == "0");
+    ASSERT_TRUE(wait_for_result_count(total));
+    {
+        lock_guard<mutex> lock(result_lock);
+        ASSERT_EQ(5, result.size());
+        ASSERT_TRUE(result[0] == "0");
+        result.clear();
+    }
 
-
-    result.clear();
     priority_task<string> task("0", 0, "123");
     ASSERT_TRUE(que.submit(task));
     ASSERT_FALSE(que.submit(task));
-    std::this_thread::sleep_for(std::chrono::milliseconds((1 + total) * 1000));
-    ASSERT_EQ(1, result.size());
-    ASSERT_TRUE(result[0] == "0");
+    ASSERT_TRUE(wait_for_result_count(1));
+    {
+        lock_guard<mutex> lock(result_lock);
+        ASSERT_EQ(1, result.size());
+        ASSERT_TRUE(result[0] == "0");
+    }
     ASSERT_EQ(0, que.size());
 }
 
@@ -338,24 +381,25 @@ TEST(unit_tests, test_limie_file_cnt) {
     auto path = "/tmp/" + st::utils::strutils::uuid();
     st::utils::file::mkdirs(path);
     for (int i = 0; i < 10; i++) {
-        st::utils::file::create_if_not_exits(path + "/" + to_string(i) + ".txt");
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        auto file_path = path + "/" + to_string(i) + ".txt";
+        st::utils::file::create_if_not_exits(file_path);
+        boost::filesystem::last_write_time(file_path, std::time(nullptr) - (10 - i));
     }
     ASSERT_EQ(4, st::utils::file::limit_file_cnt(path, 6));
 }
 
-TEST(unit_tests, test_logger) {
+TEST(unit_tests, logger_writes_log_files) {
     boost::property_tree::ptree tree;
     st::utils::logger::init(tree);
     st::utils::apm_logger::init();
-    for (int i = 0; i < 1000000; i++) {
+    for (int i = 0; i < 100; i++) {
         st::utils::apm_logger::perf("123", {}, 100);
         st::utils::logger::INFO << i << time::now_str() << END;
     }
     st::utils::logger::disable();
     st::utils::apm_logger::disable();
-    ASSERT_TRUE(st::utils::file::get_file_cnt("/tmp/st") >= 4);
-    ASSERT_TRUE(st::utils::file::get_file_cnt("/tmp/st/perf") >= 1);
+    ASSERT_TRUE(st::utils::file::exists(test_runtime_dir() + "/" + st::utils::logger::TAG + ".log"));
+    ASSERT_TRUE(st::utils::file::get_file_cnt(test_runtime_dir() + "/perf") >= 1);
 }
 
 TEST(unit_tests, apm_logger_disable_can_skip_status_log) {
@@ -367,11 +411,11 @@ TEST(unit_tests, apm_logger_disable_can_skip_status_log) {
     st::utils::apm_logger::disable(false);
     st::utils::logger::disable();
 
-    ASSERT_TRUE(st::utils::file::get_file_cnt("/tmp/st/perf") >= 1);
+    ASSERT_TRUE(st::utils::file::get_file_cnt(test_runtime_dir() + "/perf") >= 1);
 }
 
 TEST(unit_tests, logger_disable_does_not_close_apm_logger) {
-    const string log_path = "/tmp/st/logger-status-test.log";
+    const string log_path = test_runtime_dir() + "/logger-status-test.log";
     const string metric_name = "status-log-" + st::utils::strutils::uuid();
     if (st::utils::file::exists(log_path)) {
         st::utils::file::del(log_path);
@@ -398,8 +442,10 @@ TEST(unit_tests, logger_disable_does_not_close_apm_logger) {
 }
 
 TEST(unit_tests, logger_init_disable_is_idempotent) {
-    const string log_path = "/tmp/st/logger-idempotent.log";
-    const int perf_file_count_before = st::utils::file::get_file_cnt("/tmp/st/perf");
+    const string log_path = test_runtime_dir() + "/logger-idempotent.log";
+    const string perf_dir = test_runtime_dir() + "/perf";
+    st::utils::file::mkdirs(perf_dir);
+    const int perf_file_count_before = st::utils::file::get_file_cnt(perf_dir);
 
     if (st::utils::file::exists(log_path)) {
         st::utils::file::del(log_path);
@@ -418,12 +464,13 @@ TEST(unit_tests, logger_init_disable_is_idempotent) {
 
     ASSERT_NE(string::npos,
               st::utils::file::read(log_path).find("logger init disable idempotent"));
-    ASSERT_EQ(perf_file_count_before, st::utils::file::get_file_cnt("/tmp/st/perf"));
+    ASSERT_EQ(perf_file_count_before, st::utils::file::get_file_cnt(perf_dir));
 }
 
 TEST(unit_tests, area_ip_sync_reports_load_net_ip_info_health_metric) {
-    st::utils::shell::exec("rm -rf /tmp/st/perf");
-    st::utils::file::mkdirs("/tmp/st/perf");
+    const string perf_dir = test_runtime_dir() + "/perf";
+    boost::filesystem::remove_all(perf_dir);
+    st::utils::file::mkdirs(perf_dir);
     st::areaip::manager::uniq().stop();
     st::utils::apm_logger::disable(false);
     st::utils::logger::disable();

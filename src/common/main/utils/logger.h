@@ -43,6 +43,7 @@ namespace st {
         public:
             void static init(boost::property_tree::ptree &config);
             void static disable();
+            static string runtime_dir();
             static thread_local uint64_t traceId;
             enum MASK { ENDL };
             static thread_local logger DEBUG;

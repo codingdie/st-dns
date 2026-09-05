@@ -11,14 +11,15 @@
 // 测试 fixture，用于加载配置
 class reverse_resolve : public ::testing::Test {
 protected:
-    void SetUp() override {
-        // 加载测试配置
+    static void SetUpTestSuite() {
         st::dns::config::INSTANCE.load("../confs/test");
     }
 
-    void TearDown() override {
+    static void TearDownTestSuite() {
         st::dns::config::INSTANCE.unload();
     }
+
+    void SetUp() override { dns_record_manager::uniq().clear(); }
 };
 
 // 测试基本的反向解析功能

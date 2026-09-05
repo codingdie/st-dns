@@ -73,7 +73,32 @@ if(NOT OPENWRT)
     target_link_libraries(st-dns-integration-test gtest_main ${Boost_LIBRARIES} ${OPENSSL_LIBRARIES} ${OTHER_LIBRARIES} ${Protobuf_LITE_LIBRARY})
 
     include(GoogleTest)
-    gtest_discover_tests(st-unit-test PROPERTIES  RESOURCE_LOCK dns_db TIMEOUT 120)
-    gtest_discover_tests(st-dns-unit-test PROPERTIES RESOURCE_LOCK dns_db TIMEOUT 120)
-    gtest_discover_tests(st-dns-integration-test PROPERTIES RESOURCE_LOCK dns_db TIMEOUT 120)
+    # 单测运行在不同进程中，为每例提供独立的持久化和运行时目录，以支持安全并行。
+    gtest_add_tests(TARGET st-unit-test TEST_LIST ST_UNIT_TESTS)
+    gtest_add_tests(TARGET st-dns-unit-test TEST_LIST DNS_UNIT_TESTS)
+    gtest_add_tests(TARGET st-dns-integration-test TEST_LIST INTEGRATION_TESTS)
+
+    function(configure_unit_tests test_target test_list)
+        foreach(test_name IN LISTS ${test_list})
+            string(MAKE_C_IDENTIFIER "${test_target}_${test_name}" test_id)
+            set(test_root "/tmp/st-dns-tests/${test_id}")
+            set_tests_properties(${test_name} PROPERTIES
+                LABELS unit
+                TIMEOUT 120
+                ENVIRONMENT "ST_DNS_DB_PREFIX=${test_id};ST_RUNTIME_DIR=${test_root};ST_AREA_IP_DIR=${test_root}/area-ips")
+        endforeach()
+    endfunction()
+
+    configure_unit_tests(st-unit-test ST_UNIT_TESTS)
+    configure_unit_tests(st-dns-unit-test DNS_UNIT_TESTS)
+
+    # 集成测试必须等待全部单测结束；单测之间仍可由 CTest 并行调度。
+    set(ALL_UNIT_TESTS ${ST_UNIT_TESTS} ${DNS_UNIT_TESTS})
+    foreach(test_name IN LISTS INTEGRATION_TESTS)
+        set_tests_properties(${test_name} PROPERTIES
+            LABELS integration
+            TIMEOUT 120
+            RUN_SERIAL TRUE
+            DEPENDS "${ALL_UNIT_TESTS}")
+    endforeach()
 endif()

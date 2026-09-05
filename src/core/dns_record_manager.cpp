@@ -3,10 +3,29 @@
 //
 
 #include "dns_record_manager.h"
+#include <cstdlib>
 #include <random>
 #include <vector>
 #include "message.pb.h"
 #include "config.h"
+
+namespace {
+string dns_record_db_prefix() {
+    const char *configured_prefix = std::getenv("ST_DNS_DB_PREFIX");
+    if (configured_prefix != nullptr && configured_prefix[0] != '\0') {
+        return configured_prefix;
+    }
+    return "st-dns";
+}
+
+string dns_record_dump_path() {
+    const char *runtime_dir = std::getenv("ST_RUNTIME_DIR");
+    if (runtime_dir != nullptr && runtime_dir[0] != '\0') {
+        return string(runtime_dir) + "/st-dns-record.txt";
+    }
+    return "/tmp/st-dns-record.txt";
+}
+} // namespace
 
 void dns_record_manager::add(const string &domain, const vector<uint32_t> &ips, const string &dns_server, const int expire) {
     lock_guard<mutex> lock(record_lock);
@@ -185,7 +204,7 @@ st::dns::proto::records dns_record_manager::get_dns_records_pb(const string &dom
     return record;
 }
 dns_record_manager &dns_record_manager::uniq() {
-    static dns_record_manager INSTANCE;
+    static dns_record_manager INSTANCE(dns_record_db_prefix());
     return INSTANCE;
 }
 std::vector<dns_record> dns_record_manager::get_dns_record_list(const string &domain) {
@@ -225,7 +244,7 @@ vector<dns_record> dns_record::transform(const st::dns::proto::records &records)
     return result;
 }
 std::string dns_record_manager::dump() {
-    auto path = "/tmp/st-dns-record.txt";
+    auto path = dns_record_dump_path();
     ofstream fs(path, std::ios_base::out | std::ios_base::trunc);
     if (fs.is_open()) {
         db.list([&fs](const std::string &key, const std::string &value) {

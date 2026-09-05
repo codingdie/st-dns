@@ -91,7 +91,8 @@ namespace st {
             static bool is_match_areas(const vector<string> &areas, const string &area);
 
         private:
-            const string IP_NET_AREA_FILE = "/etc/area-ips/IP_NET_AREA";
+            string area_ip_dir;
+            string IP_NET_AREA_FILE;
             area_ip_config conf;
             std::default_random_engine random_engine;
             unordered_map<string, vector<area_ip_range>> default_caches;

@@ -281,7 +281,8 @@ cmake -B build -DCMAKE_BUILD_TYPE=Debug
 cmake --build build
 
 # 2. 运行所有测试（推荐）
-cd build && ctest
+# 单元测试按并行度执行，全部完成后再串行执行集成测试。
+cd build && ctest --output-on-failure -j8
 
 # ctest 输出格式：
 # 成功时：100% tests passed, 0 tests failed out of X
@@ -302,7 +303,8 @@ cmake -B build -DCMAKE_BUILD_TYPE=Debug
 cmake --build build
 
 # 运行所有测试
-cd build && ctest
+# 单元测试并行，集成测试在单元测试完成后串行执行。
+cd build && ctest --output-on-failure -j8
 
 # 运行单元测试
 ./st-unit-test

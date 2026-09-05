@@ -7,6 +7,7 @@
 #include "http.h"
 #include <boost/asio.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#include <cstdlib>
 #include <iostream>
 #include <queue>
 using namespace boost::property_tree;
@@ -24,12 +25,18 @@ namespace st {
         manager::manager()
             : random_engine(time::now()), last_load_ip_info_time(time::now()), last_load_area_ips_time(time::now()),
               ctx(), sche_ctx() {
+            const char *configured_area_ip_dir = std::getenv("ST_AREA_IP_DIR");
+            area_ip_dir = configured_area_ip_dir != nullptr && configured_area_ip_dir[0] != '\0'
+                          ? configured_area_ip_dir
+                          : "/etc/area-ips";
+            IP_NET_AREA_FILE = area_ip_dir + "/IP_NET_AREA";
             vector<area_ip_range> ip_ranges;
             ip_ranges.emplace_back(area_ip_range::parse("192.168.0.0/16", "LAN"));
             ip_ranges.emplace_back(area_ip_range::parse("10.0.0.0/8", "LAN"));
             ip_ranges.emplace_back(area_ip_range::parse("172.16.0.0/16", "LAN"));
             ip_ranges.emplace_back(area_ip_range::parse("0.0.0.0/8", "LAN"));
             default_caches.emplace("LAN", ip_ranges);
+            file::mkdirs(area_ip_dir);
             file::create_if_not_exits(IP_NET_AREA_FILE);
         }
         void manager::start() {
@@ -137,7 +144,7 @@ namespace st {
         string manager::download_area_ips(const string &area_code) {
             string areaCodeLow = area_code;
             transform(areaCodeLow.begin(), areaCodeLow.end(), areaCodeLow.begin(), ::tolower);
-            string filePath = "/etc/area-ips/" + area_code;
+            string filePath = area_ip_dir + "/" + area_code;
             if (!file::exists(filePath)) {
                 auto result =
                         utils::http::get("https://raw.githubusercontent.com",

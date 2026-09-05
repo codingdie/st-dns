@@ -14,14 +14,20 @@
 // 测试 fixture，用于加载配置
 class cache_management : public ::testing::Test {
 protected:
-    void SetUp() override {
-        // 加载测试配置
+    static void SetUpTestSuite() {
         st::dns::config::INSTANCE.load("../confs/test");
     }
 
-    void TearDown() override {
+    static void TearDownTestSuite() {
         st::dns::config::INSTANCE.unload();
     }
+
+    void SetUp() override {
+        dns_record_manager::uniq().clear();
+        dns_record_manager::uniq().set_blacklist_ips({});
+    }
+
+    void TearDown() override { dns_record_manager::uniq().set_blacklist_ips({}); }
 };
 
 class blacklist_cleanup_guard {

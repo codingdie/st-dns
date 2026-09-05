@@ -4,11 +4,10 @@
 #include <gtest/gtest.h>
 #include "dns_client.h"
 #include <iostream>
-#include <chrono>
-#include <thread>
 #include <vector>
 #include <future>
 
+namespace {
 
 void test_dns(const string &domain, const string &server, const uint32_t port, const string &type, const vector<pair<string, uint16_t>> areas) {
     std::promise<pair<std::vector<uint32_t>, bool>> promise;
@@ -28,7 +27,6 @@ void test_dns(const string &domain, const string &server, const uint32_t port, c
     auto async_result = future.get();
     auto result = async_result.first;
     auto resultLoadAll = async_result.second;
-    std::this_thread::sleep_for(std::chrono::seconds(1));
     ASSERT_TRUE(result.size() > 0);
     ASSERT_TRUE(resultLoadAll);
 
@@ -39,7 +37,7 @@ void testDNS(const string &domain, const string &server, const uint32_t port, co
 }
 
 
-TEST(unit_tests, test_udp_dns) {
+TEST(network_dns, udp) {
     auto begin = time::now();
     for (auto i = 0; i < 10; i++) {
         testDNS("baidu.com", "114.114.114.114", 53, "UDP");
@@ -48,7 +46,7 @@ TEST(unit_tests, test_udp_dns) {
 }
 
 
-TEST(unit_tests, test_tcp_dns) {
+TEST(network_dns, tcp) {
     auto begin = time::now();
     for (auto i = 0; i < 10; i++) {
         testDNS("www.google.com", "8.8.8.8", 53, "TCP");
@@ -56,7 +54,7 @@ TEST(unit_tests, test_tcp_dns) {
     logger::INFO << "test_tcp_dns total cost" << time::now() - begin << END;
 }
 
-TEST(unit_tests, test_tcp_tls_dns) {
+TEST(network_dns, tcp_tls) {
     logger::LEVEL = 0;
     auto begin = time::now();
     for (auto i = 0; i < 10; i++) {
@@ -66,9 +64,11 @@ TEST(unit_tests, test_tcp_tls_dns) {
 }
 
 
-TEST(unit_tests, test_tcp_tls_dns_resolve_multi_area) {
+TEST(network_dns, tcp_tls_resolve_multi_area) {
     logger::LEVEL = 0;
     logger::INFO << st::mem::malloc_size() << st::mem::free_size() << st::mem::leak_size() << string::npos << END;
     test_dns("www.google.com", "8.8.8.8", 853, "TCP_SSL", {{"US", 853}, {"JP", 853}, {"HK", 853}, {"TW", 853}});
     logger::INFO << st::mem::malloc_size() << st::mem::free_size() << st::mem::leak_size() << END;
 }
+
+} // namespace

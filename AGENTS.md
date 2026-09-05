@@ -44,8 +44,10 @@ cmake --build build
 
 ```bash
 # Build and run all tests (tests only build when OPENWRT=OFF)
+# Unit tests run in parallel. CTest starts serial integration tests only after
+# every unit test has completed.
 cd build
-ctest --output-on-failure -j1
+ctest --output-on-failure -j8
 
 # Run specific test executables
 ./st-unit-test            # Common utilities tests

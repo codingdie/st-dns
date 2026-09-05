@@ -241,3 +241,36 @@ TEST(integration_timeout_tests, non_a_query_rejected_immediately_when_forward_co
     ASSERT_GT(slow_size, 0);
     ASSERT_LE(rejected_cost, 150);
 }
+
+TEST(integration_timeout_tests, shutdown_ignores_late_forward_udp_callback) {
+    integration_test::load_config_once();
+    st::dns::config test_config(st::dns::config::INSTANCE);
+    dns_record_manager::uniq().clear();
+    boost::asio::io_context upstream_context;
+    boost::asio::ip::udp::socket silent_upstream(
+            upstream_context, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), 0));
+    test_config.servers[0]->ip = "127.0.0.1";
+    test_config.servers[0]->port = silent_upstream.local_endpoint().port();
+    test_config.servers[0]->timeout = 100;
+
+    auto *server = new dns_server(test_config, 1);
+    auto *th = new thread([=]() { server->start(); });
+    server->wait_start();
+
+    boost::asio::io_context client_context;
+    boost::asio::ip::udp::socket client_socket(
+            client_context, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), 0));
+    auto request = build_https_query("shutdown-timeout.example.com");
+    client_socket.send_to(
+            boost::asio::buffer(request->data, request->len),
+            boost::asio::ip::udp::endpoint(boost::asio::ip::make_address_v4("127.0.0.1"), 5353));
+    std::this_thread::sleep_for(std::chrono::milliseconds(30));
+
+    server->shutdown();
+    th->join();
+    delete th;
+    delete server;
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(150));
+    SUCCEED();
+}

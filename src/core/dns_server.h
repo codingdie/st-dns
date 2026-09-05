@@ -55,6 +55,7 @@ private:
     atomic_int64_t counter;
     uint32_t forward_max_running;
     std::shared_ptr<std::atomic_bool> accepting_remote_sync_callbacks;
+    std::shared_ptr<std::atomic_bool> accepting_forward_callbacks;
     st::task::queue<pair<string, remote_dns_server *>> sync_remote_record_task_queue;
     st::task::queue<forward_task_queue_param> forward_task_queue;
 

@@ -65,10 +65,13 @@ namespace st {
             std::unordered_set<std::string> task_pks;
 
             void schedule_generate_key() {
+                if (stopped.load()) {
+                    return;
+                }
                 uint16_t duration = 50;
                 generate_key_timer.expires_from_now(boost::posix_time::milliseconds(duration));
                 generate_key_timer.async_wait([this, duration](boost::system::error_code ec) {
-                    if (ec == boost::asio::error::operation_aborted) {
+                    if (ec || stopped.load()) {
                         return;
                     }
                     key_count += max_qps * duration / 1000;
@@ -78,9 +81,15 @@ namespace st {
             }
 
             void schedule_dispatch_task() {
+                if (stopped.load()) {
+                    return;
+                }
                 boost::asio::post(ic, [this]() {
+                    if (stopped.load()) {
+                        return;
+                    }
                     std::lock_guard<std::mutex> lg(mutex);
-                    if (key_count >= 1 && !p_queue.empty() && running < max_running) {
+                    if (!stopped.load() && key_count >= 1 && !p_queue.empty() && running < max_running) {
                         pair<uint64_t, uint64_t> id_score = p_queue.top();
                         st::task::priority_task<input> &task = tasks.at(id_score.first);
                         task.status = RUNNING;
@@ -90,13 +99,17 @@ namespace st {
                         apm_logger::perf("st-task-queue-stats",
                                          {{"queue_name", name}, {"priority", to_string(task.priority)}},
                                          {{"heap", p_queue.size()}, {"running", running}});
-                        boost::asio::post(ic, [this, task]() { executor(task); });
+                        boost::asio::post(ic, [this, task]() {
+                            if (!stopped.load()) {
+                                executor(task);
+                            }
+                        });
                     }
                 });
 
                 schedule_timer.expires_from_now(boost::posix_time::milliseconds(50));
                 schedule_timer.async_wait([this](boost::system::error_code ec) {
-                    if (ec == boost::asio::error::operation_aborted) {
+                    if (ec || stopped.load()) {
                         return;
                     }
                     schedule_dispatch_task();
@@ -117,6 +130,9 @@ namespace st {
 
             bool submit(const st::task::priority_task<input> &task) {
                 std::lock_guard<std::mutex> lg(mutex);
+                if (stopped.load()) {
+                    return false;
+                }
                 if (max_size > 0 && tasks.size() >= max_size) {
                     return false;
                 }
@@ -130,6 +146,9 @@ namespace st {
             }
             void complete(const st::task::priority_task<input> &task) {
                 std::lock_guard<std::mutex> lg(mutex);
+                if (stopped.load()) {
+                    return;
+                }
                 task_pks.erase(task.pk);
                 tasks.erase(task.id);
                 running--;

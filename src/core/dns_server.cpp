@@ -25,6 +25,7 @@ dns_server::dns_server(st::dns::config &config, uint32_t forward_max_running) : 
                                                                                 counter(0),
                                                                                 forward_max_running(forward_max_running > 0 ? forward_max_running : config.forward_max_running),
                                                                                 accepting_remote_sync_callbacks(std::make_shared<std::atomic_bool>(true)),
+                                                                                accepting_forward_callbacks(std::make_shared<std::atomic_bool>(true)),
                                                                                 sync_remote_record_task_queue(
                                                                                         "st-dns-record-sync-task",
                                                                                         100,
@@ -45,6 +46,10 @@ dns_server::dns_server(st::dns::config &config, uint32_t forward_max_running) : 
                                                                                         this->forward_max_running,
                                                                                         this->forward_max_running,
                                                                                         [this](const st::task::priority_task<forward_task_queue_param> &task) {
+                                                                                            auto accepting_callbacks = accepting_forward_callbacks;
+                                                                                            if (!accepting_callbacks->load()) {
+                                                                                                return;
+                                                                                            }
                                                                                             auto param = task.get_input();
                                                                                             auto *session = param.first;
                                                                                             auto complete_handler = param.second;
@@ -60,7 +65,11 @@ dns_server::dns_server(st::dns::config &config, uint32_t forward_max_running) : 
                                                                                                                            server->ip,
                                                                                                                            server->port,
                                                                                                                            server->timeout,
-                                                                                                                           [this, task, param](udp_response *response) {
+                                                                                                                           [this, accepting_callbacks, task, param](udp_response *response) {
+                                                                                                                               if (!accepting_callbacks->load()) {
+                                                                                                                                   delete response;
+                                                                                                                                   return;
+                                                                                                                               }
                                                                                                                                auto *session = param.first;
                                                                                                                                auto complete_handler = param.second;
                                                                                                                                forward_task_queue.complete(task);
@@ -121,6 +130,9 @@ void dns_server::start() {
 
 dns_server::~dns_server() {
     accepting_remote_sync_callbacks->store(false);
+    accepting_forward_callbacks->store(false);
+    sync_remote_record_task_queue.stop();
+    forward_task_queue.stop();
     // 析构函数：在线程已经退出后，安全地删除资源
     // 注意：iw 和 schedule_iw 可能已经在 shutdown() 中删除
     if (iw != nullptr) {
@@ -145,6 +157,9 @@ void dns_server::shutdown() {
     }
     start_ready.notify_all();
     accepting_remote_sync_callbacks->store(false);
+    accepting_forward_callbacks->store(false);
+    sync_remote_record_task_queue.stop();
+    forward_task_queue.stop();
     console_manager::uniq().shutdown();
 
     // 1. 取消所有pending的操作

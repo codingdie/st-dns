@@ -121,6 +121,48 @@ TEST(unit_tests, test_force_resolve_regex_match) {
     logger::INFO << "Force resolve regex match test passed" << END;
 }
 
+TEST(unit_tests, config_re_prefixed_force_resolve_rule_match) {
+    st::dns::config::INSTANCE.unload();
+
+    auto temp_dir = boost::filesystem::temp_directory_path() /
+                    boost::filesystem::unique_path("st-dns-re-prefix-%%%%-%%%%-%%%%");
+    boost::filesystem::create_directories(temp_dir);
+    auto config_path = temp_dir / "config.json";
+
+    {
+        std::ofstream config_file(config_path.string());
+        config_file << R"({
+  "ip": "127.0.0.1",
+  "port": 5353,
+  "auto_upstream_dns": false,
+  "servers": [
+    {
+      "type": "UDP",
+      "ip": "127.0.0.1",
+      "port": 53,
+      "areas": ["LAN"]
+    }
+  ],
+  "force_resolve_rules": [
+    {
+      "pattern": "re:^(api|www)\\.re-prefix\\.example\\.net$",
+      "ips": ["203.0.113.11"]
+    }
+  ]
+})";
+    }
+
+    st::dns::config::INSTANCE.load(temp_dir.string());
+    ASSERT_EQ(1, st::dns::config::INSTANCE.force_resolve_rules.size());
+    auto *rule = st::dns::config::INSTANCE.force_resolve_rules.front();
+    ASSERT_TRUE(rule->match("api.re-prefix.example.net"));
+    ASSERT_TRUE(rule->match("www.re-prefix.example.net"));
+    ASSERT_FALSE(rule->match("cdn.re-prefix.example.net"));
+
+    st::dns::config::INSTANCE.unload();
+    boost::filesystem::remove_all(temp_dir);
+}
+
 TEST(unit_tests, test_force_resolve_ips) {
     // 测试多个IP地址
     vector<uint32_t> ips = {
@@ -167,7 +209,7 @@ TEST(unit_tests, config_load_unload_is_repeatable) {
     }
 }
 
-TEST(unit_tests, config_invalid_force_resolve_regex_is_skipped) {
+TEST(unit_tests, config_invalid_force_resolve_rules_are_skipped) {
     st::dns::config::INSTANCE.unload();
 
     auto temp_dir = boost::filesystem::temp_directory_path() /
@@ -190,6 +232,15 @@ TEST(unit_tests, config_invalid_force_resolve_regex_is_skipped) {
     }
   ],
   "force_resolve_rules": [
+    {
+      "pattern": "re:",
+      "ips": ["203.0.113.8"]
+    },
+    {
+      "pattern": "re:api",
+      "regex": "api",
+      "ips": ["203.0.113.9"]
+    },
     {
       "regex": "[",
       "ips": ["203.0.113.10"]

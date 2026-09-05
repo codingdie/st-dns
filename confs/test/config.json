@@ -92,6 +92,10 @@
       "ips": ["203.0.113.10"]
     },
     {
+      "pattern": "re:^(api|www)\\.re-prefix\\.example\\.net$",
+      "ips": ["203.0.113.11"]
+    },
+    {
       "pattern": "github.com",
       "ips": ["192.30.255.113"]
     }

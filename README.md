@@ -72,7 +72,7 @@ st-dns is a smart local dns server which support to config multi UDP/TCP/DOT DNS
             "ips": ["192.168.1.100"]
         },
         {
-            "regex": "^(api|www)\\.example\\.com$", //与 pattern 二选一，完整匹配域名
+            "pattern": "re:^(api|www)\\.example\\.com$", //re: 前缀表示完整匹配的正则
             "ips": ["192.168.1.101"]
         }
     ],

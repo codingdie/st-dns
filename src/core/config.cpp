@@ -255,6 +255,21 @@ void st::dns::config::load(const string &base_conf_dir) {
                 auto rule_node = it->second;
                 string pattern = rule_node.get("pattern", "");
                 string regex_pattern = rule_node.get("regex", "");
+                const string regex_prefix = "re:";
+                bool re_prefixed_pattern = pattern.size() >= regex_prefix.size() &&
+                                           pattern.compare(0, regex_prefix.size(), regex_prefix) == 0;
+                if (re_prefixed_pattern) {
+                    if (!regex_pattern.empty()) {
+                        logger::WARN << "force resolve rule re pattern and regex cannot both be configured, skip!" << END;
+                        continue;
+                    }
+                    regex_pattern = pattern.substr(regex_prefix.size());
+                    pattern.clear();
+                    if (regex_pattern.empty()) {
+                        logger::WARN << "force resolve rule re pattern empty, skip!" << END;
+                        continue;
+                    }
+                }
                 if (pattern.empty() && regex_pattern.empty()) {
                     logger::WARN << "force resolve rule pattern and regex empty, skip!" << END;
                     continue;

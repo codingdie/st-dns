@@ -10,11 +10,12 @@ namespace st {
     namespace command {
         namespace proxy {
 
-            static uint16_t register_area_port(const string& ip, uint16_t port, const string &area) {
+            static uint16_t register_area_port(const string& ip, uint16_t port, const string &area,
+                                               const std::function<bool()> &should_cancel = std::function<bool()>()) {
                 auto begin = time::now();
                 auto cm = "proxy register area virtual port --area=" + area + " --port=" + to_string(port) +
                           " --ip=" + ip;
-                auto result = st::console::client::command("127.0.0.1", 5858, cm, 100);
+                auto result = st::console::client::command("127.0.0.1", 5858, cm, 100, should_cancel);
                 apm_logger::perf("register-area-port", {}, st::utils::time::now() - begin);
                 if (result.first) {
                     return stoi(result.second);
@@ -22,10 +23,11 @@ namespace st {
                     return 0;
                 }
             }
-            static vector<string> get_ip_available_proxy_areas(const string& ip) {
+            static vector<string> get_ip_available_proxy_areas(
+                    const string& ip, const std::function<bool()> &should_cancel = std::function<bool()>()) {
                 auto begin = time::now();
                 auto cm = "proxy ip available areas --ip=" + ip;
-                auto result = st::console::client::command("127.0.0.1", 5858, cm, 1000);
+                auto result = st::console::client::command("127.0.0.1", 5858, cm, 1000, should_cancel);
                 vector<string> areas;
                 apm_logger::perf("get-ip-available-proxy-areas", {}, st::utils::time::now() - begin);
                 if (result.first) {
@@ -85,9 +87,10 @@ namespace st {
                 return result;
             }
 
-            static pair<bool, unordered_set<uint32_t>> get_blacklist_ips() {
+            static pair<bool, unordered_set<uint32_t>> get_blacklist_ips(
+                    const std::function<bool()> &should_cancel = std::function<bool()>()) {
                 auto begin = time::now();
-                auto result = st::console::client::command("127.0.0.1", 5858, "proxy blacklist", 1000);
+                auto result = st::console::client::command("127.0.0.1", 5858, "proxy blacklist", 1000, should_cancel);
                 apm_logger::perf("get-proxy-blacklist", {}, st::utils::time::now() - begin);
                 if (!result.first) {
                     logger::ERROR << "get proxy blacklist error!" << result.second << END;

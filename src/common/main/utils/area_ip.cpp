@@ -53,6 +53,7 @@ namespace st {
                 ip_lifecycle_ids.clear();
                 pending_ip_timers.clear();
             }
+            ip_loading_changed.notify_all();
             ctx.restart();
             sche_ctx.restart();
             ctx_work = new boost::asio::io_context::work(ctx);
@@ -124,6 +125,7 @@ namespace st {
                 ips.clear();
                 ip_lifecycle_ids.clear();
             }
+            ip_loading_changed.notify_all();
             {
                 lock_guard<mutex> lock_guard(runtime_lock);
                 runtime_stopping = false;
@@ -207,14 +209,17 @@ namespace st {
         }
 
         void manager::finish_ip_loading(const uint32_t &ip, uint64_t lifecycle_id) {
-            std::lock_guard<std::mutex> lg(ips_lock);
-            auto lifecycle_it = ip_lifecycle_ids.find(ip);
-            if (lifecycle_it == ip_lifecycle_ids.end() || lifecycle_it->second != lifecycle_id) {
-                return;
+            {
+                std::lock_guard<std::mutex> lg(ips_lock);
+                auto lifecycle_it = ip_lifecycle_ids.find(ip);
+                if (lifecycle_it == ip_lifecycle_ids.end() || lifecycle_it->second != lifecycle_id) {
+                    return;
+                }
+                pending_ip_timers.erase(ip);
+                ip_lifecycle_ids.erase(lifecycle_it);
+                ips.erase(ip);
             }
-            pending_ip_timers.erase(ip);
-            ip_lifecycle_ids.erase(lifecycle_it);
-            ips.erase(ip);
+            ip_loading_changed.notify_all();
         }
 
         void manager::async_load_area_ips(const string &area_code) {
@@ -291,71 +296,81 @@ namespace st {
                 return;
             }
             auto lifecycle_id = runtime_lifecycle_id.load();
+            if (!mark_ip_loading(ip, lifecycle_id)) {
+                return;
+            }
             ctx.post([this, ip, lifecycle_id]() {
                 if (!runtime_started.load() || runtime_lifecycle_id.load() != lifecycle_id) {
+                    finish_ip_loading(ip, lifecycle_id);
                     return;
                 }
-                if (mark_ip_loading(ip, lifecycle_id)) {
-                    std::function<void(const uint32_t &ip)> do_load_ip_info = [this, lifecycle_id](const uint32_t &ip) {
-                        string net_area;
-                        {
-                            std::lock_guard<std::mutex> lg(net_lock);
-                            net_area = get_area(ip, net_caches);
-                        }
-                        if (net_area.empty()) {
-                            auto area_code = load_ip_info(ip);
-                            if (!area_code.empty()) {
-                                {
-                                    std::lock_guard<std::mutex> lg(net_lock);
-                                    this->net_caches[ip] = area_code;
-                                }
-                                async_load_area_ips(area_code);
-                            } else {
-                                logger::ERROR << "async load ip info failed!" << st::utils::ipv4::ip_to_str(ip) << END;
-                            }
-
-                        } else {
-                            logger::DEBUG << "async load ip info skipped!" << st::utils::ipv4::ip_to_str(ip) << END;
-                        }
-                        finish_ip_loading(ip, lifecycle_id);
-                    };
-                    uint64_t now_time = time::now();
-                    if (last_load_ip_info_time.load() <= now_time) {
-                        last_load_ip_info_time = now_time + 1000L / NET_QPS;
-                    } else {
-                        last_load_ip_info_time.fetch_add(1000L / NET_QPS);
+                std::function<void(const uint32_t &ip)> do_load_ip_info = [this, lifecycle_id](const uint32_t &ip) {
+                    string net_area;
+                    {
+                        std::lock_guard<std::mutex> lg(net_lock);
+                        net_area = get_area(ip, net_caches);
                     }
-                    if (last_load_ip_info_time.load() > now_time) {
-                        auto delay = std::make_shared<boost::asio::deadline_timer>(ctx);
+                    if (net_area.empty()) {
+                        auto area_code = load_ip_info(ip);
+                        if (!area_code.empty()) {
+                            {
+                                std::lock_guard<std::mutex> lg(net_lock);
+                                this->net_caches[ip] = area_code;
+                            }
+                            async_load_area_ips(area_code);
+                        } else {
+                            logger::ERROR << "async load ip info failed!" << st::utils::ipv4::ip_to_str(ip) << END;
+                        }
+
+                    } else {
+                        logger::DEBUG << "async load ip info skipped!" << st::utils::ipv4::ip_to_str(ip) << END;
+                    }
+                    finish_ip_loading(ip, lifecycle_id);
+                };
+                uint64_t now_time = time::now();
+                if (last_load_ip_info_time.load() <= now_time) {
+                    last_load_ip_info_time = now_time + 1000L / NET_QPS;
+                } else {
+                    last_load_ip_info_time.fetch_add(1000L / NET_QPS);
+                }
+                if (last_load_ip_info_time.load() > now_time) {
+                    auto delay = std::make_shared<boost::asio::deadline_timer>(ctx);
+                    {
+                        std::lock_guard<std::mutex> lg(ips_lock);
+                        pending_ip_timers[ip] = delay;
+                    }
+                    delay->expires_from_now(
+                            boost::posix_time::milliseconds(last_load_ip_info_time.load() - now_time));
+                    delay->async_wait([this, delay, do_load_ip_info, ip, lifecycle_id](boost::system::error_code ec) {
                         {
                             std::lock_guard<std::mutex> lg(ips_lock);
-                            pending_ip_timers[ip] = delay;
+                            auto it = pending_ip_timers.find(ip);
+                            if (it != pending_ip_timers.end() && it->second == delay) {
+                                pending_ip_timers.erase(it);
+                            }
                         }
-                        delay->expires_from_now(
-                                boost::posix_time::milliseconds(last_load_ip_info_time.load() - now_time));
-                        delay->async_wait([this, delay, do_load_ip_info, ip, lifecycle_id](boost::system::error_code ec) {
-                            {
-                                std::lock_guard<std::mutex> lg(ips_lock);
-                                auto it = pending_ip_timers.find(ip);
-                                if (it != pending_ip_timers.end() && it->second == delay) {
-                                    pending_ip_timers.erase(it);
-                                }
-                            }
-                            if (!runtime_started.load() || runtime_lifecycle_id.load() != lifecycle_id) {
-                                finish_ip_loading(ip, lifecycle_id);
-                                return;
-                            }
-                            ctx.post(boost::bind(do_load_ip_info, ip));
-                        });
-                    } else {
-                        ctx.post([=]() {
-                            if (!runtime_started.load() || runtime_lifecycle_id.load() != lifecycle_id) {
-                                return;
-                            }
-                            do_load_ip_info(ip);
-                        });
-                    }
+                        if (!runtime_started.load() || runtime_lifecycle_id.load() != lifecycle_id) {
+                            finish_ip_loading(ip, lifecycle_id);
+                            return;
+                        }
+                        ctx.post(boost::bind(do_load_ip_info, ip));
+                    });
+                } else {
+                    ctx.post([=]() {
+                        if (!runtime_started.load() || runtime_lifecycle_id.load() != lifecycle_id) {
+                            finish_ip_loading(ip, lifecycle_id);
+                            return;
+                        }
+                        do_load_ip_info(ip);
+                    });
                 }
+            });
+        }
+
+        bool manager::wait_for_ip_info(const uint32_t &ip, uint64_t timeout_ms) {
+            std::unique_lock<std::mutex> lock(ips_lock);
+            return ip_loading_changed.wait_for(lock, std::chrono::milliseconds(timeout_ms), [this, ip]() {
+                return ips.find(ip) == ips.end();
             });
         }
 

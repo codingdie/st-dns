@@ -10,6 +10,7 @@
 #include "shell.h"
 #include "string_utils.h"
 #include <atomic>
+#include <condition_variable>
 #include <memory>
 #include <iostream>
 #include <mutex>
@@ -88,6 +89,7 @@ namespace st {
             static manager &uniq();
             void config(const area_ip_config &config);
             void async_load_ip_info_from_net(const uint32_t &ip);
+            bool wait_for_ip_info(const uint32_t &ip, uint64_t timeout_ms);
             static bool is_match_areas(const vector<string> &areas, const string &area);
 
         private:
@@ -103,6 +105,7 @@ namespace st {
             mutex default_lock;
             mutex net_lock;
             mutex ips_lock;
+            condition_variable ip_loading_changed;
             std::atomic_uint64_t last_load_ip_info_time;
             std::atomic_uint64_t last_load_area_ips_time;
             boost::asio::io_context ctx;

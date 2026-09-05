@@ -76,7 +76,9 @@ if(NOT OPENWRT)
     # 单测运行在不同进程中，为每例提供独立的持久化和运行时目录，以支持安全并行。
     gtest_add_tests(TARGET st-unit-test TEST_LIST ST_UNIT_TESTS)
     gtest_add_tests(TARGET st-dns-unit-test TEST_LIST DNS_UNIT_TESTS)
-    gtest_add_tests(TARGET st-dns-integration-test TEST_LIST INTEGRATION_TESTS)
+    # 集成测试在单一进程内串行运行，以复用套件级的本地 DNS 服务和地区 IP 缓存。
+    add_test(NAME st-dns-integration-test COMMAND $<TARGET_FILE:st-dns-integration-test>)
+    set(INTEGRATION_TESTS st-dns-integration-test)
 
     function(configure_unit_tests test_target test_list)
         foreach(test_name IN LISTS ${test_list})
@@ -97,7 +99,7 @@ if(NOT OPENWRT)
     foreach(test_name IN LISTS INTEGRATION_TESTS)
         set_tests_properties(${test_name} PROPERTIES
             LABELS integration
-            TIMEOUT 120
+            TIMEOUT 300
             RUN_SERIAL TRUE
             DEPENDS "${ALL_UNIT_TESTS}")
     endforeach()

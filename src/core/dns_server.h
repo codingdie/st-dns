@@ -11,7 +11,9 @@
 #include "st.h"
 #include <boost/asio.hpp>
 #include <boost/thread.hpp>
+#include <condition_variable>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -48,6 +50,8 @@ private:
     boost::asio::io_context::work *schedule_iw = nullptr;
     boost::asio::deadline_timer *schedule_timer = nullptr;
     std::atomic<uint8_t> state{0};
+    std::mutex start_lock;
+    std::condition_variable start_ready;
     atomic_int64_t counter;
     uint32_t forward_max_running;
     std::shared_ptr<std::atomic_bool> accepting_remote_sync_callbacks;

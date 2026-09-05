@@ -254,6 +254,26 @@ TEST(unit_tests, test_udp_console) {
     ASSERT_STREQ("command:xx asd , opts size:1", newResult.second.c_str());
     delete console;
 }
+
+TEST(unit_tests, udp_console_command_cancels_without_waiting_for_timeout) {
+    io_context silent_server_context;
+    udp::socket silent_server(silent_server_context, udp::endpoint(udp::v4(), 0));
+    const auto port = silent_server.local_endpoint().port();
+    std::atomic_bool cancelled{false};
+    std::thread canceller([&cancelled]() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(30));
+        cancelled.store(true);
+    });
+
+    auto begin = time::now();
+    auto result = st::console::client::command(
+            "127.0.0.1", port, "noop", 1000, [&cancelled]() { return cancelled.load(); });
+    auto cost = time::now() - begin;
+    canceller.join();
+
+    ASSERT_FALSE(result.first);
+    ASSERT_LT(cost, 200);
+}
 TEST(unit_tests, test_dns_resolve) {
     ASSERT_STRNE(st::utils::ipv4::ips_to_str(st::utils::dns::query("114.114.114.114", "google.com")).c_str(), "");
     ASSERT_STRNE(st::utils::ipv4::ips_to_str(st::utils::dns::query("google.com")).c_str(), "");

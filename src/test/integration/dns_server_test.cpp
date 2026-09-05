@@ -9,10 +9,9 @@
 
 class integration_tests : public BaseTest {
 protected:
-    void SetUp() override {
-        BaseTest::SetUp();
-    }
-    void TearDown() override { BaseTest::TearDown(); }
+    static void SetUpTestSuite() { start_server_for_suite(); }
+
+    static void TearDownTestSuite() { stop_server_for_suite(); }
 };
 
 void test_dns(const string &domain) {
@@ -165,13 +164,14 @@ static std::unique_ptr<st::dns::protocol::udp_request> build_https_query(const s
 }
 
 TEST(integration_timeout_tests, non_a_query_uses_upstream_timeout_when_forward_capacity_available) {
-    st::dns::config::INSTANCE.load("../confs/test");
+    integration_test::load_config_once();
+    st::dns::config test_config(st::dns::config::INSTANCE);
     dns_record_manager::uniq().clear();
-    st::dns::config::INSTANCE.servers[0]->ip = "127.0.0.1";
-    st::dns::config::INSTANCE.servers[0]->port = 1;
-    st::dns::config::INSTANCE.servers[0]->timeout = 500;
+    test_config.servers[0]->ip = "127.0.0.1";
+    test_config.servers[0]->port = 1;
+    test_config.servers[0]->timeout = 500;
 
-    auto *server = new dns_server(st::dns::config::INSTANCE, 1);
+    auto *server = new dns_server(test_config, 1);
     auto *th = new thread([=]() { server->start(); });
     server->wait_start();
 
@@ -192,7 +192,6 @@ TEST(integration_timeout_tests, non_a_query_uses_upstream_timeout_when_forward_c
     th->join();
     delete th;
     delete server;
-    st::dns::config::INSTANCE.unload();
 
     ASSERT_GT(response_size, 0);
     ASSERT_GE(cost, 400);
@@ -200,13 +199,14 @@ TEST(integration_timeout_tests, non_a_query_uses_upstream_timeout_when_forward_c
 }
 
 TEST(integration_timeout_tests, non_a_query_rejected_immediately_when_forward_concurrency_full) {
-    st::dns::config::INSTANCE.load("../confs/test");
+    integration_test::load_config_once();
+    st::dns::config test_config(st::dns::config::INSTANCE);
     dns_record_manager::uniq().clear();
-    st::dns::config::INSTANCE.servers[0]->ip = "127.0.0.1";
-    st::dns::config::INSTANCE.servers[0]->port = 1;
-    st::dns::config::INSTANCE.servers[0]->timeout = 500;
+    test_config.servers[0]->ip = "127.0.0.1";
+    test_config.servers[0]->port = 1;
+    test_config.servers[0]->timeout = 500;
 
-    auto *server = new dns_server(st::dns::config::INSTANCE, 1);
+    auto *server = new dns_server(test_config, 1);
     auto *th = new thread([=]() { server->start(); });
     server->wait_start();
 
@@ -236,7 +236,6 @@ TEST(integration_timeout_tests, non_a_query_rejected_immediately_when_forward_co
     th->join();
     delete th;
     delete server;
-    st::dns::config::INSTANCE.unload();
 
     ASSERT_GT(rejected_size, 0);
     ASSERT_GT(slow_size, 0);

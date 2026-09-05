@@ -68,7 +68,8 @@ dns_server::dns_server(st::dns::config &config, uint32_t forward_max_running) : 
                                                                                                                                complete_handler(session);
                                                                                                                            });
                                                                                         },
-                                                                                        this->forward_max_running) {
+                                                                                        this->forward_max_running,
+                                                                                        true) {
     try {
         ss = new udp::socket(ic, udp::endpoint(boost::asio::ip::make_address_v4(config.ip), config.port));
     } catch (const boost::system::system_error &e) {
@@ -105,7 +106,11 @@ void dns_server::start() {
     });
     logger::INFO << "st-dns start, listen at" << config.ip << config.port << END;
     receive();
-    state++;
+    {
+        std::lock_guard<std::mutex> lock(start_lock);
+        state = 1;
+    }
+    start_ready.notify_all();
     schedule_timer = new boost::asio::deadline_timer(schedule_ic);
     schedule();
     for (auto &th : threads) {
@@ -134,7 +139,11 @@ dns_server::~dns_server() {
 
 void dns_server::shutdown() {
     // shutdown 负责停止操作并等待线程退出
-    this->state = 2;
+    {
+        std::lock_guard<std::mutex> lock(start_lock);
+        this->state = 2;
+    }
+    start_ready.notify_all();
     accepting_remote_sync_callbacks->store(false);
     console_manager::uniq().shutdown();
 
@@ -169,9 +178,8 @@ void dns_server::shutdown() {
 }
 
 void dns_server::wait_start() {
-    while (state == 0) {
-        std::this_thread::sleep_for(std::chrono::seconds(3));
-    }
+    std::unique_lock<std::mutex> lock(start_lock);
+    start_ready.wait(lock, [this]() { return state != 0; });
 }
 void dns_server::receive() {
     if (state == 2 || ss == nullptr || !ss->is_open()) {
@@ -448,17 +456,31 @@ void dns_server::sync_dns_record_from_remote(const string &host, const std::func
     }
 }
 void dns_server::schedule() {
-    auto blacklist_result = st::command::proxy::get_blacklist_ips();
+    auto should_cancel = [this]() { return state == 2; };
+    auto blacklist_result = st::command::proxy::get_blacklist_ips(should_cancel);
+    if (should_cancel()) {
+        return;
+    }
     if (blacklist_result.first) {
         dns_record_manager::uniq().sync_blacklist_ips(blacklist_result.second);
     }
 
     for (auto &server : config.servers) {
+        if (should_cancel()) {
+            return;
+        }
         if (std::find(server->areas.begin(), server->areas.end(), "LAN") == server->areas.end()) {
             vector<pair<string, uint16_t>> result;
-            for (const auto &area : st::command::proxy::get_ip_available_proxy_areas(server->ip)) {
+            for (const auto &area : st::command::proxy::get_ip_available_proxy_areas(server->ip, should_cancel)) {
+                if (should_cancel()) {
+                    return;
+                }
                 if (areaip::manager::is_match_areas(server->areas, area)) {
-                    uint16_t a_port = st::command::proxy::register_area_port(server->ip, server->port, area);
+                    uint16_t a_port =
+                            st::command::proxy::register_area_port(server->ip, server->port, area, should_cancel);
+                    if (should_cancel()) {
+                        return;
+                    }
                     if (a_port > 0) {
                         result.emplace_back(area, a_port);
                         logger::INFO << server->id() << "resolve optimize areas area sync" << area << a_port << END;
@@ -468,6 +490,9 @@ void dns_server::schedule() {
             }
             server->resolve_optimize_areas = result;
         }
+    }
+    if (should_cancel()) {
+        return;
     }
     schedule_timer->expires_from_now(boost::posix_time::seconds(5));
     schedule_timer->async_wait([=](boost::system::error_code ec) {

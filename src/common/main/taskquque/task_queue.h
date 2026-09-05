@@ -106,9 +106,10 @@ namespace st {
         public:
             explicit queue(string name, uint32_t speed, uint32_t max_running,
                            const std::function<void(st::task::priority_task<input>)> &executor,
-                           uint32_t max_size = 0)
+                           uint32_t max_size = 0, bool start_with_full_tokens = false)
                 : name(std::move(name)), ic(), iw(new io_context::work(ic)), th([this]() { ic.run(); }),
-                  generate_key_timer(ic), schedule_timer(ic), executor(executor), max_qps(speed),
+                  generate_key_timer(ic), schedule_timer(ic), executor(executor),
+                  key_count(start_with_full_tokens ? speed : 0), max_qps(speed),
                   max_running(max_running), max_size(max_size), running(0) {
                 schedule_generate_key();
                 schedule_dispatch_task();

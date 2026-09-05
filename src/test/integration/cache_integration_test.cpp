@@ -6,7 +6,12 @@
 #include "integration_test_base.h"
 #include <chrono>
 
-class cache_integration_tests : public BaseTest {};
+class cache_integration_tests : public BaseTest {
+protected:
+    static void SetUpTestSuite() { start_server_for_suite(); }
+
+    static void TearDownTestSuite() { stop_server_for_suite(); }
+};
 
 // 辅助函数：通过 DNS server 查询域名，返回 IP 列表
 static vector<uint32_t> query_dns(const string &domain, uint64_t timeout = 5000) {

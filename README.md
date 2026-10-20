@@ -26,6 +26,9 @@ st-dns is a smart local dns server which support to config multi UDP/TCP/DOT DNS
 *  `sudo st-dns -d stop`  
 
 ### How to config?  
+上游 A 记录默认过滤 `127.0.0.0/8` 回环地址，历史异常缓存读取时同步失效。
+`localhost`、`.localhost` 子域及显式 `force_resolve_rules` 可继续使用回环地址；正常内网地址不受影响。
+
 ```jsonc
 {
     "ip": "127.0.0.1", //local IP to bind

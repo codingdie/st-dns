@@ -8,8 +8,43 @@
 #include <vector>
 #include "message.pb.h"
 #include "config.h"
+#include <boost/algorithm/string.hpp>
 
 namespace {
+bool is_loopback_ip(uint32_t ip) {
+    return (ip & 0xff000000U) == 0x7f000000U;
+}
+
+bool filter_loopback_ip(const string &domain, uint32_t ip, const string &server) {
+    if (!is_loopback_ip(ip) || server == "st-dns-force") {
+        return false;
+    }
+    string host = domain;
+    if (!host.empty() && host.back() == '.') {
+        host.pop_back();
+    }
+    return !boost::iequals(host, "localhost") && !boost::iends_with(host, ".localhost");
+}
+
+// 读取时过滤旧版本持久化的异常地址，避免过期缓存先返回回环地址再刷新。
+void filter_loopback_records(st::dns::proto::records &records) {
+    auto *record_map = records.mutable_map();
+    vector<string> empty_servers;
+    for (auto &entry : *record_map) {
+        auto *ips = entry.second.mutable_ips();
+        auto end = std::remove_if(ips->begin(), ips->end(), [&](uint32_t ip) {
+            return filter_loopback_ip(records.domain(), ip, entry.first);
+        });
+        ips->erase(end, ips->end());
+        if (ips->empty()) {
+            empty_servers.emplace_back(entry.first);
+        }
+    }
+    for (const auto &server : empty_servers) {
+        record_map->erase(server);
+    }
+}
+
 string dns_record_db_prefix() {
     const char *configured_prefix = std::getenv("ST_DNS_DB_PREFIX");
     if (configured_prefix != nullptr && configured_prefix[0] != '\0') {
@@ -38,7 +73,7 @@ void dns_record_manager::add(const string &domain, const vector<uint32_t> &ips, 
     vector<uint32_t> allowed_ips;
     allowed_ips.reserve(ips.size());
     for (auto ip : ips) {
-        if (current_blacklist.find(ip) == current_blacklist.end()) {
+        if (!filter_loopback_ip(domain, ip, dns_server) && current_blacklist.find(ip) == current_blacklist.end()) {
             allowed_ips.emplace_back(ip);
         }
     }
@@ -99,8 +134,16 @@ void dns_record_manager::add(const string &domain, const vector<uint32_t> &ips, 
         areaip::manager::uniq().async_load_ip_info_from_net(ip);
         add_reverse_record(ip, domain);
     }
-    (*dns_records.mutable_map())[dns_server] = pb;
-    db.put(domain, dns_records.SerializeAsString());
+    if (selected_ips.empty()) {
+        dns_records.mutable_map()->erase(dns_server);
+    } else {
+        (*dns_records.mutable_map())[dns_server] = pb;
+    }
+    if (dns_records.map().empty()) {
+        db.erase(domain);
+    } else {
+        db.put(domain, dns_records.SerializeAsString());
+    }
     logger::INFO << "add dns cache" << domain << ipv4::ips_to_str(selected_ips) << "from" << dns_server << "expire" << expire << END;
 }
 
@@ -124,7 +167,7 @@ dns_record dns_record_manager::transform(const st::dns::proto::records &records)
         if (records.map().contains(serverId)) {
             st::dns::proto::record t_record = records.map().at(serverId);
             for (auto ip : t_record.ips()) {
-                if (dns_record_manager::uniq().is_blacklist_ip(ip)) {
+                if (filter_loopback_ip(records.domain(), ip, serverId) || dns_record_manager::uniq().is_blacklist_ip(ip)) {
                     continue;
                 }
                 dns_ip_record tmp;
@@ -199,6 +242,7 @@ st::dns::proto::records dns_record_manager::get_dns_records_pb(const string &dom
         record.ParseFromString(data);
     }
     record.set_domain(domain);
+    filter_loopback_records(record);
     apm_logger::perf("st-dns-get-pb-record", {}, time::now() - begin);
 
     return record;
@@ -220,7 +264,7 @@ vector<dns_record> dns_record::transform(const st::dns::proto::records &records)
                 auto item = records.map().at(serverId);
                 dns_record record;
                 for (auto ip : item.ips()) {
-                    if (!dns_record_manager::uniq().is_blacklist_ip(ip)) {
+                    if (!filter_loopback_ip(records.domain(), ip, serverId) && !dns_record_manager::uniq().is_blacklist_ip(ip)) {
                         record.ips.emplace_back(ip);
                     }
                 }
@@ -302,6 +346,20 @@ st::dns::proto::reverse_record dns_record_manager::reverse_resolve(uint32_t ip) 
         record.ParseFromString(data);
     }
     record.set_ip(ip);
+    if (is_loopback_ip(ip)) {
+        // 旧反向索引可能仍含异常上游域名，仅保留当前有效缓存中明确允许的映射。
+        auto *domains = record.mutable_domains();
+        auto end = std::remove_if(domains->begin(), domains->end(), [&](const string &domain) {
+            auto records = get_dns_records_pb(domain);
+            for (const auto &entry : records.map()) {
+                if (std::find(entry.second.ips().begin(), entry.second.ips().end(), ip) != entry.second.ips().end()) {
+                    return false;
+                }
+            }
+            return true;
+        });
+        domains->erase(end, domains->end());
+    }
     return record;
 }
 void dns_record_manager::add_reverse_record(uint32_t ip, std::string domain) {

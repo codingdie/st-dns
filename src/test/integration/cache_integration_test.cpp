@@ -5,6 +5,7 @@
 
 #include "integration_test_base.h"
 #include <chrono>
+#include <future>
 
 class cache_integration_tests : public BaseTest {
 protected:
@@ -17,16 +18,30 @@ protected:
 static vector<uint32_t> query_dns(const string &domain, uint64_t timeout = 5000) {
     const string server_ip = "127.0.0.1";
     const uint32_t port = 5353;
-    mutex lock;
-    lock.lock();
-    vector<uint32_t> ips;
-    dns_client::uniq().udp_dns(domain, server_ip, port, timeout, [&](std::vector<uint32_t> result) {
-        ips = result;
-        lock.unlock();
+    std::promise<vector<uint32_t>> promise;
+    auto result = promise.get_future();
+    dns_client::uniq().udp_dns(domain, server_ip, port, timeout, [&](std::vector<uint32_t> ips) {
+        promise.set_value(ips);
     });
-    lock.lock();
-    lock.unlock();
-    return ips;
+    return result.get();
+}
+
+TEST_F(cache_integration_tests, mixed_upstream_cache_never_returns_loopback) {
+    const string domain = "loopback-filter.invalid";
+    const uint32_t keep = st::utils::ipv4::str_to_ip("192.168.1.10");
+    // 填充各来源以避免测试访问外部 DNS，验证缓存到客户端响应的完整路径。
+    for (const auto *server : st::dns::config::INSTANCE.servers) {
+        dns_record_manager::uniq().add(domain, {0x7f000001U, 0x7f010203U, keep}, server->id(), 600);
+    }
+    EXPECT_EQ(vector<uint32_t>({keep}), query_dns(domain));
+    EXPECT_EQ(vector<uint32_t>({keep}), query_dns(domain));
+}
+
+TEST_F(cache_integration_tests, explicit_force_rule_keeps_loopback) {
+    EXPECT_EQ(vector<uint32_t>({0x7f000002U}), query_dns("explicit-loopback.example"));
+    auto reverse = dns_record_manager::uniq().reverse_resolve(0x7f000002U);
+    ASSERT_EQ(1, reverse.domains_size());
+    EXPECT_EQ("explicit-loopback.example", reverse.domains(0));
 }
 
 // 测试缓存未命中 -> 缓存命中流程（使用 force_resolve 域名，无需外部网络）

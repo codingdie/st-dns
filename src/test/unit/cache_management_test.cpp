@@ -10,6 +10,7 @@
 #include "st.h"
 #include <thread>
 #include <chrono>
+#include <cstdlib>
 
 // 测试 fixture，用于加载配置
 class cache_management : public ::testing::Test {
@@ -347,4 +348,103 @@ TEST_F(cache_management, resolve_filters_blacklist_ips) {
 
     ASSERT_EQ(1, record.ips.size());
     ASSERT_EQ(keep_ip, record.ips[0]);
+}
+
+TEST_F(cache_management, upstream_filters_entire_loopback_range) {
+    auto &manager = dns_record_manager::uniq();
+    const string domain = "query.sse.com.cn";
+    const vector<uint32_t> keep = {0x7effffffU, 0x80000000U, 0xc0a80101U};
+    manager.add(domain, {0x7f000000U, 0x7f000001U, 0x7f010203U, 0x7fffffffU,
+                         keep[0], keep[1], keep[2]}, "8_8_8_8_53", 600);
+    auto records = manager.get_dns_records_pb(domain);
+    ASSERT_EQ(1, records.map().size());
+    const auto &ips = records.map().at("8_8_8_8_53").ips();
+    EXPECT_EQ(keep, vector<uint32_t>(ips.begin(), ips.end()));
+    EXPECT_EQ(0, manager.reverse_resolve(0x7f000001U).domains_size());
+}
+
+TEST_F(cache_management, loopback_only_update_removes_source_and_uses_backup) {
+    auto &manager = dns_record_manager::uniq();
+    const string domain = "loopback-fallback.example";
+    const uint32_t keep = st::utils::ipv4::str_to_ip("192.168.1.10");
+    manager.add(domain, {keep}, "223_5_5_5_853", 600);
+    manager.add(domain, {keep}, "114_114_114_114_53", 600);
+    manager.add(domain, {0x7f000001U}, "223_5_5_5_853", 600);
+
+    auto record = manager.resolve(domain);
+    EXPECT_EQ(vector<uint32_t>({keep}), record.ips);
+    EXPECT_EQ(0, record.servers.count("223_5_5_5_853"));
+    EXPECT_EQ(0, manager.get_dns_records_pb(domain).map().count("223_5_5_5_853"));
+
+    manager.add(domain, {0x7fffffffU}, "114_114_114_114_53", 600);
+    EXPECT_TRUE(manager.resolve(domain).ips.empty());
+    EXPECT_TRUE(manager.resolve(domain).servers.empty());
+    EXPECT_TRUE(manager.get_dns_records_pb(domain).map().empty());
+}
+
+TEST_F(cache_management, localhost_and_explicit_force_allow_loopback) {
+    auto &manager = dns_record_manager::uniq();
+    for (const string domain : {"localhost", "LOCALHOST.", "app.LocalHost."}) {
+        manager.add(domain, {0x7f000001U}, "8_8_8_8_53", 600);
+        EXPECT_EQ(vector<uint32_t>({0x7f000001U}), manager.resolve(domain).ips);
+    }
+    for (const string domain : {"notlocalhost", "localhost.example", "app.localhost.example"}) {
+        manager.add(domain, {0x7f000001U}, "8_8_8_8_53", 600);
+        EXPECT_TRUE(manager.resolve(domain).ips.empty());
+    }
+    manager.add("explicit-loopback.example", {0x7f000002U}, "st-dns-force", 60);
+    EXPECT_EQ(1, manager.get_dns_records_pb("explicit-loopback.example").map().at("st-dns-force").ips_size());
+    auto reverse = manager.reverse_resolve(0x7f000002U);
+    ASSERT_EQ(1, reverse.domains_size());
+    EXPECT_EQ("explicit-loopback.example", reverse.domains(0));
+}
+
+TEST_F(cache_management, legacy_loopback_cache_is_invalid_without_global_clear) {
+    const char *prefix = std::getenv("ST_DNS_DB_PREFIX");
+    const string db_prefix = string(prefix ? prefix : "st-dns-test") + "-legacy-loopback";
+    const uint32_t keep = st::utils::ipv4::str_to_ip("192.168.1.10");
+    // 绕过新版入库过滤，模拟升级前磁盘中的未过期、过期和全异常缓存。
+    {
+        st::kv::disk_kv db(db_prefix + "-record", 1024);
+        st::kv::disk_kv reverse_db(db_prefix + "-reverse-record", 1024);
+        db.clear();
+        reverse_db.clear();
+        st::dns::proto::reverse_record reverse;
+        reverse.set_ip(0x7f000001U);
+        for (const string domain : {"fresh.example", "expired.example", "only-loopback.example"}) {
+            st::dns::proto::records records;
+            records.set_domain(domain);
+            auto &bad = (*records.mutable_map())["223_5_5_5_853"];
+            bad.add_ips(0x7f000001U);
+            bad.set_expire(time::now() / 1000 + (domain == "expired.example" ? -60 : 600));
+            if (domain != "only-loopback.example") {
+                auto &good = (*records.mutable_map())["114_114_114_114_53"];
+                good.add_ips(keep);
+                good.add_ips(0x7fffffffU);
+                good.set_expire(time::now() / 1000 + 600);
+            }
+            db.put(domain, records.SerializeAsString());
+            reverse.add_domains(domain);
+        }
+        reverse_db.put(to_string(0x7f000001U), reverse.SerializeAsString());
+    }
+    dns_record_manager manager(db_prefix);
+    for (const string domain : {"fresh.example", "expired.example"}) {
+        auto record = manager.resolve(domain);
+        EXPECT_EQ(vector<uint32_t>({keep}), record.ips);
+        EXPECT_EQ(0, record.servers.count("223_5_5_5_853"));
+        auto list = manager.get_dns_record_list(domain);
+        ASSERT_EQ(1, list.size());
+        EXPECT_EQ(vector<uint32_t>({keep}), list[0].ips);
+    }
+    EXPECT_TRUE(manager.resolve("only-loopback.example").ips.empty());
+    EXPECT_TRUE(manager.resolve("only-loopback.example").servers.empty());
+    EXPECT_TRUE(manager.get_dns_record_list("only-loopback.example").empty());
+    EXPECT_EQ(0, manager.reverse_resolve(0x7f000001U).domains_size());
+    EXPECT_EQ(2, manager.stats().total_ip);
+    ifstream dump(manager.dump());
+    const string contents((istreambuf_iterator<char>(dump)), istreambuf_iterator<char>());
+    EXPECT_EQ(string::npos, contents.find("127."));
+    EXPECT_NE(string::npos, contents.find("192.168.1.10"));
+    manager.clear();
 }

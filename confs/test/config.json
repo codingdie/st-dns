@@ -80,6 +80,10 @@
   },
   "force_resolve_rules": [
     {
+      "pattern": "explicit-loopback.example",
+      "ips": ["127.0.0.2"]
+    },
+    {
       "pattern": "test.codingdie.com",
       "ips": ["1.2.3.4"]
     },

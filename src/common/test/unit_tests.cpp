@@ -114,21 +114,27 @@ TEST(unit_tests, test_shm) {
 TEST(unit_tests, test_area_ip) {
     const string area_ip_dir = test_area_ip_dir();
     st::utils::file::mkdirs(area_ip_dir);
-    {
-        std::ofstream area_file(area_ip_dir + "/IP_NET_AREA", std::ios::out | std::ios::trunc);
-        area_file << "223.5.5.5\tCN\n";
-        area_file << "220.181.38.148\tCN\n";
-        area_file << "123.117.76.165\tCN\n";
-        area_file << "172.217.5.110\tUS\n";
-        area_file << "114.48.198.220\tJP\n";
+    // 地区判断单测使用固定 CIDR，公网可用性由 external 测试覆盖。
+    const std::vector<std::pair<string, string>> fixtures = {
+            {"CN", "223.5.5.0/24\n220.181.38.0/24\n123.117.76.0/24\n"},
+            {"US", "172.217.5.0/24\n"},
+            {"JP", "114.48.198.0/24\n"},
+            {"KR", "218.146.11.0/24\n"}};
+    for (const auto &fixture : fixtures) {
+        std::ofstream area_file(area_ip_dir + "/" + fixture.first, std::ios::out | std::ios::trunc);
+        area_file << fixture.second;
     }
-    st::areaip::manager::uniq().start();
+    st::areaip::manager area_manager;
+    st::areaip::area_ip_config area_config;
+    area_config.interfaces.clear();
+    area_manager.config(area_config);
+    area_manager.start();
     // 辅助函数：轮询等待直到 is_area_ip 返回预期结果（或超时）
-    auto wait_for_area_ip = [](const string& area, const string& ip_str, bool expected, int timeout_ms = 6000) {
+    auto wait_for_area_ip = [&area_manager](const string& area, const string& ip_str, bool expected, int timeout_ms = 6000) {
         uint32_t ip = st::utils::ipv4::str_to_ip(ip_str);
         auto start = std::chrono::steady_clock::now();
         while (true) {
-            bool result = st::areaip::manager::uniq().is_area_ip(area, ip);
+            bool result = area_manager.is_area_ip(area, ip);
             if (result == expected) {
                 return true;  // 成功
             }
@@ -151,7 +157,7 @@ TEST(unit_tests, test_area_ip) {
     ASSERT_TRUE(wait_for_area_ip("us", "114.48.198.220", false));
     ASSERT_TRUE(wait_for_area_ip("cn", "218.146.11.198", false));
     ASSERT_TRUE(wait_for_area_ip("kr", "218.146.11.198", true));
-    st::areaip::manager::uniq().stop();
+    area_manager.stop();
 }
 
 TEST(unit_tests, area_ip_start_stop_is_idempotent) {

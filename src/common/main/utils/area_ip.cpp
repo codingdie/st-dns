@@ -23,13 +23,17 @@ namespace st {
             return instance;
         }
         manager::manager()
-            : random_engine(time::now()), last_load_ip_info_time(time::now()), last_load_area_ips_time(time::now()),
+            : random_engine(time::now()), last_load_ip_info_time(time::now()),
               ctx(), sche_ctx() {
             const char *configured_area_ip_dir = std::getenv("ST_AREA_IP_DIR");
             area_ip_dir = configured_area_ip_dir != nullptr && configured_area_ip_dir[0] != '\0'
                           ? configured_area_ip_dir
                           : "/etc/area-ips";
             IP_NET_AREA_FILE = area_ip_dir + "/IP_NET_AREA";
+            area_download = [](const string &area_code) {
+                return utils::http::get("https://raw.githubusercontent.com",
+                                        "/herrbischoff/country-ip-blocks/master/ipv4/" + area_code + ".cidr", {});
+            };
             vector<area_ip_range> ip_ranges;
             ip_ranges.emplace_back(area_ip_range::parse("192.168.0.0/16", "LAN"));
             ip_ranges.emplace_back(area_ip_range::parse("10.0.0.0/8", "LAN"));
@@ -46,7 +50,6 @@ namespace st {
             }
             auto lifecycle_id = runtime_lifecycle_id.fetch_add(1) + 1;
             last_load_ip_info_time = time::now();
-            last_load_area_ips_time = time::now();
             {
                 std::lock_guard<std::mutex> ips_guard(ips_lock);
                 ips.clear();
@@ -121,6 +124,17 @@ namespace st {
             delete ctx_thread;
             delete sche_thread;
             {
+                std::lock_guard<std::mutex> guard(default_lock);
+                // stop() 可能留下尚未执行的任务；同步加载不属于运行时生命周期。
+                for (auto it = area_loads.begin(); it != area_loads.end();) {
+                    if (it->second.lifecycle_id != 0) {
+                        it = area_loads.erase(it);
+                    } else {
+                        ++it;
+                    }
+                }
+            }
+            {
                 std::lock_guard<std::mutex> ips_guard(ips_lock);
                 ips.clear();
                 ip_lifecycle_ids.clear();
@@ -137,7 +151,7 @@ namespace st {
 
         string manager::get_area_code(const string &areaReg) {
             string areaCode = areaReg;
-            if (areaReg[0] == '!') {
+            if (!areaReg.empty() && areaReg[0] == '!') {
                 areaCode = areaReg.substr(1, areaReg.size() - 1);
             }
             transform(areaCode.begin(), areaCode.end(), areaCode.begin(), ::toupper);
@@ -148,9 +162,7 @@ namespace st {
             transform(areaCodeLow.begin(), areaCodeLow.end(), areaCodeLow.begin(), ::tolower);
             string filePath = area_ip_dir + "/" + area_code;
             if (!file::exists(filePath)) {
-                auto result =
-                        utils::http::get("https://raw.githubusercontent.com",
-                                         "/herrbischoff/country-ip-blocks/master/ipv4/" + areaCodeLow + ".cidr", {});
+                auto result = area_download(areaCodeLow);
                 if (result.first == 200 && !result.second.empty()) {
                     file::create_if_not_exits(filePath);
                     ofstream fs(filePath);
@@ -166,32 +178,72 @@ namespace st {
         }
 
         bool manager::load_area_ips(const string &area_code) {
-            string areaCode = get_area_code(area_code);
-            std::lock_guard<std::mutex> lg(default_lock);
-            if (default_caches.find(areaCode) != default_caches.end()) {
-                return true;
-            } else {
-                string path = download_area_ips(areaCode);
-                if (path.empty()) {
-                    return false;
-                }
-                ifstream in(path);
-                string line;
-                vector<area_ip_range> &ip_ranges = default_caches[areaCode];
-                ip_ranges.clear();
-                if (in) {
+            const string areaCode = get_area_code(area_code);
+            const auto request_id = reserve_area_load(areaCode, 0);
+            if (request_id == 0) {
+                return has_load_area_ips(areaCode);
+            }
+            return finish_area_load(areaCode, request_id);
+        }
+
+        uint64_t manager::reserve_area_load(const string &area_code, uint64_t lifecycle_id) {
+            std::lock_guard<std::mutex> guard(default_lock);
+            if (area_code.empty() || default_caches.count(area_code) || area_loads.count(area_code)) {
+                return 0;
+            }
+            const auto retry = area_retry_after.find(area_code);
+            if (retry != area_retry_after.end() && std::chrono::steady_clock::now() < retry->second) {
+                return 0;
+            }
+            const auto request_id = ++next_area_load_id;
+            area_loads.emplace(area_code, area_load_request{request_id, lifecycle_id});
+            return request_id;
+        }
+
+        bool manager::finish_area_load(const string &area_code, uint64_t request_id) {
+            vector<area_ip_range> ip_ranges;
+            // 下载、文件读取和解析均在锁外完成，查询只会看到完整的缓存。
+            try {
+                const string path = download_area_ips(area_code);
+                if (!path.empty()) {
+                    ifstream in(path);
+                    string line;
                     while (getline(in, line)) {
                         if (!line.empty()) {
-                            ip_ranges.emplace_back(area_ip_range::parse(line, areaCode));
+                            ip_ranges.emplace_back(area_ip_range::parse(line, area_code));
                         }
                     }
-                    logger::INFO << "load area" << areaCode << "ips" << ip_ranges.size() << "from" << path << END;
+                    if (in.bad()) {
+                        ip_ranges.clear();
+                    }
+                    if (ip_ranges.empty()) {
+                        file::del(path);
+                    } else {
+                        logger::INFO << "load area" << area_code << "ips" << ip_ranges.size() << "from" << path << END;
+                    }
                 }
-                if (ip_ranges.empty()) {
-                    default_caches.erase(areaCode);
-                    file::del(path);
-                }
+            } catch (const std::exception &e) {
+                ip_ranges.clear();
+                logger::ERROR << "load area ips failed!" << area_code << e.what() << END;
             }
+
+            std::lock_guard<std::mutex> guard(default_lock);
+            const auto request = area_loads.find(area_code);
+            if (request == area_loads.end() || request->second.id != request_id) {
+                return false;
+            }
+            const auto lifecycle_id = request->second.lifecycle_id;
+            area_loads.erase(request);
+            if (lifecycle_id != 0 && (!runtime_started.load() || runtime_lifecycle_id.load() != lifecycle_id)) {
+                return false;
+            }
+            if (ip_ranges.empty()) {
+                // 按国家退避，故障地址库不会反复排队，也不会拖延其他国家的加载。
+                area_retry_after[area_code] = std::chrono::steady_clock::now() + std::chrono::seconds(60);
+                return false;
+            }
+            default_caches[area_code] = std::move(ip_ranges);
+            area_retry_after.erase(area_code);
             return true;
         }
         bool manager::has_load_area_ips(const string &areaCode) {
@@ -223,19 +275,23 @@ namespace st {
         }
 
         void manager::async_load_area_ips(const string &area_code) {
-            auto lifecycle_id = runtime_lifecycle_id.load();
-            if (!has_load_area_ips(area_code) && time::now() - last_load_area_ips_time.load() > 1000) {
-                if (!started()) {
+            std::lock_guard<std::mutex> guard(runtime_lock);
+            if (!runtime_started.load()) {
+                return;
+            }
+            const auto lifecycle_id = runtime_lifecycle_id.load();
+            const string areaCode = get_area_code(area_code);
+            // 提交前即占位，避免并发请求把同一国家的任务反复加入队列。
+            const auto request_id = reserve_area_load(areaCode, lifecycle_id);
+            if (request_id == 0) {
+                return;
+            }
+            ctx.post([this, areaCode, lifecycle_id, request_id]() {
+                if (!runtime_started.load() || runtime_lifecycle_id.load() != lifecycle_id) {
                     return;
                 }
-                last_load_area_ips_time = time::now();
-                ctx.post([this, area_code, lifecycle_id]() {
-                    if (!runtime_started.load() || runtime_lifecycle_id.load() != lifecycle_id) {
-                        return;
-                    }
-                    this->load_area_ips(area_code);
-                });
-            }
+                this->finish_area_load(areaCode, request_id);
+            });
         }
 
         bool manager::is_area_ip(const std::vector<string> &areas, const uint32_t &ip) {

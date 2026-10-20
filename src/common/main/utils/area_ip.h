@@ -10,7 +10,9 @@
 #include "shell.h"
 #include "string_utils.h"
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
+#include <functional>
 #include <memory>
 #include <iostream>
 #include <mutex>
@@ -93,11 +95,21 @@ namespace st {
             static bool is_match_areas(const vector<string> &areas, const string &area);
 
         private:
+            friend class manager_test_access;
+            struct area_load_request {
+                uint64_t id;
+                uint64_t lifecycle_id;
+            };
             string area_ip_dir;
             string IP_NET_AREA_FILE;
             area_ip_config conf;
             std::default_random_engine random_engine;
             unordered_map<string, vector<area_ip_range>> default_caches;
+            // default_lock 仅保护缓存及加载状态，不能跨越下载或文件读取。
+            unordered_map<string, area_load_request> area_loads;
+            unordered_map<string, std::chrono::steady_clock::time_point> area_retry_after;
+            uint64_t next_area_load_id = 0;
+            std::function<std::pair<int, string>(const string &)> area_download;
             unordered_map<uint32_t, string> net_caches;
             unordered_set<uint32_t> ips;
             unordered_map<uint32_t, uint64_t> ip_lifecycle_ids;
@@ -107,7 +119,6 @@ namespace st {
             mutex ips_lock;
             condition_variable ip_loading_changed;
             std::atomic_uint64_t last_load_ip_info_time;
-            std::atomic_uint64_t last_load_area_ips_time;
             boost::asio::io_context ctx;
             boost::asio::io_context::work *ctx_work = nullptr;
             std::thread *th = nullptr;
@@ -125,6 +136,8 @@ namespace st {
             string get_area(const uint32_t &ip, const unordered_map<uint32_t, string> &caches);
             static string get_area_code(const string &areaReg);
             string download_area_ips(const string &area_code);
+            uint64_t reserve_area_load(const string &area_code, uint64_t lifecycle_id);
+            bool finish_area_load(const string &area_code, uint64_t request_id);
             void sync_net_area_ip(uint64_t lifecycle_id);
             string load_ip_info(const uint32_t &ip);
             string load_ip_info(const uint32_t &ip, const area_ip_net_interface &interface);
